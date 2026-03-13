@@ -18,6 +18,7 @@ SOURCES = main.cpp \
           graphics/Shader.cpp \
           graphics/ShadowMap.cpp \
           math/MathUtils.cpp \
+          ui/FileBrowser.cpp \
           io/StructureLoader.cpp
 
 SOURCES += $(IMGUI_DIR)/imgui/imgui.cpp \
