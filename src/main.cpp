@@ -112,26 +112,226 @@ int main()
 
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> colors;
+    std::vector<glm::vec3> boxLines;
     size_t atomCount = 0;
 
     GLuint instanceVBO, colorVBO;
+    GLuint lineVAO, lineVBO;
 
     glBindVertexArray(sphere.vao);
 
     glGenBuffers(1, &instanceVBO);
     glGenBuffers(1, &colorVBO);
+    glGenVertexArrays(1, &lineVAO);
+    glGenBuffers(1, &lineVBO);
+
+    // Setup a simple VAO for line rendering (unit cell bounding box)
+    glBindVertexArray(lineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, lineVBO);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glBindVertexArray(0);
+
 
     auto updateBuffers = [&](const Structure& s) {
         positions.clear();
         colors.clear();
+        boxLines.clear();
+
+        std::vector<glm::vec3> basePositions;
+        std::vector<glm::vec3> baseColors;
+        basePositions.reserve(s.atoms.size());
+        baseColors.reserve(s.atoms.size());
 
         for (const auto& atom : s.atoms)
         {
-            positions.emplace_back(atom.x, atom.y, atom.z);
-            colors.emplace_back(atom.r, atom.g, atom.b);
+            basePositions.emplace_back((float)atom.x, (float)atom.y, (float)atom.z);
+            baseColors.emplace_back(atom.r, atom.g, atom.b);
         }
 
-        atomCount = s.atoms.size();
+        bool supercell = fileBrowser.isSupercellEnabled() && s.hasUnitCell;
+        bool transform = fileBrowser.isTransformMatrixEnabled() && s.hasUnitCell;
+
+        if (transform)
+        {
+            glm::vec3 a((float)s.cellVectors[0][0], (float)s.cellVectors[0][1], (float)s.cellVectors[0][2]);
+            glm::vec3 b((float)s.cellVectors[1][0], (float)s.cellVectors[1][1], (float)s.cellVectors[1][2]);
+            glm::vec3 c((float)s.cellVectors[2][0], (float)s.cellVectors[2][1], (float)s.cellVectors[2][2]);
+
+            const int (&matrix)[3][3] = fileBrowser.getTransformMatrix();
+
+            // Get supercell size from matrix diagonal
+            int Nx = std::max(1, matrix[0][0]);
+            int Ny = std::max(1, matrix[1][1]);
+            int Nz = std::max(1, matrix[2][2]);
+
+            glm::mat3 cellMat(a, b, c);
+            glm::mat3 invCellMat = glm::inverse(cellMat);
+
+            for (size_t ai = 0; ai < basePositions.size(); ++ai)
+            {
+                glm::vec3 cart = basePositions[ai];
+                glm::vec3 frac = invCellMat * cart;
+                for (int ix = 0; ix < Nx; ++ix)
+                {
+                    for (int iy = 0; iy < Ny; ++iy)
+                    {
+                        for (int iz = 0; iz < Nz; ++iz)
+                        {
+                            glm::vec3 n(ix, iy, iz);
+                            glm::vec3 fplusn = frac + n;
+                            glm::vec3 newFrac = glm::vec3(0.0f);
+                            for (int i = 0; i < 3; ++i)
+                                for (int j = 0; j < 3; ++j)
+                                    newFrac[i] += (float)matrix[i][j] * fplusn[j];
+                            glm::vec3 newCart = newFrac.x * a + newFrac.y * b + newFrac.z * c;
+                            positions.push_back(newCart);
+                            colors.push_back(baseColors[ai]);
+                        }
+                    }
+                }
+            }
+        }
+        else if (supercell)
+        {
+            glm::vec3 a((float)s.cellVectors[0][0], (float)s.cellVectors[0][1], (float)s.cellVectors[0][2]);
+            glm::vec3 b((float)s.cellVectors[1][0], (float)s.cellVectors[1][1], (float)s.cellVectors[1][2]);
+            glm::vec3 c((float)s.cellVectors[2][0], (float)s.cellVectors[2][1], (float)s.cellVectors[2][2]);
+
+            for (int ix = -1; ix <= 1; ++ix)
+            {
+                for (int iy = -1; iy <= 1; ++iy)
+                {
+                    for (int iz = -1; iz <= 1; ++iz)
+                    {
+                        glm::vec3 shift = (float)ix * a + (float)iy * b + (float)iz * c;
+                        for (size_t ai = 0; ai < basePositions.size(); ++ai)
+                        {
+                            positions.push_back(basePositions[ai] + shift);
+                            colors.push_back(baseColors[ai]);
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            positions = std::move(basePositions);
+            colors = std::move(baseColors);
+        }
+
+        // Compute bounds from the final position set
+        glm::vec3 minPos(1e9f), maxPos(-1e9f);
+        for (const auto& p : positions)
+        {
+            minPos = glm::min(minPos, p);
+            maxPos = glm::max(maxPos, p);
+        }
+
+        atomCount = positions.size();
+
+        // Build bounding box edges from min/max or unit cell lattice vectors
+        if (atomCount > 0)
+        {
+            glm::vec3 corners[8];
+
+            if (s.hasUnitCell)
+            {
+                glm::vec3 origin(
+                    (float)s.cellOffset[0],
+                    (float)s.cellOffset[1],
+                    (float)s.cellOffset[2]);
+
+                glm::vec3 a(
+                    (float)s.cellVectors[0][0],
+                    (float)s.cellVectors[0][1],
+                    (float)s.cellVectors[0][2]);
+
+                glm::vec3 b(
+                    (float)s.cellVectors[1][0],
+                    (float)s.cellVectors[1][1],
+                    (float)s.cellVectors[1][2]);
+
+                glm::vec3 c(
+                    (float)s.cellVectors[2][0],
+                    (float)s.cellVectors[2][1],
+                    (float)s.cellVectors[2][2]);
+
+                if (fileBrowser.isTransformMatrixEnabled())
+                {
+                    // Compute transformed lattice vectors
+                    const int (&matrix)[3][3] = fileBrowser.getTransformMatrix();
+                    glm::vec3 aT = (float)matrix[0][0]*a + (float)matrix[0][1]*b + (float)matrix[0][2]*c;
+                    glm::vec3 bT = (float)matrix[1][0]*a + (float)matrix[1][1]*b + (float)matrix[1][2]*c;
+                    glm::vec3 cT = (float)matrix[2][0]*a + (float)matrix[2][1]*b + (float)matrix[2][2]*c;
+                    // Build box corners from transformed basis
+                    corners[0] = origin;
+                    corners[1] = origin + aT;
+                    corners[2] = origin + aT + bT;
+                    corners[3] = origin + bT;
+                    corners[4] = origin + cT;
+                    corners[5] = origin + aT + cT;
+                    corners[6] = origin + aT + bT + cT;
+                    corners[7] = origin + bT + cT;
+                }
+                else if (fileBrowser.isSupercellEnabled())
+                {
+                    glm::vec3 origin3 = origin - a - b - c;
+                    glm::vec3 a3 = a * 3.0f;
+                    glm::vec3 b3 = b * 3.0f;
+                    glm::vec3 c3 = c * 3.0f;
+
+                    corners[0] = origin3;
+                    corners[1] = origin3 + a3;
+                    corners[2] = origin3 + a3 + b3;
+                    corners[3] = origin3 + b3;
+                    corners[4] = origin3 + c3;
+                    corners[5] = origin3 + a3 + c3;
+                    corners[6] = origin3 + a3 + b3 + c3;
+                    corners[7] = origin3 + b3 + c3;
+                }
+                else
+                {
+                    corners[0] = origin;
+                    corners[1] = origin + a;
+                    corners[2] = origin + a + b;
+                    corners[3] = origin + b;
+                    corners[4] = origin + c;
+                    corners[5] = origin + a + c;
+                    corners[6] = origin + a + b + c;
+                    corners[7] = origin + b + c;
+                }
+            }
+            else
+            {
+                corners[0] = {minPos.x, minPos.y, minPos.z};
+                corners[1] = {maxPos.x, minPos.y, minPos.z};
+                corners[2] = {maxPos.x, maxPos.y, minPos.z};
+                corners[3] = {minPos.x, maxPos.y, minPos.z};
+                corners[4] = {minPos.x, minPos.y, maxPos.z};
+                corners[5] = {maxPos.x, minPos.y, maxPos.z};
+                corners[6] = {maxPos.x, maxPos.y, maxPos.z};
+                corners[7] = {minPos.x, maxPos.y, maxPos.z};
+            }
+
+            const int edges[12][2] = {
+                {0,1},{1,2},{2,3},{3,0},
+                {4,5},{5,6},{6,7},{7,4},
+                {0,4},{1,5},{2,6},{3,7}
+            };
+
+            for (auto& e : edges)
+            {
+                boxLines.push_back(corners[e[0]]);
+                boxLines.push_back(corners[e[1]]);
+            }
+
+            glBindBuffer(GL_ARRAY_BUFFER, lineVBO);
+            glBufferData(GL_ARRAY_BUFFER,
+                         boxLines.size() * sizeof(glm::vec3),
+                         boxLines.data(),
+                         GL_STATIC_DRAW);
+        }
 
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
         glBufferData(GL_ARRAY_BUFFER,
@@ -254,6 +454,41 @@ int main()
     )";
 
     GLuint shadowProgram = createProgram(shadowVS,shadowFS);
+
+    // ------------------------------------------------
+    // Line shader (for bounding box / lattice vectors)
+    // ------------------------------------------------
+    const char* lineVS = R"(
+
+    #version 130
+
+    in vec3 position;
+
+    uniform mat4 projection;
+    uniform mat4 view;
+
+    void main()
+    {
+        gl_Position = projection * view * vec4(position, 1.0);
+    }
+
+    )";
+
+    const char* lineFS = R"(
+
+    #version 130
+
+    uniform vec3 uColor;
+    out vec4 color;
+
+    void main()
+    {
+        color = vec4(uColor, 1.0);
+    }
+
+    )";
+
+    GLuint lineProgram = createProgram(lineVS, lineFS);
 
     // ------------------------------------------------
     // Shadow map
@@ -379,6 +614,23 @@ int main()
             sphere.vertexCount,
             structure.atoms.size()
         );
+
+        // Render bounding box / lattice lines
+        if (!boxLines.empty()) {
+            glUseProgram(lineProgram);
+
+            GLuint projLoc2 = glGetUniformLocation(lineProgram, "projection");
+            GLuint viewLoc2 = glGetUniformLocation(lineProgram, "view");
+            GLuint colorLoc = glGetUniformLocation(lineProgram, "uColor");
+
+            glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(projection));
+            glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view));
+            glUniform3f(colorLoc, 0.85f, 0.85f, 0.85f);
+
+            glLineWidth(2.0f);
+            glBindVertexArray(lineVAO);
+            glDrawArrays(GL_LINES, 0, (GLsizei)boxLines.size());
+        }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

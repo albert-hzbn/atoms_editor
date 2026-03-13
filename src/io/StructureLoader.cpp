@@ -4,6 +4,7 @@
 #include <openbabel3/openbabel/mol.h>
 #include <openbabel3/openbabel/atom.h>
 #include <openbabel3/openbabel/elements.h>
+#include <openbabel3/openbabel/generic.h>
 
 #include <iostream>
 #include <array>
@@ -152,6 +153,34 @@ Structure loadStructure(const std::string& filename)
 
     conv.SetInFormat(conv.FormatFromExt(filename.c_str()));
     conv.ReadFile(&mol, filename);
+
+    // If the file provides unit cell / periodic information, make sure we
+    // generate the full unit cell (symmetry-equivalent atoms) so that we
+    // display the complete crystal structure.
+    if (auto *data = mol.GetData(OpenBabel::OBGenericDataType::UnitCell))
+    {
+        if (auto *cell = dynamic_cast<OpenBabel::OBUnitCell*>(data))
+        {
+            cell->FillUnitCell(&mol);
+            structure.hasUnitCell = true;
+
+            auto vecs = cell->GetCellVectors();
+            if (vecs.size() >= 3)
+            {
+                for (int i = 0; i < 3; ++i)
+                {
+                    structure.cellVectors[i][0] = vecs[i].GetX();
+                    structure.cellVectors[i][1] = vecs[i].GetY();
+                    structure.cellVectors[i][2] = vecs[i].GetZ();
+                }
+            }
+
+            auto off = cell->GetOffset();
+            structure.cellOffset[0] = off.GetX();
+            structure.cellOffset[1] = off.GetY();
+            structure.cellOffset[2] = off.GetZ();
+        }
+    }
 
     OpenBabel::OBAtomIterator ai;
 

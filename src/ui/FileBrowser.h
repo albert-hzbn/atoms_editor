@@ -19,6 +19,10 @@ struct FileBrowser
     // updateBuffers is called whenever a new structure is loaded.
     void draw(Structure& structure, const std::function<void(const Structure&)>& updateBuffers);
 
+    bool isSupercellEnabled() const { return showSupercell; }
+    bool isTransformMatrixEnabled() const { return useTransformMatrix; }
+    const int (&getTransformMatrix() const)[3][3] { return transformMatrix; }
+
 private:
     void pushHistory(const std::string& dir);
     static std::string toLower(const std::string& s);
@@ -26,6 +30,8 @@ private:
 
     bool showAbout;
     bool showEditColors;
+    bool showSupercell;
+    bool showTransformDialog;
     bool openStructurePopup;
 
     std::string openDir;
@@ -41,4 +47,12 @@ private:
     std::vector<std::string> allowedExtensions;
 
     char openFilename[1024];
+
+    // 3x3 transformation matrix for supercell
+    int transformMatrix[3][3] = {
+        {3,0,0},
+        {0,3,0},
+        {0,0,3}
+    };
+    bool useTransformMatrix = false;
 };

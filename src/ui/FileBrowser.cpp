@@ -1,3 +1,20 @@
+#include <array>
+
+// Static array of element symbols for atomic numbers 1-118
+static const std::array<const char*, 119> elementSymbols = {
+    "", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
+    "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
+    "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
+    "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
+    "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+    "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
+    "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm",
+    "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds",
+    "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og"
+};
 #include "FileBrowser.h"
 
 #include "imgui.h"
@@ -14,6 +31,7 @@
 FileBrowser::FileBrowser()
     : showAbout(false),
       showEditColors(false),
+      showSupercell(false),
       openStructurePopup(false),
       openDir("."),
       historyIndex(-1),
@@ -70,8 +88,51 @@ void FileBrowser::draw(Structure& structure, const std::function<void(const Stru
             if (ImGui::MenuItem("Atom Colors..."))
                 showEditColors = true;
 
+            ImGui::MenuItem("Supercell (3×3×3)", NULL, &showSupercell);
+
+            if (ImGui::MenuItem("Transform Atoms..."))
+                showTransformDialog = true;
+
             ImGui::EndMenu();
         }
+    // Transform Atoms dialog
+    if (showTransformDialog)
+    {
+        ImGui::OpenPopup("Transform Atoms");
+        showTransformDialog = false;
+    }
+
+    if (ImGui::BeginPopupModal("Transform Atoms", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Enter 3x3 integer transformation matrix:");
+        static int matrix[3][3] = {
+            {3,0,0},
+            {0,3,0},
+            {0,0,3}
+        };
+        for (int i = 0; i < 3; ++i)
+        {
+            ImGui::PushID(i);
+            ImGui::InputInt3("", matrix[i]);
+            ImGui::PopID();
+        }
+        if (ImGui::Button("Apply"))
+        {
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
+                    transformMatrix[i][j] = matrix[i][j];
+            useTransformMatrix = true;
+            showSupercell = false;
+            ImGui::CloseCurrentPopup();
+            updateBuffers(structure);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel"))
+        {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 
         if (ImGui::BeginMenu("Help"))
         {
@@ -320,7 +381,7 @@ void FileBrowser::draw(Structure& structure, const std::function<void(const Stru
                         continue;
                     }
 
-                    const char* symbol = OpenBabel::OBElements::GetSymbol(atomic);
+                    const char* symbol = (atomic >= 1 && atomic <= 118) ? elementSymbols[atomic] : "?";
                     bool selected = (selectedAtomicNumber == atomic);
                     ImGui::PushID(atomic);
                     if (selected)
@@ -341,7 +402,7 @@ void FileBrowser::draw(Structure& structure, const std::function<void(const Stru
 
         if (selectedAtomicNumber >= 1 && selectedAtomicNumber <= 118)
         {
-            const char* selectedElementSymbol = OpenBabel::OBElements::GetSymbol(selectedAtomicNumber);
+            const char* selectedElementSymbol = (selectedAtomicNumber >= 1 && selectedAtomicNumber <= 118) ? elementSymbols[selectedAtomicNumber] : "?";
 
             // Determine the current color (override > structure atoms > default CPK)
             float color[3] = {0.0f, 0.0f, 0.0f};
