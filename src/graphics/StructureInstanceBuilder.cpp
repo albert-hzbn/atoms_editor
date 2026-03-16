@@ -1,0 +1,197 @@
+#include "StructureInstanceBuilder.h"
+
+#include <glm/gtc/matrix_inverse.hpp>
+
+#include <algorithm>
+#include <cmath>
+
+namespace
+{
+constexpr float kEpsilon = 1e-5f;
+
+void appendBoxEdges(const glm::vec3 (&corners)[8], std::vector<glm::vec3>& boxLines)
+{
+    static const int edges[12][2] = {
+        {0,1},{1,2},{2,3},{3,0},
+        {4,5},{5,6},{6,7},{7,4},
+        {0,4},{1,5},{2,6},{3,7}
+    };
+
+    for (const auto& edge : edges)
+    {
+        boxLines.push_back(corners[edge[0]]);
+        boxLines.push_back(corners[edge[1]]);
+    }
+}
+}
+
+StructureInstanceData buildStructureInstanceData(
+    const Structure& structure,
+    bool useTransformMatrix,
+    const int (&transformMatrix)[3][3])
+{
+    StructureInstanceData data;
+
+    data.positions.reserve(structure.atoms.size());
+    data.colors.reserve(structure.atoms.size());
+
+    for (const auto& atom : structure.atoms)
+    {
+        data.positions.emplace_back((float)atom.x, (float)atom.y, (float)atom.z);
+        data.colors.emplace_back(atom.r, atom.g, atom.b);
+    }
+
+    if (useTransformMatrix && structure.hasUnitCell)
+    {
+        std::vector<glm::vec3> basePositions = data.positions;
+        std::vector<glm::vec3> baseColors = data.colors;
+
+        data.positions.clear();
+        data.colors.clear();
+
+        glm::vec3 origin((float)structure.cellOffset[0],
+                         (float)structure.cellOffset[1],
+                         (float)structure.cellOffset[2]);
+
+        glm::vec3 a((float)structure.cellVectors[0][0], (float)structure.cellVectors[0][1], (float)structure.cellVectors[0][2]);
+        glm::vec3 b((float)structure.cellVectors[1][0], (float)structure.cellVectors[1][1], (float)structure.cellVectors[1][2]);
+        glm::vec3 c((float)structure.cellVectors[2][0], (float)structure.cellVectors[2][1], (float)structure.cellVectors[2][2]);
+
+        glm::mat3 cellMat(a, b, c);
+        glm::mat3 invCellMat = glm::inverse(cellMat);
+
+        glm::mat3 transform(1.0f);
+        for (int row = 0; row < 3; ++row)
+            for (int col = 0; col < 3; ++col)
+                transform[col][row] = (float)transformMatrix[row][col];
+
+        float det = glm::determinant(transform);
+        if (std::abs(det) <= kEpsilon)
+        {
+            data.positions = std::move(basePositions);
+            data.colors = std::move(baseColors);
+        }
+        else
+        {
+            glm::mat3 invTransform = glm::inverse(transform);
+
+            int expectedCopies = std::max(1, (int)std::round(std::abs(det)));
+            data.positions.reserve(basePositions.size() * (size_t)expectedCopies);
+            data.colors.reserve(baseColors.size() * (size_t)expectedCopies);
+
+            int nMin[3] = {0, 0, 0};
+            int nMax[3] = {0, 0, 0};
+            for (int row = 0; row < 3; ++row)
+            {
+                int rowMin = 0;
+                int rowMax = 0;
+                for (int col = 0; col < 3; ++col)
+                {
+                    if (transformMatrix[row][col] < 0)
+                        rowMin += transformMatrix[row][col];
+                    if (transformMatrix[row][col] > 0)
+                        rowMax += transformMatrix[row][col];
+                }
+
+                nMin[row] = rowMin - 1;
+                nMax[row] = rowMax + 1;
+            }
+
+            for (size_t atomIndex = 0; atomIndex < basePositions.size(); ++atomIndex)
+            {
+                glm::vec3 frac = invCellMat * (basePositions[atomIndex] - origin);
+
+                frac.x -= std::floor(frac.x);
+                frac.y -= std::floor(frac.y);
+                frac.z -= std::floor(frac.z);
+
+                for (int ix = nMin[0]; ix <= nMax[0]; ++ix)
+                {
+                    for (int iy = nMin[1]; iy <= nMax[1]; ++iy)
+                    {
+                        for (int iz = nMin[2]; iz <= nMax[2]; ++iz)
+                        {
+                            glm::vec3 shiftedFrac = frac + glm::vec3((float)ix, (float)iy, (float)iz);
+                            glm::vec3 mappedFrac = invTransform * shiftedFrac;
+
+                            if (mappedFrac.x < -kEpsilon || mappedFrac.y < -kEpsilon || mappedFrac.z < -kEpsilon)
+                                continue;
+                            if (mappedFrac.x >= 1.0f - kEpsilon || mappedFrac.y >= 1.0f - kEpsilon || mappedFrac.z >= 1.0f - kEpsilon)
+                                continue;
+
+                            glm::vec3 worldPos = origin + shiftedFrac.x * a + shiftedFrac.y * b + shiftedFrac.z * c;
+                            data.positions.push_back(worldPos);
+                            data.colors.push_back(baseColors[atomIndex]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (data.positions.empty())
+        return data;
+
+    glm::vec3 minPos(1e9f), maxPos(-1e9f);
+    for (const auto& p : data.positions)
+    {
+        minPos = glm::min(minPos, p);
+        maxPos = glm::max(maxPos, p);
+    }
+
+    glm::vec3 corners[8];
+
+    if (structure.hasUnitCell)
+    {
+        glm::vec3 origin((float)structure.cellOffset[0],
+                         (float)structure.cellOffset[1],
+                         (float)structure.cellOffset[2]);
+
+        glm::vec3 a((float)structure.cellVectors[0][0], (float)structure.cellVectors[0][1], (float)structure.cellVectors[0][2]);
+        glm::vec3 b((float)structure.cellVectors[1][0], (float)structure.cellVectors[1][1], (float)structure.cellVectors[1][2]);
+        glm::vec3 c((float)structure.cellVectors[2][0], (float)structure.cellVectors[2][1], (float)structure.cellVectors[2][2]);
+
+        if (useTransformMatrix)
+        {
+            glm::vec3 aT = (float)transformMatrix[0][0] * a + (float)transformMatrix[0][1] * b + (float)transformMatrix[0][2] * c;
+            glm::vec3 bT = (float)transformMatrix[1][0] * a + (float)transformMatrix[1][1] * b + (float)transformMatrix[1][2] * c;
+            glm::vec3 cT = (float)transformMatrix[2][0] * a + (float)transformMatrix[2][1] * b + (float)transformMatrix[2][2] * c;
+
+            corners[0] = origin;
+            corners[1] = origin + aT;
+            corners[2] = origin + aT + bT;
+            corners[3] = origin + bT;
+            corners[4] = origin + cT;
+            corners[5] = origin + aT + cT;
+            corners[6] = origin + aT + bT + cT;
+            corners[7] = origin + bT + cT;
+        }
+        else
+        {
+            corners[0] = origin;
+            corners[1] = origin + a;
+            corners[2] = origin + a + b;
+            corners[3] = origin + b;
+            corners[4] = origin + c;
+            corners[5] = origin + a + c;
+            corners[6] = origin + a + b + c;
+            corners[7] = origin + b + c;
+        }
+    }
+    else
+    {
+        corners[0] = {minPos.x, minPos.y, minPos.z};
+        corners[1] = {maxPos.x, minPos.y, minPos.z};
+        corners[2] = {maxPos.x, maxPos.y, minPos.z};
+        corners[3] = {minPos.x, maxPos.y, minPos.z};
+        corners[4] = {minPos.x, minPos.y, maxPos.z};
+        corners[5] = {maxPos.x, minPos.y, maxPos.z};
+        corners[6] = {maxPos.x, maxPos.y, maxPos.z};
+        corners[7] = {minPos.x, maxPos.y, maxPos.z};
+    }
+
+    data.orbitCenter = 0.5f * (corners[0] + corners[6]);
+    appendBoxEdges(corners, data.boxLines);
+
+    return data;
+}

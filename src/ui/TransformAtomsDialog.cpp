@@ -1,0 +1,47 @@
+#include "TransformAtomsDialog.h"
+
+#include "imgui.h"
+
+void TransformAtomsDialog::drawMenuItem(bool hasUnitCell)
+{
+    if (ImGui::MenuItem("Transform Atoms...", NULL, false, hasUnitCell))
+        showDialog = true;
+}
+
+void TransformAtomsDialog::drawDialog(const std::function<void()>& onApply)
+{
+    if (showDialog)
+    {
+        ImGui::OpenPopup("Transform Atoms");
+        showDialog = false;
+    }
+
+    if (ImGui::BeginPopupModal("Transform Atoms", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Enter 3x3 integer transformation matrix:");
+
+        for (int i = 0; i < 3; ++i)
+        {
+            ImGui::PushID(i);
+            ImGui::InputInt3("", pendingMatrix[i]);
+            ImGui::PopID();
+        }
+
+        if (ImGui::Button("Apply"))
+        {
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
+                    transformMatrix[i][j] = pendingMatrix[i][j];
+
+            useTransformMatrix = true;
+            ImGui::CloseCurrentPopup();
+            onApply();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel"))
+            ImGui::CloseCurrentPopup();
+
+        ImGui::EndPopup();
+    }
+}

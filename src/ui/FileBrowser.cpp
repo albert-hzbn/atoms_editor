@@ -24,14 +24,15 @@ static const std::array<const char*, 119> elementSymbols = {
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <dirent.h>
 #include <sys/stat.h>
 
 FileBrowser::FileBrowser()
     : showAbout(false),
       showEditColors(false),
-      showSupercell(false),
       openStructurePopup(false),
       openDir("."),
       historyIndex(-1),
@@ -64,8 +65,7 @@ void FileBrowser::initFromPath(const std::string& initialPath)
     if (pos != std::string::npos)
         initialOpenFilename = initialPath.substr(pos + 1);
 
-    strncpy(openFilename, initialOpenFilename.c_str(), sizeof(openFilename));
-    openFilename[sizeof(openFilename) - 1] = '\0';
+    std::snprintf(openFilename, sizeof(openFilename), "%s", initialOpenFilename.c_str());
 }
 
 void FileBrowser::draw(Structure& structure, const std::function<void(const Structure&)>& updateBuffers)
@@ -88,49 +88,10 @@ void FileBrowser::draw(Structure& structure, const std::function<void(const Stru
             if (ImGui::MenuItem("Atom Colors..."))
                 showEditColors = true;
 
-            if (ImGui::MenuItem("Transform Atoms..."))
-                showTransformDialog = true;
+            transformDialog.drawMenuItem(structure.hasUnitCell);
 
             ImGui::EndMenu();
         }
-    // Transform Atoms dialog
-    if (showTransformDialog)
-    {
-        ImGui::OpenPopup("Transform Atoms");
-        showTransformDialog = false;
-    }
-
-    if (ImGui::BeginPopupModal("Transform Atoms", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::Text("Enter 3x3 integer transformation matrix:");
-        static int matrix[3][3] = {
-            {1,0,0},
-            {0,1,0},
-            {0,0,1}
-        };
-        for (int i = 0; i < 3; ++i)
-        {
-            ImGui::PushID(i);
-            ImGui::InputInt3("", matrix[i]);
-            ImGui::PopID();
-        }
-        if (ImGui::Button("Apply"))
-        {
-            for (int i = 0; i < 3; ++i)
-                for (int j = 0; j < 3; ++j)
-                    transformMatrix[i][j] = matrix[i][j];
-            useTransformMatrix = true;
-            showSupercell = false;
-            ImGui::CloseCurrentPopup();
-            updateBuffers(structure);
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
-        {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
 
         if (ImGui::BeginMenu("Help"))
         {
@@ -142,6 +103,8 @@ void FileBrowser::draw(Structure& structure, const std::function<void(const Stru
 
         ImGui::EndMainMenuBar();
     }
+
+    transformDialog.drawDialog([&]() { updateBuffers(structure); });
 
     if (openStructurePopup)
     {
@@ -249,8 +212,7 @@ void FileBrowser::draw(Structure& structure, const std::function<void(const Stru
                         bool selected = (std::string(openFilename) == name);
                         if (ImGui::Selectable(label.c_str(), selected))
                         {
-                            strncpy(openFilename, name.c_str(), sizeof(openFilename));
-                            openFilename[sizeof(openFilename) - 1] = '\0';
+                            std::snprintf(openFilename, sizeof(openFilename), "%s", name.c_str());
                         }
                     }
                     ImGui::PopID();

@@ -17,8 +17,13 @@ SOURCES = main.cpp \
           graphics/SphereMesh.cpp \
           graphics/Shader.cpp \
           graphics/ShadowMap.cpp \
+          graphics/StructureInstanceBuilder.cpp \
+          graphics/SceneBuffers.cpp \
+          graphics/Renderer.cpp \
           math/MathUtils.cpp \
           ui/FileBrowser.cpp \
+          ui/TransformAtomsDialog.cpp \
+          ui/ImGuiSetup.cpp \
           io/StructureLoader.cpp
 
 SOURCES += $(IMGUI_DIR)/imgui/imgui.cpp \
