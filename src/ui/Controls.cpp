@@ -31,10 +31,18 @@ void drawControls(Camera& camera, std::function<void()> onDeleteSelected)
 
     ImGui::Separator();
 
+    ImGui::Text("Keyboard Shortcuts:");
+    ImGui::Text("Ctrl+O       : Open File");
+    ImGui::Text("Ctrl+A       : Select All");
+    ImGui::Text("Delete       : Delete Selected");
+    ImGui::Text("Ctrl+D       : Deselect All");
+    ImGui::Text("Escape       : Deselect All");
+    ImGui::Separator();
     ImGui::Text("Mouse:");
-    ImGui::Text("Left Drag : Rotate");
-    ImGui::Text("Scroll    : Zoom");
-    ImGui::Text("Ctrl+Click: Multi-select");
+    ImGui::Text("Left Drag    : Rotate");
+    ImGui::Text("Scroll       : Zoom");
+    ImGui::Text("Ctrl+Click   : Multi-select");
+    ImGui::Text("Right-Click  : Context Menu");
 
     ImGui::End();
 }

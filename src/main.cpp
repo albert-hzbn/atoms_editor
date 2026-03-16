@@ -273,11 +273,52 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        // ------------------------------------------------------------
+        bool doOpenPeriodicTable = false;
+        bool doDeleteSelected = false;
+        // Keyboard shortcuts
+        // ------------------------------------------------------------
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Delete) && !selectedInstanceIndices.empty())
+        {
+            doDeleteSelected = true;
+        }
+
+        if (ImGui::IsKeyPressed(ImGuiKey_D) && ImGui::GetIO().KeyCtrl && !selectedInstanceIndices.empty())
+        {
+            // Ctrl+D: Deselect all
+            for (int idx : selectedInstanceIndices)
+                sceneBuffers.restoreAtomColor(idx);
+            selectedInstanceIndices.clear();
+        }
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape) && !selectedInstanceIndices.empty())
+        {
+            // Escape: Deselect all
+            for (int idx : selectedInstanceIndices)
+                sceneBuffers.restoreAtomColor(idx);
+            selectedInstanceIndices.clear();
+        }
+
+        // Ctrl+A: Select all atoms
+        if (ImGui::IsKeyPressed(ImGuiKey_A) && ImGui::GetIO().KeyCtrl && structure.atoms.size() > 0)
+        {
+            selectedInstanceIndices.clear();
+            for (int i = 0; i < (int)sceneBuffers.atomIndices.size(); ++i)
+            {
+                selectedInstanceIndices.push_back(i);
+            }
+        }
+
+        // Ctrl+O: Open file dialog
+        if (ImGui::IsKeyPressed(ImGuiKey_O) && ImGui::GetIO().KeyCtrl)
+        {
+            fileBrowser.openFileDialog();
+        }
+
         fileBrowser.draw(structure, updateBuffers);
 
         // Context menu (must be outside any Begin/End window block)
-        bool doOpenPeriodicTable = false;
-        bool doDeleteSelected = false;
         if (openContextMenu)
         {
             ImGui::OpenPopup("##atomCtx");

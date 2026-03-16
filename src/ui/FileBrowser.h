@@ -23,6 +23,9 @@ struct FileBrowser
     bool isTransformMatrixEnabled() const { return transformDialog.isEnabled(); }
     const int (&getTransformMatrix() const)[3][3] { return transformDialog.getMatrix(); }
 
+    // Programmatically trigger file open dialog (for keyboard shortcuts)
+    void openFileDialog() { openStructurePopup = true; }
+
 private:
     void pushHistory(const std::string& dir);
     static std::string toLower(const std::string& s);
