@@ -22,6 +22,7 @@
 
 #include <cmath>
 #include <vector>
+#include <algorithm>
 
 // ---------------------------------------------------------------------------
 // Ray-picking helpers
@@ -135,7 +136,7 @@ int main()
     // Picking / selection state (declared before lambda so it is captured)
     // ----------------------------------------------------------------
 
-    int  selectedInstanceIdx = -1;
+    std::vector<int> selectedInstanceIndices;  // Multiple selected atoms
     bool openContextMenu     = false;
 
     // ----------------------------------------------------------------
@@ -149,7 +150,7 @@ int main()
             fileBrowser.getTransformMatrix());
 
         sceneBuffers.upload(data);
-        selectedInstanceIdx = -1;  // clear selection whenever structure rebuilds
+        selectedInstanceIndices.clear();  // clear selection whenever structure rebuilds
     };
 
     updateBuffers(structure);
@@ -210,11 +211,46 @@ int main()
                                        winW, winH, projection, view);
             int newIdx = pickAtom(camPos, ray,
                                   sceneBuffers.atomPositions, 1.0f);
-            if (newIdx != selectedInstanceIdx)
+            
+            if (newIdx >= 0)
             {
-                // restore previous selection's colour
-                sceneBuffers.restoreAtomColor(selectedInstanceIdx);
-                selectedInstanceIdx = newIdx;
+                // Check if Ctrl is held for multi-select
+                bool ctrlHeld = ImGui::GetIO().KeyCtrl;
+                
+                if (ctrlHeld)
+                {
+                    // Multi-select: toggle this atom in selection
+                    auto it = std::find(selectedInstanceIndices.begin(), 
+                                       selectedInstanceIndices.end(), newIdx);
+                    if (it != selectedInstanceIndices.end())
+                    {
+                        // Already selected, deselect it
+                        sceneBuffers.restoreAtomColor(newIdx);
+                        selectedInstanceIndices.erase(it);
+                    }
+                    else
+                    {
+                        // Not selected, add it
+                        selectedInstanceIndices.push_back(newIdx);
+                    }
+                }
+                else
+                {
+                    // Regular click: replace selection
+                    // Restore colors of previously selected atoms
+                    for (int idx : selectedInstanceIndices)
+                        sceneBuffers.restoreAtomColor(idx);
+                    
+                    selectedInstanceIndices.clear();
+                    selectedInstanceIndices.push_back(newIdx);
+                }
+            }
+            else
+            {
+                // Clicked on empty space: clear selection
+                for (int idx : selectedInstanceIndices)
+                    sceneBuffers.restoreAtomColor(idx);
+                selectedInstanceIndices.clear();
             }
         }
 
@@ -225,7 +261,7 @@ int main()
         if (camera.pendingRightClick)
         {
             camera.pendingRightClick = false;
-            if (selectedInstanceIdx >= 0)
+            if (!selectedInstanceIndices.empty())
                 openContextMenu = true;
         }
 
@@ -252,8 +288,9 @@ int main()
                 doOpenPeriodicTable = true;   // open AFTER EndPopup
             if (ImGui::MenuItem("Deselect"))
             {
-                sceneBuffers.restoreAtomColor(selectedInstanceIdx);
-                selectedInstanceIdx = -1;
+                for (int idx : selectedInstanceIndices)
+                    sceneBuffers.restoreAtomColor(idx);
+                selectedInstanceIndices.clear();
             }
             ImGui::EndPopup();
         }
@@ -261,42 +298,58 @@ int main()
         if (doOpenPeriodicTable)
             openPeriodicTable();
 
-        // Periodic table picker + apply substitution
+        // Periodic table picker + apply substitution to all selected atoms
         {
-            std::string sym;
-            int z = 0;
-            if (drawPeriodicTable(sym, z))
+            std::vector<ElementSelection> selections;
+            if (drawPeriodicTable(selections))
             {
-                if (selectedInstanceIdx >= 0 &&
-                    selectedInstanceIdx < (int)sceneBuffers.atomIndices.size())
+                // Apply selected element to all selected atoms
+                if (!selections.empty() && !selectedInstanceIndices.empty())
                 {
-                    int baseIdx = sceneBuffers.atomIndices[selectedInstanceIdx];
-                    if (baseIdx >= 0 && baseIdx < (int)structure.atoms.size())
+                    const auto& sel = selections[0];
+                    
+                    for (int selectedIdx : selectedInstanceIndices)
                     {
-                        structure.atoms[baseIdx].symbol      = sym;
-                        structure.atoms[baseIdx].atomicNumber = z;
-                        float r, g, b;
-                        getDefaultElementColor(z, r, g, b);
-                        structure.atoms[baseIdx].r = r;
-                        structure.atoms[baseIdx].g = g;
-                        structure.atoms[baseIdx].b = b;
-                        updateBuffers(structure);
+                        if (selectedIdx >= 0 && selectedIdx < (int)sceneBuffers.atomIndices.size())
+                        {
+                            int baseIdx = sceneBuffers.atomIndices[selectedIdx];
+                            if (baseIdx >= 0 && baseIdx < (int)structure.atoms.size())
+                            {
+                                structure.atoms[baseIdx].symbol      = sel.symbol;
+                                structure.atoms[baseIdx].atomicNumber = sel.atomicNumber;
+                                float r, g, b;
+                                getDefaultElementColor(sel.atomicNumber, r, g, b);
+                                structure.atoms[baseIdx].r = r;
+                                structure.atoms[baseIdx].g = g;
+                                structure.atoms[baseIdx].b = b;
+                            }
+                        }
                     }
+                    updateBuffers(structure);
                 }
             }
         }
 
         ImGui::Render();
 
-        // Apply / maintain highlight for the selected atom.
-        if (selectedInstanceIdx >= (int)sceneBuffers.atomCount)
+        // Apply / maintain highlight for all selected atoms
+        for (int& idx : selectedInstanceIndices)
         {
-            sceneBuffers.restoreAtomColor(selectedInstanceIdx);
-            selectedInstanceIdx = -1;
+            if (idx >= (int)sceneBuffers.atomCount)
+            {
+                sceneBuffers.restoreAtomColor(idx);
+                idx = -1;
+            }
+            else if (idx >= 0)
+            {
+                sceneBuffers.highlightAtom(idx, glm::vec3(1.0f, 1.0f, 0.0f));
+            }
         }
-        if (selectedInstanceIdx >= 0)
-            sceneBuffers.highlightAtom(selectedInstanceIdx,
-                                       glm::vec3(1.0f, 1.0f, 0.0f));
+        // Remove -1 entries (failed atoms)
+        selectedInstanceIndices.erase(
+            std::remove(selectedInstanceIndices.begin(), selectedInstanceIndices.end(), -1),
+            selectedInstanceIndices.end()
+        );
 
         // ------------------------------------------------------------
         // Draw

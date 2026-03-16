@@ -192,19 +192,38 @@ void openPeriodicTable()
     ImGui::OpenPopup("Periodic Table##picker");
 }
 
-bool drawPeriodicTable(std::string& outSymbol, int& outAtomicNumber)
+bool drawPeriodicTable(std::vector<ElementSelection>& outSelections)
 {
-    bool picked = false;
+    bool applied = false;
+
+    // Static state for tracking single selection
+    static int selectedAtomicNumber = -1;
+    static bool isPopupOpen = false;
 
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(826.0f, 418.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(900.0f, 480.0f), ImGuiCond_Always);
 
     bool open = true;
     if (!ImGui::BeginPopupModal("Periodic Table##picker", &open,
                                 ImGuiWindowFlags_NoResize |
                                 ImGuiWindowFlags_NoScrollbar))
+    {
+        // Dialog just closed - reset state
+        if (isPopupOpen)
+        {
+            selectedAtomicNumber = -1;
+            isPopupOpen = false;
+        }
         return false;
+    }
+
+    // Dialog just opened - clear selection
+    if (!isPopupOpen)
+    {
+        selectedAtomicNumber = -1;
+        isPopupOpen = true;
+    }
 
     const float cellW = 44.0f;
     const float cellH = 34.0f;
@@ -236,13 +255,44 @@ bool drawPeriodicTable(std::string& outSymbol, int& outAtomicNumber)
 
         bool clicked = ImGui::InvisibleButton(btnId, ImVec2(cellW - 1.0f, cellH - 1.0f));
         bool hovered = ImGui::IsItemHovered();
+        
+        // Single click to select (replaces previous selection)
+        if (clicked)
+        {
+            selectedAtomicNumber = e.z;
+        }
 
         // Draw background
         ImVec2 pMin = ImGui::GetItemRectMin();
         ImVec2 pMax = ImGui::GetItemRectMax();
-        ImVec4 bg   = hovered ? brighter(kCatColors[e.cat], 0.15f) : kCatColors[e.cat];
+        
+        bool selected = (selectedAtomicNumber == e.z);
+        ImVec4 bg;
+        if (selected)
+        {
+            // Darker, more saturated color for selected element
+            bg = brighter(kCatColors[e.cat], 0.35f);
+        }
+        else if (hovered)
+        {
+            bg = brighter(kCatColors[e.cat], 0.15f);
+        }
+        else
+        {
+            bg = kCatColors[e.cat];
+        }
+        
         dl->AddRectFilled(pMin, pMax, toU32(bg), 3.0f);
-        dl->AddRect(pMin, pMax, IM_COL32(0, 0, 0, 55), 3.0f);
+        
+        // Thicker border for selected element
+        if (selected)
+        {
+            dl->AddRect(pMin, pMax, IM_COL32(0, 0, 100, 200), 3.0f, 0, 2.0f);
+        }
+        else
+        {
+            dl->AddRect(pMin, pMax, IM_COL32(0, 0, 0, 55), 3.0f);
+        }
 
         // Atomic number — small, top-left corner
         char zStr[8];
@@ -258,14 +308,11 @@ bool drawPeriodicTable(std::string& outSymbol, int& outAtomicNumber)
                     IM_COL32(0, 0, 0, 255), e.sym);
 
         if (hovered)
-            ImGui::SetTooltip("%d  %s\n%s", e.z, e.sym, e.nm);
-
-        if (clicked)
         {
-            outSymbol       = e.sym;
-            outAtomicNumber = e.z;
-            picked          = true;
-            ImGui::CloseCurrentPopup();
+            if (selected)
+                ImGui::SetTooltip("%d  %s\n%s\n(Selected)", e.z, e.sym, e.nm);
+            else
+                ImGui::SetTooltip("%d  %s\n%s", e.z, e.sym, e.nm);
         }
     }
 
@@ -294,12 +341,59 @@ bool drawPeriodicTable(std::string& outSymbol, int& outAtomicNumber)
                     IM_COL32(210, 210, 210, 255), kStars[s].lbl);
     }
 
-    // ---- Cancel button ----
-    float cancelY = rowLocalY(9) + cellH + 10.0f;
-    ImGui::SetCursorPos(ImVec2(padX, cancelY));
-    if (ImGui::Button("Cancel", ImVec2(80, 0)))
+    // ---- Selection summary and buttons ----
+    float btnAreaY = rowLocalY(9) + cellH + 10.0f;
+    
+    // Display selected element
+    ImGui::SetCursorPos(ImVec2(padX, btnAreaY));
+    
+    if (selectedAtomicNumber >= 0)
+    {
+        // Find the element name
+        const char* elemName = "Unknown";
+        for (int i = 0; i < kElemCount; ++i)
+        {
+            if (kElements[i].z == selectedAtomicNumber)
+            {
+                elemName = kElements[i].sym;
+                break;
+            }
+        }
+        ImGui::Text("Selected: Z=%d (%s)", selectedAtomicNumber, elemName);
+    }
+    else
+    {
+        ImGui::Text("Selected: None");
+    }
+
+    // Buttons
+    float btnY = btnAreaY + 25.0f;
+    ImGui::SetCursorPos(ImVec2(padX, btnY));
+    
+    if (ImGui::Button("Apply", ImVec2(80, 0)) && selectedAtomicNumber >= 0)
+    {
+        // Populate outSelections with the single selection
+        outSelections.clear();
+        for (int i = 0; i < kElemCount; ++i)
+        {
+            if (kElements[i].z == selectedAtomicNumber)
+            {
+                outSelections.push_back({kElements[i].sym, selectedAtomicNumber});
+                break;
+            }
+        }
+        applied = true;
+        selectedAtomicNumber = -1;
         ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(80, 0)))
+    {
+        selectedAtomicNumber = -1;
+        ImGui::CloseCurrentPopup();
+    }
 
     ImGui::EndPopup();
-    return picked;
+    return applied;
 }
