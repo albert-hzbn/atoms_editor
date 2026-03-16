@@ -17,13 +17,17 @@ struct EditMenuDialogs
     // Initialise radii and colours to literature / CPK defaults.
     EditMenuDialogs();
 
-    // Call once per ImGui frame.  Draws the Edit menu entries and, when open,
-    // the two modal popups.  Calls updateBuffers(structure) when the user
-    // changes a value.
-    void draw(Structure& structure,
-              const std::function<void(Structure&)>& updateBuffers);
+    // Call inside an already-open "Edit" ImGui menu to add the Edit items.
+    void drawMenuItems();
+
+    // Call once per ImGui frame (outside any menu) to service the modal popups.
+    // Calls updateBuffers(structure) when the user changes a value.
+    void drawPopups(Structure& structure,
+                    const std::function<void(Structure&)>& updateBuffers);
 
 private:
-    int m_selectedRadiusElement = 6;   // Carbon default
-    int m_selectedColorElement  = 6;
+    bool m_openAtomicSize   = false;
+    bool m_openElementColor = false;
+    int  m_selectedRadiusElement = 6;
+    int  m_selectedColorElement  = 6;
 };

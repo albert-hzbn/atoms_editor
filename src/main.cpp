@@ -286,8 +286,7 @@ int main()
         // UI modules
         // ------------------------------------------------------------
 
-        editMenuDialogs.draw(structure, updateBuffers);
-        fileBrowser.draw(structure, updateBuffers);
+        fileBrowser.draw(structure, editMenuDialogs, updateBuffers);
 
         contextMenu.draw(structure, sceneBuffers,
                          editMenuDialogs.elementColors,

@@ -70,13 +70,15 @@ void FileBrowser::initFromPath(const std::string& initialPath)
     std::snprintf(openFilename, sizeof(openFilename), "%s", initialOpenFilename.c_str());
 }
 
-void FileBrowser::draw(Structure& structure, const std::function<void(Structure&)>& updateBuffers)
+void FileBrowser::draw(Structure& structure,
+                       EditMenuDialogs& editMenuDialogs,
+                       const std::function<void(Structure&)>& updateBuffers)
 {
     if (ImGui::BeginMainMenuBar())
     {
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("Open..."))
+            if (ImGui::MenuItem("Open...",  "Ctrl+O"))
                 openStructurePopup = true;
 
             if (ImGui::MenuItem("Quit"))
@@ -87,21 +89,23 @@ void FileBrowser::draw(Structure& structure, const std::function<void(Structure&
 
         if (ImGui::BeginMenu("Edit"))
         {
+            editMenuDialogs.drawMenuItems();
+            ImGui::Separator();
             transformDialog.drawMenuItem(structure.hasUnitCell);
 
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Help"))
+        if (ImGui::BeginMenu("About"))
         {
-            if (ImGui::MenuItem("About"))
-                showAbout = true;
-
+            showAbout = true;
             ImGui::EndMenu();
         }
 
         ImGui::EndMainMenuBar();
     }
+
+    editMenuDialogs.drawPopups(structure, updateBuffers);
 
     transformDialog.drawDialog([&]() { updateBuffers(structure); });
 
@@ -270,12 +274,40 @@ void FileBrowser::draw(Structure& structure, const std::function<void(Structure&
     if (ImGui::BeginPopupModal("About", NULL, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Text("Atoms Editor");
-        ImGui::Text("Open-source molecular visualization demo.");
+        ImGui::Text("Open-source molecular structure viewer and editor.");
         ImGui::Separator();
-        ImGui::TextWrapped("Controls:");
-        ImGui::BulletText("Left drag: rotate camera");
+
+        ImGui::Text("Camera");
+        ImGui::BulletText("Left drag: rotate");
+        ImGui::BulletText("Right drag: pan");
         ImGui::BulletText("Scroll: zoom");
-        ImGui::TextWrapped("Use File -> Open to browse and load structure files.");
+
+        ImGui::Spacing();
+        ImGui::Text("Selection");
+        ImGui::BulletText("Left click: select atom");
+        ImGui::BulletText("Ctrl + click: add/remove from selection");
+        ImGui::BulletText("Ctrl+A: select all");
+        ImGui::BulletText("Ctrl+D / Escape: deselect all");
+        ImGui::BulletText("Delete: remove selected atoms");
+
+        ImGui::Spacing();
+        ImGui::Text("Right-click context menu");
+        ImGui::BulletText("Substitute Atom: replace selected atoms with a new element");
+        ImGui::BulletText("Insert Atom at Midpoint: place a new atom at the centroid");
+        ImGui::BulletText("  (requires >= 2 atoms selected)");
+        ImGui::BulletText("Delete / Deselect");
+
+        ImGui::Spacing();
+        ImGui::Text("Edit menu");
+        ImGui::BulletText("Atomic Sizes: adjust per-element covalent radii");
+        ImGui::BulletText("  (defaults: Cordero et al., Dalton Trans. 2008)");
+        ImGui::BulletText("Element Colors: override CPK colours per element");
+        ImGui::BulletText("Transform Atoms: apply a 3x3 matrix to all atom positions");
+
+        ImGui::Spacing();
+        ImGui::Text("File → Open");
+        ImGui::BulletText("Supported: .cif  .mol  .pdb  .xyz  .sdf");
+
         ImGui::Separator();
         if (ImGui::Button("OK"))
             ImGui::CloseCurrentPopup();

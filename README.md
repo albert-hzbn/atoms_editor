@@ -1,6 +1,6 @@
 # Atoms Editor
 
-A small OpenGL-based molecular visualization demo using ImGui and Open Babel.
+An OpenGL-based molecular structure viewer and editor using Dear ImGui and Open Babel.
 
 ## Prerequisites
 
@@ -30,16 +30,52 @@ Then run:
 
 ## Usage
 
-- Use **File → Open...** to pick a structure file.
-- Supported file types: `.cif`, `.mol`, `.pdb`, `.xyz`, `.sdf`.
-- Use mouse:
-  - **Left drag** to rotate
-  - **Scroll** to zoom
+### Opening files
+
+Use **File → Open…** (`Ctrl+O`) to browse and load a structure file.  
+Supported formats: `.cif`, `.mol`, `.pdb`, `.xyz`, `.sdf`.
+
+### Camera
+
+| Action | Input |
+|---|---|
+| Rotate | Left drag |
+| Pan | Right drag |
+| Zoom | Scroll wheel |
+
+### Atom selection
+
+| Action | Input |
+|---|---|
+| Select atom | Left click |
+| Add / remove from selection | Ctrl + click |
+| Select all | Ctrl+A |
+| Deselect all | Ctrl+D or Escape |
+| Delete selected | Delete |
+
+### Right-click context menu
+
+- **Substitute Atom…** — replace all selected atoms with a chosen element (periodic table picker)
+- **Insert Atom at Midpoint…** — insert a new atom at the centroid of ≥ 2 selected atoms
+- **Delete** / **Deselect**
+
+### Edit menu
+
+- **Atomic Sizes…** — adjust per-element covalent radii (literature defaults: Cordero et al., *Dalton Trans.* 2008)
+- **Element Colors…** — override CPK colours per element
+- **Transform Atoms…** — apply a 3×3 matrix transformation to all atom positions (only available when the structure has a unit cell)
 
 ## Project layout
 
-- `src/`: main application sources
-- `src/ui/`: ImGui-based UI components
-- `src/io/`: structure loading code (Open Babel)
-- `imgui/`: bundled ImGui sources
-- `backends/`: ImGui GLFW/OpenGL backends
+```
+src/
+  main.cpp                   — application entry point, render loop
+  ElementData.cpp/.h         — element symbols, radii, colours
+  camera/                    — camera orbit controller
+  graphics/                  — OpenGL renderer, scene buffers, picking, shaders
+  math/                      — math utilities
+  ui/                        — Dear ImGui panels and dialogs
+  io/                        — structure loading (Open Babel)
+imgui/                       — bundled Dear ImGui sources
+backends/                    — ImGui GLFW / OpenGL backends
+```

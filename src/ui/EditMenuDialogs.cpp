@@ -11,31 +11,20 @@ EditMenuDialogs::EditMenuDialogs()
     , elementColors(makeDefaultElementColors())
 {}
 
-void EditMenuDialogs::draw(Structure& structure,
-                           const std::function<void(Structure&)>& updateBuffers)
+void EditMenuDialogs::drawMenuItems()
 {
-    bool openAtomicSizeDialog   = false;
-    bool openElementColorDialog = false;
+    if (ImGui::MenuItem("Atomic Sizes..."))
+        m_openAtomicSize = true;
 
-    if (ImGui::BeginMainMenuBar())
-    {
-        if (ImGui::BeginMenu("Edit"))
-        {
-            if (ImGui::MenuItem("Atomic Sizes..."))
-                openAtomicSizeDialog = true;
+    if (ImGui::MenuItem("Element Colors..."))
+        m_openElementColor = true;
+}
 
-            if (ImGui::MenuItem("Element Colors..."))
-                openElementColorDialog = true;
-
-            ImGui::EndMenu();
-        }
-        ImGui::EndMainMenuBar();
-    }
-
-    if (openAtomicSizeDialog)
-        ImGui::OpenPopup("Atomic Sizes##edit");
-    if (openElementColorDialog)
-        ImGui::OpenPopup("Element Colors##edit");
+void EditMenuDialogs::drawPopups(Structure& structure,
+                                 const std::function<void(Structure&)>& updateBuffers)
+{
+    if (m_openAtomicSize)   { ImGui::OpenPopup("Atomic Sizes##edit");   m_openAtomicSize   = false; }
+    if (m_openElementColor) { ImGui::OpenPopup("Element Colors##edit"); m_openElementColor = false; }
 
     // ------------------------------------------------------------------
     // Atomic Sizes modal

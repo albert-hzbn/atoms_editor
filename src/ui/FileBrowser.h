@@ -2,6 +2,7 @@
 
 #include "StructureLoader.h"
 #include "ui/TransformAtomsDialog.h"
+#include "ui/EditMenuDialogs.h"
 
 #include <array>
 #include <functional>
@@ -16,9 +17,11 @@ struct FileBrowser
     // Initialize browser state from a starting path.
     void initFromPath(const std::string& initialPath);
 
-    // Draw the File -> Open UI and handle loading.
-    // updateBuffers is called whenever a new structure is loaded.
-    void draw(Structure& structure, const std::function<void(Structure&)>& updateBuffers);
+    // Draw the unified menu bar (File / Edit / About) and all related popups.
+    // updateBuffers is called whenever a new structure is loaded or edited.
+    void draw(Structure& structure,
+              EditMenuDialogs& editMenuDialogs,
+              const std::function<void(Structure&)>& updateBuffers);
 
     bool isTransformMatrixEnabled() const { return transformDialog.isEnabled(); }
     const int (&getTransformMatrix() const)[3][3] { return transformDialog.getMatrix(); }
