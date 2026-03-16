@@ -19,6 +19,19 @@ public:
     double lastX = 0;
     double lastY = 0;
 
+    // Accumulated Manhattan drag distance since last left-press.
+    float dragAccum = 0.0f;
+
+    // Set to true for one frame when a short left-click is detected.
+    bool   pendingClick = false;
+    double clickX       = 0;
+    double clickY       = 0;
+
+    // Set to true for one frame when right button is released.
+    bool   pendingRightClick = false;
+    double rightClickX       = 0;
+    double rightClickY       = 0;
+
     static Camera* instance;
 
     static void mouseButton(GLFWwindow*,int button,int action,int);

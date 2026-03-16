@@ -24,6 +24,7 @@ SOURCES = main.cpp \
           ui/FileBrowser.cpp \
           ui/TransformAtomsDialog.cpp \
           ui/ImGuiSetup.cpp \
+          ui/PeriodicTableDialog.cpp \
           io/StructureLoader.cpp
 
 SOURCES += $(IMGUI_DIR)/imgui/imgui.cpp \

@@ -10,7 +10,30 @@ void Camera::mouseButton(GLFWwindow*,int button,int action,int)
         return;
 
     if(button == GLFW_MOUSE_BUTTON_LEFT)
-        instance->mouseDown = action == GLFW_PRESS;
+    {
+        if (action == GLFW_PRESS)
+        {
+            instance->mouseDown = true;
+            instance->dragAccum = 0.0f;
+        }
+        else if (action == GLFW_RELEASE)
+        {
+            instance->mouseDown = false;
+            if (instance->dragAccum < 4.0f)
+            {
+                instance->pendingClick = true;
+                instance->clickX      = instance->lastX;
+                instance->clickY      = instance->lastY;
+            }
+        }
+    }
+
+    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+    {
+        instance->pendingRightClick = true;
+        instance->rightClickX      = instance->lastX;
+        instance->rightClickY      = instance->lastY;
+    }
 }
 
 void Camera::cursor(GLFWwindow*,double x,double y)
@@ -26,6 +49,8 @@ void Camera::cursor(GLFWwindow*,double x,double y)
     {
         float dx = x - instance->lastX;
         float dy = y - instance->lastY;
+
+        instance->dragAccum += std::abs(dx) + std::abs(dy);
 
         instance->yaw   -= dx * instance->sensitivity;
         instance->pitch += dy * instance->sensitivity;

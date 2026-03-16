@@ -19,9 +19,20 @@ struct SceneBuffers
     glm::vec3      orbitCenter = glm::vec3(0.0f);
     std::vector<glm::vec3> boxLines;
 
+    // CPU-side copies used for ray picking.
+    std::vector<glm::vec3> atomPositions;
+    std::vector<glm::vec3> atomColors;   // base colours (no highlight)
+    std::vector<int>       atomIndices;
+
     // Allocate GPU objects and wire instance attributes into sphereVAO.
     void init(GLuint sphereVAO);
 
     // Upload a new StructureInstanceData set to the GPU and cache derived data.
     void upload(const StructureInstanceData& data);
+
+    // Patch the colour of one instance (e.g. to highlight a selected atom).
+    void highlightAtom(int instanceIdx, glm::vec3 color);
+
+    // Restore original (pre-highlight) colour for one instance.
+    void restoreAtomColor(int instanceIdx);
 };

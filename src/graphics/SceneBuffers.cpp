@@ -33,9 +33,12 @@ void SceneBuffers::init(GLuint sphereVAO)
 
 void SceneBuffers::upload(const StructureInstanceData& data)
 {
-    atomCount   = data.positions.size();
-    orbitCenter = atomCount > 0 ? data.orbitCenter : glm::vec3(0.0f);
-    boxLines    = data.boxLines;
+    atomCount     = data.positions.size();
+    orbitCenter   = atomCount > 0 ? data.orbitCenter : glm::vec3(0.0f);
+    boxLines      = data.boxLines;
+    atomPositions = data.positions;
+    atomColors    = data.colors;
+    atomIndices   = data.atomIndices;
 
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER,
@@ -54,4 +57,27 @@ void SceneBuffers::upload(const StructureInstanceData& data)
                  data.boxLines.size() * sizeof(glm::vec3),
                  data.boxLines.empty() ? nullptr : data.boxLines.data(),
                  GL_STATIC_DRAW);
+}
+
+void SceneBuffers::highlightAtom(int idx, glm::vec3 color)
+{
+    if (idx < 0 || (size_t)idx >= atomCount)
+        return;
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferSubData(GL_ARRAY_BUFFER,
+                    (GLintptr)(idx * (GLintptr)sizeof(glm::vec3)),
+                    sizeof(glm::vec3),
+                    &color);
+}
+
+void SceneBuffers::restoreAtomColor(int idx)
+{
+    if (idx < 0 || (size_t)idx >= atomColors.size())
+        return;
+    glm::vec3 orig = atomColors[idx];
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferSubData(GL_ARRAY_BUFFER,
+                    (GLintptr)(idx * (GLintptr)sizeof(glm::vec3)),
+                    sizeof(glm::vec3),
+                    &orig);
 }

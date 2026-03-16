@@ -35,19 +35,23 @@ StructureInstanceData buildStructureInstanceData(
     data.positions.reserve(structure.atoms.size());
     data.colors.reserve(structure.atoms.size());
 
-    for (const auto& atom : structure.atoms)
+    for (int i = 0; i < (int)structure.atoms.size(); ++i)
     {
+        const auto& atom = structure.atoms[i];
         data.positions.emplace_back((float)atom.x, (float)atom.y, (float)atom.z);
         data.colors.emplace_back(atom.r, atom.g, atom.b);
+        data.atomIndices.push_back(i);
     }
 
     if (useTransformMatrix && structure.hasUnitCell)
     {
         std::vector<glm::vec3> basePositions = data.positions;
-        std::vector<glm::vec3> baseColors = data.colors;
+        std::vector<glm::vec3> baseColors    = data.colors;
+        std::vector<int>       baseIndices   = data.atomIndices;
 
         data.positions.clear();
         data.colors.clear();
+        data.atomIndices.clear();
 
         glm::vec3 origin((float)structure.cellOffset[0],
                          (float)structure.cellOffset[1],
@@ -68,8 +72,9 @@ StructureInstanceData buildStructureInstanceData(
         float det = glm::determinant(transform);
         if (std::abs(det) <= kEpsilon)
         {
-            data.positions = std::move(basePositions);
-            data.colors = std::move(baseColors);
+            data.positions   = std::move(basePositions);
+            data.colors      = std::move(baseColors);
+            data.atomIndices = std::move(baseIndices);
         }
         else
         {
@@ -122,6 +127,7 @@ StructureInstanceData buildStructureInstanceData(
                             glm::vec3 worldPos = origin + shiftedFrac.x * a + shiftedFrac.y * b + shiftedFrac.z * c;
                             data.positions.push_back(worldPos);
                             data.colors.push_back(baseColors[atomIndex]);
+                            data.atomIndices.push_back(baseIndices[atomIndex]);
                         }
                     }
                 }
