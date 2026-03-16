@@ -13,10 +13,12 @@ SRC_DIRS = . camera graphics math ui io
 # --------------------------------------------------
 
 SOURCES = main.cpp \
+          ElementData.cpp \
           camera/Camera.cpp \
           graphics/SphereMesh.cpp \
           graphics/Shader.cpp \
           graphics/ShadowMap.cpp \
+          graphics/Picking.cpp \
           graphics/StructureInstanceBuilder.cpp \
           graphics/SceneBuffers.cpp \
           graphics/Renderer.cpp \
@@ -25,6 +27,8 @@ SOURCES = main.cpp \
           ui/TransformAtomsDialog.cpp \
           ui/ImGuiSetup.cpp \
           ui/PeriodicTableDialog.cpp \
+          ui/EditMenuDialogs.cpp \
+          ui/AtomContextMenu.cpp \
           io/StructureLoader.cpp
 
 SOURCES += $(IMGUI_DIR)/imgui/imgui.cpp \
