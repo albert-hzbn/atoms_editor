@@ -16,3 +16,7 @@ void openPeriodicTable();
 // On true: outSelections contains the single selected element.
 // Click an element to replace selection, then click "Apply" to confirm.
 bool drawPeriodicTable(std::vector<ElementSelection>& outSelections);
+
+// Draw an inline periodic table selector (non-modal), useful for edit panels.
+// Returns true when the selected element changes via click.
+bool drawPeriodicTableInlineSelector(int& selectedAtomicNumber);

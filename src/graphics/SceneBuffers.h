@@ -12,6 +12,7 @@ struct SceneBuffers
 {
     GLuint instanceVBO = 0;
     GLuint colorVBO    = 0;
+    GLuint scaleVBO    = 0;
     GLuint lineVAO     = 0;
     GLuint lineVBO     = 0;
 
@@ -22,6 +23,7 @@ struct SceneBuffers
     // CPU-side copies used for ray picking.
     std::vector<glm::vec3> atomPositions;
     std::vector<glm::vec3> atomColors;   // base colours (no highlight)
+    std::vector<float>     atomRadii;
     std::vector<int>       atomIndices;
 
     // Allocate GPU objects and wire instance attributes into sphereVAO.

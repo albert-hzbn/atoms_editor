@@ -28,18 +28,24 @@ void appendBoxEdges(const glm::vec3 (&corners)[8], std::vector<glm::vec3>& boxLi
 StructureInstanceData buildStructureInstanceData(
     const Structure& structure,
     bool useTransformMatrix,
-    const int (&transformMatrix)[3][3])
+    const int (&transformMatrix)[3][3],
+    const std::vector<float>& elementRadii)
 {
     StructureInstanceData data;
 
     data.positions.reserve(structure.atoms.size());
     data.colors.reserve(structure.atoms.size());
+    data.scales.reserve(structure.atoms.size());
 
     for (int i = 0; i < (int)structure.atoms.size(); ++i)
     {
         const auto& atom = structure.atoms[i];
         data.positions.emplace_back((float)atom.x, (float)atom.y, (float)atom.z);
         data.colors.emplace_back(atom.r, atom.g, atom.b);
+        float radius = 1.0f;
+        if (atom.atomicNumber >= 0 && atom.atomicNumber < (int)elementRadii.size() && elementRadii[atom.atomicNumber] > 0.0f)
+            radius = elementRadii[atom.atomicNumber];
+        data.scales.push_back(radius);
         data.atomIndices.push_back(i);
     }
 
@@ -47,10 +53,12 @@ StructureInstanceData buildStructureInstanceData(
     {
         std::vector<glm::vec3> basePositions = data.positions;
         std::vector<glm::vec3> baseColors    = data.colors;
+        std::vector<float>     baseScales    = data.scales;
         std::vector<int>       baseIndices   = data.atomIndices;
 
         data.positions.clear();
         data.colors.clear();
+        data.scales.clear();
         data.atomIndices.clear();
 
         glm::vec3 origin((float)structure.cellOffset[0],
@@ -83,6 +91,7 @@ StructureInstanceData buildStructureInstanceData(
             int expectedCopies = std::max(1, (int)std::round(std::abs(det)));
             data.positions.reserve(basePositions.size() * (size_t)expectedCopies);
             data.colors.reserve(baseColors.size() * (size_t)expectedCopies);
+            data.scales.reserve(baseScales.size() * (size_t)expectedCopies);
 
             int nMin[3] = {0, 0, 0};
             int nMax[3] = {0, 0, 0};
@@ -127,6 +136,7 @@ StructureInstanceData buildStructureInstanceData(
                             glm::vec3 worldPos = origin + shiftedFrac.x * a + shiftedFrac.y * b + shiftedFrac.z * c;
                             data.positions.push_back(worldPos);
                             data.colors.push_back(baseColors[atomIndex]);
+                            data.scales.push_back(baseScales[atomIndex]);
                             data.atomIndices.push_back(baseIndices[atomIndex]);
                         }
                     }

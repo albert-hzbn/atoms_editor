@@ -13,6 +13,7 @@ static const char* kAtomVS = R"(
     in vec3 position;
     in vec3 instancePos;
     in vec3 instanceColor;
+    in float instanceScale;
 
     uniform mat4 projection;
     uniform mat4 view;
@@ -23,7 +24,7 @@ static const char* kAtomVS = R"(
 
     void main()
     {
-        vec3 worldPos = position + instancePos;
+        vec3 worldPos = position * instanceScale + instancePos;
         gl_Position   = projection * view * vec4(worldPos, 1.0);
         FragPosLight  = lightMVP * vec4(worldPos, 1.0);
         fragColor     = instanceColor;
@@ -71,12 +72,13 @@ static const char* kShadowVS = R"(
 
     in vec3 position;
     in vec3 instancePos;
+    in float instanceScale;
 
     uniform mat4 lightMVP;
 
     void main()
     {
-        vec3 worldPos    = position + instancePos;
+        vec3 worldPos    = position * instanceScale + instancePos;
         gl_Position      = lightMVP * vec4(worldPos, 1.0);
     }
 )";

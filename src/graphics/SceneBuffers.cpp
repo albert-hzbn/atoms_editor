@@ -4,6 +4,7 @@ void SceneBuffers::init(GLuint sphereVAO)
 {
     glGenBuffers(1, &instanceVBO);
     glGenBuffers(1, &colorVBO);
+    glGenBuffers(1, &scaleVBO);
     glGenVertexArrays(1, &lineVAO);
     glGenBuffers(1, &lineVBO);
 
@@ -20,6 +21,11 @@ void SceneBuffers::init(GLuint sphereVAO)
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glVertexAttribDivisor(2, 1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
+    glVertexAttribDivisor(3, 1);
 
     glBindVertexArray(0);
 
@@ -38,6 +44,7 @@ void SceneBuffers::upload(const StructureInstanceData& data)
     boxLines      = data.boxLines;
     atomPositions = data.positions;
     atomColors    = data.colors;
+    atomRadii     = data.scales;
     atomIndices   = data.atomIndices;
 
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
@@ -50,6 +57,12 @@ void SceneBuffers::upload(const StructureInstanceData& data)
     glBufferData(GL_ARRAY_BUFFER,
                  data.colors.size() * sizeof(glm::vec3),
                  data.colors.empty() ? nullptr : data.colors.data(),
+                 GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 data.scales.size() * sizeof(float),
+                 data.scales.empty() ? nullptr : data.scales.data(),
                  GL_STATIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, lineVBO);

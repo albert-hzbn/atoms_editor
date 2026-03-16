@@ -18,7 +18,7 @@ struct FileBrowser
 
     // Draw the File -> Open UI and handle loading.
     // updateBuffers is called whenever a new structure is loaded.
-    void draw(Structure& structure, const std::function<void(const Structure&)>& updateBuffers);
+    void draw(Structure& structure, const std::function<void(Structure&)>& updateBuffers);
 
     bool isTransformMatrixEnabled() const { return transformDialog.isEnabled(); }
     const int (&getTransformMatrix() const)[3][3] { return transformDialog.getMatrix(); }

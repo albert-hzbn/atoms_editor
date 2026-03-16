@@ -397,3 +397,101 @@ bool drawPeriodicTable(std::vector<ElementSelection>& outSelections)
     ImGui::EndPopup();
     return applied;
 }
+
+bool drawPeriodicTableInlineSelector(int& selectedAtomicNumber)
+{
+    bool changed = false;
+
+    const float cellW = 44.0f;
+    const float cellH = 34.0f;
+    const float padX  =  6.0f;
+    const float padY  =  4.0f;
+    const float fGap  = 10.0f;
+
+    auto rowLocalY = [&](int row) -> float {
+        if (row <= 7)
+            return padY + (row - 1) * cellH;
+        return padY + 7.0f * cellH + fGap + (row - 8) * cellH;
+    };
+
+    ImGui::BeginChild("PeriodicTableInline##selector", ImVec2(900.0f, 390.0f), true);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+
+    for (int i = 0; i < kElemCount; ++i)
+    {
+        const ElemDef& e = kElements[i];
+
+        float localX = padX + (e.col - 1) * cellW;
+        float localY = rowLocalY(e.row);
+
+        ImGui::SetCursorPos(ImVec2(localX, localY));
+
+        char btnId[24];
+        std::snprintf(btnId, sizeof(btnId), "##inline_z%d", e.z);
+
+        bool clicked = ImGui::InvisibleButton(btnId, ImVec2(cellW - 1.0f, cellH - 1.0f));
+        bool hovered = ImGui::IsItemHovered();
+        if (clicked && selectedAtomicNumber != e.z)
+        {
+            selectedAtomicNumber = e.z;
+            changed = true;
+        }
+
+        ImVec2 pMin = ImGui::GetItemRectMin();
+        ImVec2 pMax = ImGui::GetItemRectMax();
+        bool selected = (selectedAtomicNumber == e.z);
+
+        ImVec4 bg;
+        if (selected)
+            bg = brighter(kCatColors[e.cat], 0.35f);
+        else if (hovered)
+            bg = brighter(kCatColors[e.cat], 0.15f);
+        else
+            bg = kCatColors[e.cat];
+
+        dl->AddRectFilled(pMin, pMax, toU32(bg), 3.0f);
+        if (selected)
+            dl->AddRect(pMin, pMax, IM_COL32(0, 0, 100, 200), 3.0f, 0, 2.0f);
+        else
+            dl->AddRect(pMin, pMax, IM_COL32(0, 0, 0, 55), 3.0f);
+
+        char zStr[8];
+        std::snprintf(zStr, sizeof(zStr), "%d", e.z);
+        dl->AddText(ImVec2(pMin.x + 2.0f, pMin.y + 1.0f), IM_COL32(20, 20, 20, 180), zStr);
+
+        float symW = ImGui::CalcTextSize(e.sym).x;
+        float textH = ImGui::GetTextLineHeight();
+        dl->AddText(ImVec2(pMin.x + ((cellW - 1.0f) - symW)  * 0.5f,
+                           pMin.y + ((cellH - 1.0f) - textH) * 0.55f),
+                    IM_COL32(0, 0, 0, 255), e.sym);
+
+        if (hovered)
+            ImGui::SetTooltip("%d  %s\n%s", e.z, e.sym, e.nm);
+    }
+
+    static const struct { int row; const char* lbl; } kStars[2] = {
+        {6, "57-71"}, {7, "89-103"}
+    };
+    for (int s = 0; s < 2; ++s)
+    {
+        float lx = padX + (3 - 1) * cellW;
+        float ly = rowLocalY(kStars[s].row);
+
+        ImGui::SetCursorPos(ImVec2(lx, ly));
+        ImGui::Dummy(ImVec2(cellW - 1.0f, cellH - 1.0f));
+
+        ImVec2 pMin = ImGui::GetItemRectMin();
+        ImVec2 pMax = ImGui::GetItemRectMax();
+        dl->AddRectFilled(pMin, pMax, IM_COL32(80, 80, 80, 130), 3.0f);
+        dl->AddRect(pMin, pMax, IM_COL32(0, 0, 0, 40), 3.0f);
+
+        float lw = ImGui::CalcTextSize(kStars[s].lbl).x;
+        float lh = ImGui::GetTextLineHeight();
+        dl->AddText(ImVec2(pMin.x + ((cellW - 1.0f) - lw) * 0.5f,
+                           pMin.y + ((cellH - 1.0f) - lh) * 0.5f),
+                    IM_COL32(210, 210, 210, 255), kStars[s].lbl);
+    }
+
+    ImGui::EndChild();
+    return changed;
+}
