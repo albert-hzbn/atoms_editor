@@ -27,7 +27,7 @@ void Camera::cursor(GLFWwindow*,double x,double y)
         float dx = x - instance->lastX;
         float dy = y - instance->lastY;
 
-        instance->yaw   += dx * instance->sensitivity;
+        instance->yaw   -= dx * instance->sensitivity;
         instance->pitch += dy * instance->sensitivity;
 
         // limit pitch so camera never flips

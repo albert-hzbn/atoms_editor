@@ -113,6 +113,7 @@ int main()
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> colors;
     std::vector<glm::vec3> boxLines;
+    glm::vec3 orbitCenter(0.0f, 0.0f, 0.0f);
     size_t atomCount = 0;
 
     GLuint instanceVBO, colorVBO;
@@ -314,6 +315,9 @@ int main()
                 corners[7] = {minPos.x, maxPos.y, maxPos.z};
             }
 
+            // Orbit around the geometric center of the displayed cell/box.
+            orbitCenter = 0.5f * (corners[0] + corners[6]);
+
             const int edges[12][2] = {
                 {0,1},{1,2},{2,3},{3,0},
                 {4,5},{5,6},{6,7},{7,4},
@@ -331,6 +335,10 @@ int main()
                          boxLines.size() * sizeof(glm::vec3),
                          boxLines.data(),
                          GL_STATIC_DRAW);
+        }
+        else
+        {
+            orbitCenter = glm::vec3(0.0f, 0.0f, 0.0f);
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
@@ -572,15 +580,17 @@ int main()
         float yaw   = glm::radians(camera.yaw);
         float pitch = glm::radians(camera.pitch);
 
-        glm::vec3 camPos(
+        glm::vec3 camOffset(
             camera.distance*cos(pitch)*sin(yaw),
             camera.distance*sin(pitch),
             camera.distance*cos(pitch)*cos(yaw)
         );
 
+        glm::vec3 camPos = orbitCenter + camOffset;
+
         glm::mat4 view =
             glm::lookAt(camPos,
-                        glm::vec3(0,0,0),
+                        orbitCenter,
                         glm::vec3(0,1,0));
 
         glUseProgram(program);
