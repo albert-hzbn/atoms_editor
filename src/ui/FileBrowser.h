@@ -54,6 +54,12 @@ struct FileBrowser
         requestResetDefaultView = false;
         return requested;
     }
+    bool consumeStructureInfoRequest()
+    {
+        bool requested = requestStructureInfo;
+        requestStructureInfo = false;
+        return requested;
+    }
     bool consumeUndoRequest()
     {
         bool requested = requestUndo;
@@ -85,6 +91,7 @@ private:
     bool requestMeasureAngle;
     bool requestAtomInfo;
     bool requestResetDefaultView;
+    bool requestStructureInfo;
     bool requestUndo;
     bool requestRedo;
     bool openStructurePopup;

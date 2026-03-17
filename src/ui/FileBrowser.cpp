@@ -41,6 +41,7 @@ FileBrowser::FileBrowser()
             requestMeasureAngle(false),
             requestAtomInfo(false),
             requestResetDefaultView(false),
+            requestStructureInfo(false),
             requestUndo(false),
             requestRedo(false),
             openStructurePopup(false),
@@ -132,6 +133,8 @@ void FileBrowser::draw(Structure& structure,
         {
             ImGui::MenuItem("Show Element", nullptr, &showElementLabels);
             ImGui::MenuItem("Show Bonds", nullptr, &showBonds);
+            if (ImGui::MenuItem("Structure Info"))
+                requestStructureInfo = true;
             if (ImGui::MenuItem("Measure Distance (2 selected)"))
                 requestMeasureDistance = true;
             if (ImGui::MenuItem("Measure Angle (3 selected)"))
@@ -539,6 +542,7 @@ void FileBrowser::draw(Structure& structure,
         ImGui::Text("View menu");
         ImGui::BulletText("Show Element");
         ImGui::BulletText("Show Bonds");
+        ImGui::BulletText("Structure Info");
         ImGui::BulletText("Measure Distance (2 selected)");
         ImGui::BulletText("Measure Angle (3 selected)");
         ImGui::BulletText("Atom Info (1 selected)");

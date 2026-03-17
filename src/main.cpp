@@ -19,6 +19,7 @@
 #include "ui/EditMenuDialogs.h"
 #include "ui/AtomContextMenu.h"
 #include "ui/MeasurementOverlay.h"
+#include "ui/StructureInfoDialog.h"
 #include "UndoRedo.h"
 
 #include <glm/glm.hpp>
@@ -102,6 +103,7 @@ int main()
     EditMenuDialogs  editMenuDialogs;
     AtomContextMenu  contextMenu;
     MeasurementOverlayState measurementState;
+    StructureInfoDialogState structureInfoDialog;
     UndoRedoManager undoRedo;
     bool suppressHistoryCommit = false;
 
@@ -326,6 +328,7 @@ int main()
         bool requestMeasureDistance = fileBrowser.consumeMeasureDistanceRequest();
         bool requestMeasureAngle    = fileBrowser.consumeMeasureAngleRequest();
         bool requestAtomInfo        = fileBrowser.consumeAtomInfoRequest();
+        bool requestStructureInfo   = fileBrowser.consumeStructureInfoRequest();
 
         if (ImGui::IsKeyPressed(ImGuiKey_Delete) && !selectedInstanceIndices.empty())
             doDeleteSelected = true;
@@ -373,6 +376,7 @@ int main()
 
         requestUndo = requestUndo || fileBrowser.consumeUndoRequest();
         requestRedo = requestRedo || fileBrowser.consumeRedoRequest();
+        requestStructureInfo = requestStructureInfo || fileBrowser.consumeStructureInfoRequest();
 
         if (fileBrowser.consumeResetDefaultViewRequest())
             pendingDefaultViewReset = true;
@@ -415,6 +419,7 @@ int main()
                                    sceneBuffers,
                                    structure);
         drawMeasurementPopups(measurementState);
+        drawStructureInfoDialog(structureInfoDialog, requestStructureInfo, structure);
 
         // Handle deletion of selected atoms
         if (doDeleteSelected && !selectedInstanceIndices.empty())

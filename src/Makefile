@@ -37,6 +37,7 @@ UI_SOURCES = \
     ui/ImGuiSetup.cpp                     \
     ui/MeasurementOverlay.cpp             \
     ui/PeriodicTableDialog.cpp            \
+    ui/StructureInfoDialog.cpp            \
     ui/TransformAtomsDialog.cpp
 
 IO_SOURCES = \
@@ -72,6 +73,29 @@ ifeq ($(UNAME_S), Linux)
   ECHO_MESSAGE = Linux
   CXXFLAGS    += $(shell pkg-config --cflags glfw3 openbabel-3)
   LIBS         = $(shell pkg-config --libs   glfw3 openbabel-3) -lGLEW -lGL -ldl -lpthread
+
+    # spglib package naming differs across distros:
+    # some expose pkg-config as "spglib", others as "symspg".
+    SPGLIB_CFLAGS := $(shell pkg-config --cflags spglib 2>/dev/null)
+    SPGLIB_LIBS   := $(shell pkg-config --libs spglib 2>/dev/null)
+    ifeq ($(strip $(SPGLIB_LIBS)),)
+        SPGLIB_CFLAGS := $(shell pkg-config --cflags symspg 2>/dev/null)
+        SPGLIB_LIBS   := $(shell pkg-config --libs symspg 2>/dev/null)
+    endif
+
+    # Fallback when pkg-config metadata is missing but shared libs are present.
+    ifeq ($(strip $(SPGLIB_LIBS)),)
+        ifneq ($(wildcard /usr/lib/x86_64-linux-gnu/libsymspg.so),)
+            SPGLIB_LIBS := -lsymspg
+        else ifneq ($(wildcard /usr/lib/x86_64-linux-gnu/libspglib.so),)
+            SPGLIB_LIBS := -lspglib
+        endif
+    endif
+
+    ifneq ($(strip $(SPGLIB_LIBS)),)
+        CXXFLAGS += -DATOMS_ENABLE_SPGLIB $(SPGLIB_CFLAGS)
+        LIBS += $(SPGLIB_LIBS)
+    endif
 endif
 
 # ==============================================================================
