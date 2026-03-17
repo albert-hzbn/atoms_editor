@@ -13,10 +13,16 @@ struct SceneBuffers
     GLuint instanceVBO = 0;
     GLuint colorVBO    = 0;
     GLuint scaleVBO    = 0;
+    GLuint bondStartVBO = 0;
+    GLuint bondEndVBO = 0;
+    GLuint bondColorAVBO = 0;
+    GLuint bondColorBVBO = 0;
+    GLuint bondRadiusVBO = 0;
     GLuint lineVAO     = 0;
     GLuint lineVBO     = 0;
 
     size_t         atomCount   = 0;
+    size_t         bondCount   = 0;
     glm::vec3      orbitCenter = glm::vec3(0.0f);
     std::vector<glm::vec3> boxLines;
 
@@ -27,7 +33,7 @@ struct SceneBuffers
     std::vector<int>       atomIndices;
 
     // Allocate GPU objects and wire instance attributes into sphereVAO.
-    void init(GLuint sphereVAO);
+    void init(GLuint sphereVAO, GLuint cylinderVAO);
 
     // Upload a new StructureInstanceData set to the GPU and cache derived data.
     void upload(const StructureInstanceData& data);

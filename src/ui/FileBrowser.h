@@ -27,6 +27,7 @@ struct FileBrowser
     const int (&getTransformMatrix() const)[3][3] { return transformDialog.getMatrix(); }
     void clearTransformMatrix() { transformDialog.clearTransform(); }
     bool isShowElementEnabled() const { return showElementLabels; }
+    bool isShowBondsEnabled() const { return showBonds; }
     bool consumeMeasureDistanceRequest()
     {
         bool requested = requestMeasureDistance;
@@ -65,6 +66,7 @@ private:
     bool showAbout;
     bool showEditColors;
     bool showElementLabels;
+    bool showBonds;
     bool requestMeasureDistance;
     bool requestMeasureAngle;
     bool requestAtomInfo;

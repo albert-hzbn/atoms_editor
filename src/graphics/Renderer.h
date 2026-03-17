@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ShadowMap.h"
+#include "CylinderMesh.h"
 #include "SphereMesh.h"
 
 #include <GL/glew.h>
@@ -12,7 +13,9 @@
 struct Renderer
 {
     GLuint atomProgram   = 0;
+    GLuint bondProgram   = 0;
     GLuint shadowProgram = 0;
+    GLuint bondShadowProgram = 0;
     GLuint lineProgram   = 0;
 
     // Compile and link all shader programs.
@@ -24,6 +27,11 @@ struct Renderer
                         const glm::mat4& lightMVP,
                         size_t atomCount);
 
+    void drawBondShadowPass(const ShadowMap& shadow,
+                            const CylinderMesh& cylinder,
+                            const glm::mat4& lightMVP,
+                            size_t bondCount);
+
     // Render all atoms into the colour buffer with shadow sampling.
     void drawAtoms(const glm::mat4& projection,
                    const glm::mat4& view,
@@ -31,6 +39,13 @@ struct Renderer
                    const ShadowMap& shadow,
                    const SphereMesh& sphere,
                    size_t atomCount);
+
+    void drawBonds(const glm::mat4& projection,
+                   const glm::mat4& view,
+                   const glm::mat4& lightMVP,
+                   const ShadowMap& shadow,
+                   const CylinderMesh& cylinder,
+                   size_t bondCount);
 
     // Render the bounding-box / lattice wireframe.
     void drawBoxLines(const glm::mat4& projection,

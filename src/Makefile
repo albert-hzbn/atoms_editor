@@ -18,6 +18,7 @@ CAMERA_SOURCES = \
     camera/Camera.cpp
 
 GRAPHICS_SOURCES = \
+    graphics/CylinderMesh.cpp             \
     graphics/Renderer.cpp                 \
     graphics/Picking.cpp                  \
     graphics/SceneBuffers.cpp             \

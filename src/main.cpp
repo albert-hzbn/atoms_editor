@@ -6,6 +6,7 @@
 #include "imgui_impl_glfw.h"
 
 #include "Camera.h"
+#include "CylinderMesh.h"
 #include "SphereMesh.h"
 #include "ShadowMap.h"
 #include "StructureLoader.h"
@@ -72,6 +73,7 @@ int main()
     // ----------------------------------------------------------------
 
     SphereMesh sphere(40, 40);
+    CylinderMesh cylinder(32);
 
     std::string filename = "";
     Structure structure = loadStructure(filename);
@@ -84,7 +86,7 @@ int main()
     // ----------------------------------------------------------------
 
     SceneBuffers sceneBuffers;
-    sceneBuffers.init(sphere.vao);
+    sceneBuffers.init(sphere.vao, cylinder.vao);
 
     Renderer renderer;
     renderer.init();
@@ -456,6 +458,12 @@ int main()
         glViewport(0, 0, w, h);
         glClearColor(0.09f, 0.11f, 0.15f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if (fileBrowser.isShowBondsEnabled())
+        {
+            renderer.drawBonds(projection, view, lightMVP,
+                               shadow, cylinder, sceneBuffers.bondCount);
+        }
 
         renderer.drawAtoms(projection, view, lightMVP,
                            shadow, sphere, sceneBuffers.atomCount);
