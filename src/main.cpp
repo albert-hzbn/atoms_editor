@@ -23,6 +23,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <cmath>
+#include <cstdio>
 #include <vector>
 #include <algorithm>
 
@@ -98,6 +99,11 @@ int main()
     std::vector<int> selectedInstanceIndices;
     EditMenuDialogs  editMenuDialogs;
     AtomContextMenu  contextMenu;
+    bool             showDistancePopup = false;
+    char             distanceMessage[256] = {0};
+    bool             showDistanceLine  = false;
+    int              distanceLineIdx0  = -1;
+    int              distanceLineIdx1  = -1;
 
     // ----------------------------------------------------------------
     // Buffer update helper
@@ -235,6 +241,7 @@ int main()
                     sceneBuffers.restoreAtomColor(idx);
                 selectedInstanceIndices.clear();
             }
+            showDistanceLine = false;
         }
 
         // ------------------------------------------------------------
@@ -261,6 +268,7 @@ int main()
         // ------------------------------------------------------------
 
         bool doDeleteSelected = false;
+        bool requestMeasureDistance = false;
 
         if (ImGui::IsKeyPressed(ImGuiKey_Delete) && !selectedInstanceIndices.empty())
             doDeleteSelected = true;
@@ -271,6 +279,7 @@ int main()
             for (int idx : selectedInstanceIndices)
                 sceneBuffers.restoreAtomColor(idx);
             selectedInstanceIndices.clear();
+            showDistanceLine = false;
         }
 
         if (ImGui::IsKeyPressed(ImGuiKey_Escape) && !selectedInstanceIndices.empty())
@@ -278,6 +287,7 @@ int main()
             for (int idx : selectedInstanceIndices)
                 sceneBuffers.restoreAtomColor(idx);
             selectedInstanceIndices.clear();
+            showDistanceLine = false;
         }
 
         if (ImGui::IsKeyPressed(ImGuiKey_A) && ImGui::GetIO().KeyCtrl &&
@@ -299,12 +309,74 @@ int main()
         // ------------------------------------------------------------
 
         fileBrowser.draw(structure, editMenuDialogs, updateBuffers);
+        requestMeasureDistance = requestMeasureDistance || fileBrowser.consumeMeasureDistanceRequest();
 
         contextMenu.draw(structure, sceneBuffers,
                          editMenuDialogs.elementColors,
                          selectedInstanceIndices,
                          doDeleteSelected,
+                         requestMeasureDistance,
                          updateBuffers);
+
+        if (requestMeasureDistance)
+        {
+            if (selectedInstanceIndices.size() != 2)
+            {
+                std::snprintf(distanceMessage, sizeof(distanceMessage),
+                              "Select exactly 2 atoms to measure distance.");
+            }
+            else
+            {
+                int idxA = selectedInstanceIndices[0];
+                int idxB = selectedInstanceIndices[1];
+
+                bool validA = idxA >= 0 && idxA < (int)sceneBuffers.atomPositions.size();
+                bool validB = idxB >= 0 && idxB < (int)sceneBuffers.atomPositions.size();
+
+                if (!validA || !validB)
+                {
+                    std::snprintf(distanceMessage, sizeof(distanceMessage),
+                                  "Unable to measure distance for current selection.");
+                    showDistanceLine = false;
+                }
+                else
+                {
+                    glm::vec3 pA = sceneBuffers.atomPositions[idxA];
+                    glm::vec3 pB = sceneBuffers.atomPositions[idxB];
+                    float distance = glm::length(pA - pB);
+
+                    int baseA = (idxA < (int)sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[idxA] : -1;
+                    int baseB = (idxB < (int)sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[idxB] : -1;
+                    const char* symA = (baseA >= 0 && baseA < (int)structure.atoms.size()) ? structure.atoms[baseA].symbol.c_str() : "A";
+                    const char* symB = (baseB >= 0 && baseB < (int)structure.atoms.size()) ? structure.atoms[baseB].symbol.c_str() : "B";
+
+                    std::snprintf(distanceMessage, sizeof(distanceMessage),
+                                  "Distance %s-%s: %.4f", symA, symB, distance);
+                    showDistanceLine = true;
+                    distanceLineIdx0 = idxA;
+                    distanceLineIdx1 = idxB;
+                }
+            }
+            showDistancePopup = true;
+        }
+
+        if (showDistancePopup)
+        {
+            ImGui::OpenPopup("Measure Distance");
+            showDistancePopup = false;
+        }
+
+        ImGui::SetNextWindowSize(ImVec2(540.0f, 0.0f), ImGuiCond_Appearing);
+        if (ImGui::BeginPopupModal("Measure Distance", nullptr))
+        {
+            ImGui::TextWrapped("%s", distanceMessage);
+            if (ImGui::Button("OK"))
+            {
+                ImGui::CloseCurrentPopup();
+                showDistanceLine = false;
+            }
+            ImGui::EndPopup();
+        }
 
         // Handle deletion of selected atoms
         if (doDeleteSelected && !selectedInstanceIndices.empty())
@@ -364,9 +436,63 @@ int main()
             selectedInstanceIndices.end()
         );
 
+        ImDrawList* drawList = ImGui::GetForegroundDrawList();
+
+        // Draw dotted line between the two atoms measured last (only when active).
+        if (showDistanceLine)
+        {
+            int idxA = distanceLineIdx0;
+            int idxB = distanceLineIdx1;
+            bool validA = idxA >= 0 && idxA < (int)sceneBuffers.atomPositions.size();
+            bool validB = idxB >= 0 && idxB < (int)sceneBuffers.atomPositions.size();
+
+            if (validA && validB)
+            {
+                auto projectToScreen = [&](const glm::vec3& p, float& sx, float& sy) -> bool {
+                    glm::vec4 clip = projection * view * glm::vec4(p, 1.0f);
+                    if (clip.w <= 0.0f)
+                        return false;
+
+                    float invW = 1.0f / clip.w;
+                    float ndcX = clip.x * invW;
+                    float ndcY = clip.y * invW;
+                    float ndcZ = clip.z * invW;
+                    if (ndcX < -1.0f || ndcX > 1.0f || ndcY < -1.0f || ndcY > 1.0f || ndcZ < -1.0f || ndcZ > 1.0f)
+                        return false;
+
+                    sx = (ndcX * 0.5f + 0.5f) * (float)w;
+                    sy = (1.0f - (ndcY * 0.5f + 0.5f)) * (float)h;
+                    return true;
+                };
+
+                float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+                if (projectToScreen(sceneBuffers.atomPositions[idxA], ax, ay) &&
+                    projectToScreen(sceneBuffers.atomPositions[idxB], bx, by))
+                {
+                    float dx = bx - ax;
+                    float dy = by - ay;
+                    float len = std::sqrt(dx * dx + dy * dy);
+                    if (len > 1.0f)
+                    {
+                        const float dashLen = 7.0f;
+                        const float gapLen = 5.0f;
+                        float ux = dx / len;
+                        float uy = dy / len;
+
+                        for (float t = 0.0f; t < len; t += (dashLen + gapLen))
+                        {
+                            float t2 = std::min(t + dashLen, len);
+                            ImVec2 p0(ax + ux * t,  ay + uy * t);
+                            ImVec2 p1(ax + ux * t2, ay + uy * t2);
+                            drawList->AddLine(p0, p1, IM_COL32(255, 255, 80, 230), 2.0f);
+                        }
+                    }
+                }
+            }
+        }
+
         if (fileBrowser.isShowElementEnabled())
         {
-            ImDrawList* drawList = ImGui::GetForegroundDrawList();
             for (size_t i = 0; i < sceneBuffers.atomPositions.size(); ++i)
             {
                 int baseIdx = (i < sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[i] : -1;

@@ -27,6 +27,12 @@ struct FileBrowser
     const int (&getTransformMatrix() const)[3][3] { return transformDialog.getMatrix(); }
     void clearTransformMatrix() { transformDialog.clearTransform(); }
     bool isShowElementEnabled() const { return showElementLabels; }
+    bool consumeMeasureDistanceRequest()
+    {
+        bool requested = requestMeasureDistance;
+        requestMeasureDistance = false;
+        return requested;
+    }
 
     // Programmatically trigger file open dialog (for keyboard shortcuts)
     void openFileDialog() { openStructurePopup = true; }
@@ -41,6 +47,7 @@ private:
     bool showAbout;
     bool showEditColors;
     bool showElementLabels;
+    bool requestMeasureDistance;
     bool openStructurePopup;
     bool saveStructurePopup;
 

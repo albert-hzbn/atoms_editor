@@ -15,6 +15,7 @@ void AtomContextMenu::draw(Structure& structure,
                            const std::vector<glm::vec3>& elementColors,
                            std::vector<int>& selectedInstanceIndices,
                            bool& doDelete,
+                           bool& requestMeasureDistance,
                            const std::function<void(Structure&)>& updateBuffers)
 {
     bool doOpenPeriodicTable = false;
@@ -41,6 +42,12 @@ void AtomContextMenu::draw(Structure& structure,
             doOpenPeriodicTable = true;
         }
         if (!canInsert) ImGui::EndDisabled();
+
+        bool canMeasureDistance = selectedInstanceIndices.size() == 2;
+        if (!canMeasureDistance) ImGui::BeginDisabled();
+        if (ImGui::MenuItem("Measure Distance"))
+            requestMeasureDistance = true;
+        if (!canMeasureDistance) ImGui::EndDisabled();
 
         if (ImGui::MenuItem("Delete"))
             doDelete = true;

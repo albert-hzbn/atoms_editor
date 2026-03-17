@@ -38,6 +38,7 @@ FileBrowser::FileBrowser()
     : showAbout(false),
       showEditColors(false),
     showElementLabels(false),
+    requestMeasureDistance(false),
       openStructurePopup(false),
       saveStructurePopup(false),
       openDir("."),
@@ -119,6 +120,8 @@ void FileBrowser::draw(Structure& structure,
         if (ImGui::BeginMenu("View"))
         {
             ImGui::MenuItem("Show Element", nullptr, &showElementLabels);
+            if (ImGui::MenuItem("Measure Distance (2 selected)"))
+                requestMeasureDistance = true;
             ImGui::EndMenu();
         }
 
