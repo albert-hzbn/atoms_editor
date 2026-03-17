@@ -19,6 +19,13 @@ void AtomContextMenu::draw(Structure& structure,
 {
     bool doOpenPeriodicTable = false;
 
+    // Context menu disabled for large structures (CPU caches not available)
+    if (sceneBuffers.cpuCachesDisabled)
+    {
+        m_openRequested = false;
+        return;
+    }
+
     if (m_openRequested)
     {
         ImGui::OpenPopup("##atomCtx");

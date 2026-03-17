@@ -63,6 +63,13 @@ void handlePendingAtomPick(
     if (!camera.pendingClick)
         return;
 
+    // Picking disabled for large structures (CPU caches not available)
+    if (state.sceneBuffers.cpuCachesDisabled)
+    {
+        camera.pendingClick = false;
+        return;
+    }
+
     camera.pendingClick = false;
     glm::vec3 ray = pickRayDir(camera.clickX, camera.clickY, windowWidth, windowHeight, projection, view);
     int pickedIndex = pickAtom(

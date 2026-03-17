@@ -1,7 +1,39 @@
 #include "Renderer.h"
 #include "Shader.h"
 
+#include <array>
+#include <cmath>
+
 #include <glm/gtc/type_ptr.hpp>
+
+namespace
+{
+std::array<glm::vec4, 6> extractFrustumPlanes(const glm::mat4& vp)
+{
+    const glm::vec4 row0(vp[0][0], vp[1][0], vp[2][0], vp[3][0]);
+    const glm::vec4 row1(vp[0][1], vp[1][1], vp[2][1], vp[3][1]);
+    const glm::vec4 row2(vp[0][2], vp[1][2], vp[2][2], vp[3][2]);
+    const glm::vec4 row3(vp[0][3], vp[1][3], vp[2][3], vp[3][3]);
+
+    std::array<glm::vec4, 6> planes = {
+        row3 + row0, // left
+        row3 - row0, // right
+        row3 + row1, // bottom
+        row3 - row1, // top
+        row3 + row2, // near
+        row3 - row2  // far
+    };
+
+    for (glm::vec4& plane : planes)
+    {
+        const float len = std::sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
+        if (len > 1e-6f)
+            plane /= len;
+    }
+
+    return planes;
+}
+}
 
 // ---------------------------------------------------------------------------
 // Shader sources
@@ -19,6 +51,8 @@ static const char* kAtomVS = R"(
     uniform mat4 projection;
     uniform mat4 view;
     uniform mat4 lightMVP;
+    uniform vec4 frustumPlanes[6];
+    uniform int enableFrustumCulling;
 
     out vec3 fragColor;
     out vec3 fragWorldPos;
@@ -28,6 +62,24 @@ static const char* kAtomVS = R"(
 
     void main()
     {
+        if (enableFrustumCulling != 0)
+        {
+            for (int i = 0; i < 6; ++i)
+            {
+                float signedDistance = dot(frustumPlanes[i].xyz, instancePos) + frustumPlanes[i].w;
+                if (signedDistance < -instanceScale)
+                {
+                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                    FragPosLight = vec4(0.0);
+                    fragColor = vec3(0.0);
+                    fragWorldPos = vec3(0.0);
+                    fragNormal = vec3(0.0, 0.0, 1.0);
+                    fragShininess = instanceShininess;
+                    return;
+                }
+            }
+        }
+
         vec3 worldPos = position * instanceScale + instancePos;
         gl_Position   = projection * view * vec4(worldPos, 1.0);
         FragPosLight  = lightMVP * vec4(worldPos, 1.0);
@@ -323,6 +375,13 @@ void Renderer::drawAtoms(const glm::mat4& projection,
                        1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(glGetUniformLocation(atomProgram, "lightMVP"),
                        1, GL_FALSE, glm::value_ptr(lightMVP));
+
+    const std::array<glm::vec4, 6> frustumPlanes = extractFrustumPlanes(projection * view);
+    glUniform4fv(glGetUniformLocation(atomProgram, "frustumPlanes"),
+                 6,
+                 glm::value_ptr(frustumPlanes[0]));
+    glUniform1i(glGetUniformLocation(atomProgram, "enableFrustumCulling"), 1);
+
     glUniform3fv(glGetUniformLocation(atomProgram, "lightPos"),
                  1, glm::value_ptr(lightPos));
     glUniform3fv(glGetUniformLocation(atomProgram, "viewPos"),

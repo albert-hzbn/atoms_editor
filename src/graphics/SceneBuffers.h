@@ -28,11 +28,15 @@ struct SceneBuffers
     std::vector<glm::vec3> boxLines;
 
     // CPU-side copies used for ray picking.
+    // DISABLED for large structures (>100k atoms) to save memory.
     std::vector<glm::vec3> atomPositions;
     std::vector<glm::vec3> atomColors;   // base colours (no highlight)
     std::vector<float>     atomRadii;
     std::vector<float>     atomShininess;
     std::vector<int>       atomIndices;
+    
+    // Flag: if true, CPU caches are disabled (large structure)
+    bool cpuCachesDisabled = false;
 
     // Allocate GPU objects and wire instance attributes into sphereVAO.
     void init(GLuint sphereVAO, GLuint cylinderVAO);

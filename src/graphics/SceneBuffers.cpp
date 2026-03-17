@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
+#include <iostream>
 
 namespace
 {
@@ -10,10 +12,31 @@ constexpr float kMinBondDistance = 0.10f;
 constexpr float kMinBondRadius = 0.10f;
 constexpr float kMaxBondRadius = 0.24f;
 constexpr float kBondInsetFactor = 0.55f;
+constexpr size_t kMaxBondCount = 1000000;  // Prevent memory exhaustion
+constexpr float kSpatialHashCellSize = 4.0f;  // Cell size for spatial hashing
 
 float clampValue(float value, float minValue, float maxValue)
 {
     return std::max(minValue, std::min(maxValue, value));
+}
+
+// Hash function for spatial grid cell coordinates
+struct Vec3iHash
+{
+    size_t operator()(const glm::ivec3& v) const
+    {
+        return ((size_t)v.x * 73856093) ^ ((size_t)v.y * 19349663) ^ ((size_t)v.z * 83492791);
+    }
+};
+
+// Get grid cell coordinates for a position
+glm::ivec3 getGridCell(const glm::vec3& pos, float cellSize)
+{
+    return glm::ivec3(
+        (int)std::floor(pos.x / cellSize),
+        (int)std::floor(pos.y / cellSize),
+        (int)std::floor(pos.z / cellSize)
+    );
 }
 }
 
@@ -100,11 +123,37 @@ void SceneBuffers::upload(const StructureInstanceData& data)
     bondCount     = 0;
     orbitCenter   = atomCount > 0 ? data.orbitCenter : glm::vec3(0.0f);
     boxLines      = data.boxLines;
-    atomPositions = data.positions;
-    atomColors    = data.colors;
-    atomRadii     = data.scales;
-    atomShininess = data.shininess;
-    atomIndices   = data.atomIndices;
+
+    // Determine if this is a large structure
+    constexpr size_t kCacheCutoff = 100000;
+    cpuCachesDisabled = (atomCount > kCacheCutoff);
+
+    if (!cpuCachesDisabled)
+    {
+        // Small structure: keep CPU caches for picking and undo/redo
+        atomPositions = data.positions;
+        atomColors    = data.colors;
+        atomRadii     = data.scales;
+        atomShininess = data.shininess;
+        atomIndices   = data.atomIndices;
+    }
+    else
+    {
+        // Large structure: disable CPU caches to save memory (~80% reduction)
+        // GPU buffers are still uploaded (used for rendering)
+        std::cerr << "Large structure (" << atomCount << " atoms): CPU caches disabled. "
+                  << "Atom picking and per-atom color editing disabled." << std::endl;
+        atomPositions.clear();
+        atomColors.clear();
+        atomRadii.clear();
+        atomShininess.clear();
+        atomIndices.clear();
+        atomPositions.shrink_to_fit();
+        atomColors.shrink_to_fit();
+        atomRadii.shrink_to_fit();
+        atomShininess.shrink_to_fit();
+        atomIndices.shrink_to_fit();
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER,
@@ -136,49 +185,97 @@ void SceneBuffers::upload(const StructureInstanceData& data)
     std::vector<glm::vec3> bondColorB;
     std::vector<float> bondRadii;
 
-    if (atomPositions.size() >= 2)
+    // Disable bond detection for very large structures (>500k atoms)
+    constexpr size_t kBondDisableCutoff = 500000;
+    if (atomPositions.size() >= 2 && atomCount < kBondDisableCutoff)
     {
-        bondStarts.reserve(atomPositions.size());
-        bondEnds.reserve(atomPositions.size());
-        bondColorA.reserve(atomPositions.size());
-        bondColorB.reserve(atomPositions.size());
-        bondRadii.reserve(atomPositions.size());
+        // Pre-allocate for expected bonds (not squared!)
+        size_t expectedBonds = std::min(atomPositions.size() * 6, kMaxBondCount);
+        bondStarts.reserve(std::min(expectedBonds, kMaxBondCount));
+        bondEnds.reserve(std::min(expectedBonds, kMaxBondCount));
+        bondColorA.reserve(std::min(expectedBonds, kMaxBondCount));
+        bondColorB.reserve(std::min(expectedBonds, kMaxBondCount));
+        bondRadii.reserve(std::min(expectedBonds, kMaxBondCount));
 
+        // Build spatial grid for efficient neighbor lookup
+        std::unordered_map<glm::ivec3, std::vector<size_t>, Vec3iHash> grid;
         for (size_t i = 0; i < atomPositions.size(); ++i)
         {
-            for (size_t j = i + 1; j < atomPositions.size(); ++j)
+            glm::ivec3 cell = getGridCell(atomPositions[i], kSpatialHashCellSize);
+            grid[cell].push_back(i);
+        }
+
+        // Check bonds only within neighboring cells
+        const int neighborRange = 2;  // Check 3x3x3 neighborhood (includes diagonals)
+        for (size_t i = 0; i < atomPositions.size() && bondStarts.size() < kMaxBondCount; ++i)
+        {
+            glm::ivec3 centerCell = getGridCell(atomPositions[i], kSpatialHashCellSize);
+            float radiusA = (i < atomRadii.size()) ? atomRadii[i] : 1.0f;
+
+            // Check all neighboring cells
+            for (int dx = -neighborRange; dx <= neighborRange; ++dx)
             {
-                glm::vec3 delta = atomPositions[j] - atomPositions[i];
-                float distance = glm::length(delta);
-                if (distance <= kMinBondDistance)
-                    continue;
+                for (int dy = -neighborRange; dy <= neighborRange; ++dy)
+                {
+                    for (int dz = -neighborRange; dz <= neighborRange; ++dz)
+                    {
+                        glm::ivec3 neighborCell = centerCell + glm::ivec3(dx, dy, dz);
+                        auto it = grid.find(neighborCell);
+                        if (it == grid.end())
+                            continue;
 
-                float radiusA = (i < atomRadii.size()) ? atomRadii[i] : 1.0f;
-                float radiusB = (j < atomRadii.size()) ? atomRadii[j] : 1.0f;
-                float maxBondDistance = (radiusA + radiusB) * kBondToleranceFactor;
-                if (distance > maxBondDistance)
-                    continue;
+                        for (size_t j : it->second)
+                        {
+                            if (j <= i)
+                                continue;  // Only check each pair once
 
-                glm::vec3 direction = delta / distance;
-                float insetA = std::min(radiusA * kBondInsetFactor, distance * 0.30f);
-                float insetB = std::min(radiusB * kBondInsetFactor, distance * 0.30f);
-                glm::vec3 start = atomPositions[i] + direction * insetA;
-                glm::vec3 end = atomPositions[j] - direction * insetB;
-                float visibleLength = glm::length(end - start);
-                if (visibleLength <= kMinBondDistance)
-                    continue;
+                            glm::vec3 delta = atomPositions[j] - atomPositions[i];
+                            float distance = glm::length(delta);
+                            if (distance <= kMinBondDistance)
+                                continue;
 
-                float bondRadius = clampValue(0.18f * (radiusA + radiusB) * 0.5f,
-                                              kMinBondRadius,
-                                              kMaxBondRadius);
+                            float radiusB = (j < atomRadii.size()) ? atomRadii[j] : 1.0f;
+                            float maxBondDistance = (radiusA + radiusB) * kBondToleranceFactor;
+                            if (distance > maxBondDistance)
+                                continue;
 
-                bondStarts.push_back(start);
-                bondEnds.push_back(end);
-                bondColorA.push_back((i < atomColors.size()) ? atomColors[i] : glm::vec3(0.8f));
-                bondColorB.push_back((j < atomColors.size()) ? atomColors[j] : glm::vec3(0.8f));
-                bondRadii.push_back(bondRadius);
+                            glm::vec3 direction = delta / distance;
+                            float insetA = std::min(radiusA * kBondInsetFactor, distance * 0.30f);
+                            float insetB = std::min(radiusB * kBondInsetFactor, distance * 0.30f);
+                            glm::vec3 start = atomPositions[i] + direction * insetA;
+                            glm::vec3 end = atomPositions[j] - direction * insetB;
+                            float visibleLength = glm::length(end - start);
+                            if (visibleLength <= kMinBondDistance)
+                                continue;
+
+                            float bondRadius = clampValue(0.18f * (radiusA + radiusB) * 0.5f,
+                                                          kMinBondRadius,
+                                                          kMaxBondRadius);
+
+                            bondStarts.push_back(start);
+                            bondEnds.push_back(end);
+                            bondColorA.push_back((i < atomColors.size()) ? atomColors[i] : glm::vec3(0.8f));
+                            bondColorB.push_back((j < atomColors.size()) ? atomColors[j] : glm::vec3(0.8f));
+                            bondRadii.push_back(bondRadius);
+
+                            if (bondStarts.size() >= kMaxBondCount)
+                            {
+                                std::cerr << "Warning: Bond count capped at " << kMaxBondCount
+                                          << " to prevent memory exhaustion. Structure has "
+                                          << atomPositions.size() << " atoms." << std::endl;
+                                goto bonds_done;
+                            }
+                        }
+                    }
+                }
             }
         }
+        bonds_done:;
+    }
+    else if (atomCount >= kBondDisableCutoff)
+    {
+        std::cerr << "Bond detection disabled for structure with " << atomCount 
+                  << " atoms (>500k cutoff). Bonds will not be rendered." << std::endl;
     }
 
     bondCount = bondStarts.size();

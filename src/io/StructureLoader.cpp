@@ -184,11 +184,20 @@ Structure loadStructure(const std::string& filename)
     }
 
     OpenBabel::OBAtomIterator ai;
+    constexpr size_t kWarningAtomCount = 10000;
+    constexpr size_t kMaxAtomCount = 500000;
 
     for(OpenBabel::OBAtom* atom = mol.BeginAtom(ai);
         atom;
         atom = mol.NextAtom(ai))
     {
+        if (structure.atoms.size() >= kMaxAtomCount)
+        {
+            std::cerr << "Warning: Atom count capped at " << kMaxAtomCount 
+                      << " to prevent memory exhaustion." << std::endl;
+            break;
+        }
+
         AtomSite site;
 
         site.atomicNumber = atom->GetAtomicNum();
@@ -201,6 +210,18 @@ Structure loadStructure(const std::string& filename)
         getDefaultElementColor(site.atomicNumber, site.r, site.g, site.b);
 
         structure.atoms.push_back(site);
+
+        if (structure.atoms.size() == kWarningAtomCount)
+        {
+            std::cerr << "Loading large structure with " << kWarningAtomCount 
+                      << " atoms (bond computation: O(n) with spatial hashing)..." << std::endl;
+        }
+    }
+
+    if (structure.atoms.size() > kWarningAtomCount)
+    {
+        std::cerr << "Loaded structure with " << structure.atoms.size() 
+                  << " atoms." << std::endl;
     }
 
     return structure;

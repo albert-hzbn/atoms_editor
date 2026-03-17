@@ -69,6 +69,17 @@ void processMeasurementRequests(MeasurementOverlayState& state,
                                 const SceneBuffers& sceneBuffers,
                                 const Structure& structure)
 {
+    // Measurements disabled for large structures (CPU caches not available)
+    if (sceneBuffers.cpuCachesDisabled)
+    {
+        std::snprintf(state.distanceMessage, sizeof(state.distanceMessage),
+                      "Measurements disabled for large structures (>100k atoms)");
+        std::snprintf(state.angleMessage, sizeof(state.angleMessage),
+                      "Measurements disabled for large structures (>100k atoms)");
+        state.clearVisuals();
+        return;
+    }
+
     if (requestMeasureDistance)
     {
         if (selectedInstanceIndices.size() != 2)
