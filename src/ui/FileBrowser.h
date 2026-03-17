@@ -21,7 +21,9 @@ struct FileBrowser
     // updateBuffers is called whenever a new structure is loaded or edited.
     void draw(Structure& structure,
               EditMenuDialogs& editMenuDialogs,
-              const std::function<void(Structure&)>& updateBuffers);
+              const std::function<void(Structure&)>& updateBuffers,
+              bool canUndo,
+              bool canRedo);
 
     bool isTransformMatrixEnabled() const { return transformDialog.isEnabled(); }
     const int (&getTransformMatrix() const)[3][3] { return transformDialog.getMatrix(); }
@@ -52,6 +54,18 @@ struct FileBrowser
         requestResetDefaultView = false;
         return requested;
     }
+    bool consumeUndoRequest()
+    {
+        bool requested = requestUndo;
+        requestUndo = false;
+        return requested;
+    }
+    bool consumeRedoRequest()
+    {
+        bool requested = requestRedo;
+        requestRedo = false;
+        return requested;
+    }
 
     // Programmatically trigger file open dialog (for keyboard shortcuts)
     void openFileDialog() { openStructurePopup = true; }
@@ -71,6 +85,8 @@ private:
     bool requestMeasureAngle;
     bool requestAtomInfo;
     bool requestResetDefaultView;
+    bool requestUndo;
+    bool requestRedo;
     bool openStructurePopup;
     bool saveStructurePopup;
 

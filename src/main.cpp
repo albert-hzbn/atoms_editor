@@ -19,6 +19,7 @@
 #include "ui/EditMenuDialogs.h"
 #include "ui/AtomContextMenu.h"
 #include "ui/MeasurementOverlay.h"
+#include "UndoRedo.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -101,10 +102,20 @@ int main()
     EditMenuDialogs  editMenuDialogs;
     AtomContextMenu  contextMenu;
     MeasurementOverlayState measurementState;
+    UndoRedoManager undoRedo;
+    bool suppressHistoryCommit = false;
 
     // ----------------------------------------------------------------
     // Buffer update helper
     // ----------------------------------------------------------------
+
+    auto captureSnapshot = [&]() -> EditorSnapshot {
+        EditorSnapshot snapshot;
+        snapshot.structure = structure;
+        snapshot.elementRadii = editMenuDialogs.elementRadii;
+        snapshot.elementColors = editMenuDialogs.elementColors;
+        return snapshot;
+    };
 
     auto updateBuffers = [&](Structure& s) {
         // Treat Transform Atoms as an explicit supercell build step.
@@ -135,9 +146,13 @@ int main()
 
         sceneBuffers.upload(data);
         selectedInstanceIndices.clear();
+
+        if (!suppressHistoryCommit)
+            undoRedo.commit(captureSnapshot());
     };
 
     updateBuffers(structure);
+    undoRedo.reset(captureSnapshot());
 
     bool pendingDefaultViewReset = true;
 
@@ -344,10 +359,42 @@ int main()
         // UI modules
         // ------------------------------------------------------------
 
-        fileBrowser.draw(structure, editMenuDialogs, updateBuffers);
+        bool requestUndo = false;
+        bool requestRedo = false;
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Z) && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift)
+            requestUndo = true;
+        if ((ImGui::IsKeyPressed(ImGuiKey_Y) && ImGui::GetIO().KeyCtrl) ||
+            (ImGui::IsKeyPressed(ImGuiKey_Z) && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift))
+            requestRedo = true;
+
+        fileBrowser.draw(structure, editMenuDialogs, updateBuffers,
+                         undoRedo.canUndo(), undoRedo.canRedo());
+
+        requestUndo = requestUndo || fileBrowser.consumeUndoRequest();
+        requestRedo = requestRedo || fileBrowser.consumeRedoRequest();
 
         if (fileBrowser.consumeResetDefaultViewRequest())
             pendingDefaultViewReset = true;
+
+        auto applySnapshot = [&](const EditorSnapshot& snapshot) {
+            structure = snapshot.structure;
+            editMenuDialogs.elementRadii = snapshot.elementRadii;
+            editMenuDialogs.elementColors = snapshot.elementColors;
+            suppressHistoryCommit = true;
+            updateBuffers(structure);
+            suppressHistoryCommit = false;
+            measurementState.clearVisuals();
+        };
+
+        if (requestUndo && undoRedo.canUndo())
+        {
+            applySnapshot(undoRedo.undo());
+        }
+        else if (requestRedo && undoRedo.canRedo())
+        {
+            applySnapshot(undoRedo.redo());
+        }
 
         AtomRequests ctxReq;
         contextMenu.draw(structure, sceneBuffers,

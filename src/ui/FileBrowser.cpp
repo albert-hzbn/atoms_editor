@@ -41,6 +41,8 @@ FileBrowser::FileBrowser()
             requestMeasureAngle(false),
             requestAtomInfo(false),
             requestResetDefaultView(false),
+            requestUndo(false),
+            requestRedo(false),
             openStructurePopup(false),
             saveStructurePopup(false),
             openDir("."),
@@ -84,7 +86,9 @@ void FileBrowser::initFromPath(const std::string& initialPath)
 
 void FileBrowser::draw(Structure& structure,
                        EditMenuDialogs& editMenuDialogs,
-                       const std::function<void(Structure&)>& updateBuffers)
+                       const std::function<void(Structure&)>& updateBuffers,
+                       bool canUndo,
+                       bool canRedo)
 {
     if (ImGui::BeginMainMenuBar())
     {
@@ -112,6 +116,11 @@ void FileBrowser::draw(Structure& structure,
 
         if (ImGui::BeginMenu("Edit"))
         {
+            if (ImGui::MenuItem("Undo", "Ctrl+Z", false, canUndo))
+                requestUndo = true;
+            if (ImGui::MenuItem("Redo", "Ctrl+Y", false, canRedo))
+                requestRedo = true;
+            ImGui::Separator();
             editMenuDialogs.drawMenuItems();
             ImGui::Separator();
             transformDialog.drawMenuItem(structure.hasUnitCell);
