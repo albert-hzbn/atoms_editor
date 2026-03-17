@@ -1,24 +1,7 @@
-#include <array>
-
-// Static array of element symbols for atomic numbers 1-118
-static const std::array<const char*, 119> elementSymbols = {
-    "", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
-    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
-    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
-    "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
-    "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
-    "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
-    "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
-    "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
-    "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm",
-    "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds",
-    "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og"
-};
 #include "FileBrowser.h"
+#include "ElementData.h"
 #include "io/StructureLoader.h"
 #include "graphics/StructureInstanceBuilder.h"
-
 #include "ui/PeriodicTableDialog.h"
 
 #include "imgui.h"
@@ -26,7 +9,6 @@ static const std::array<const char*, 119> elementSymbols = {
 #include <openbabel3/openbabel/elements.h>
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -34,13 +16,33 @@ static const std::array<const char*, 119> elementSymbols = {
 #include <dirent.h>
 #include <sys/stat.h>
 
+// ---------------------------------------------------------------------------
+// Save-format table (used by the Save As dialog)
+// ---------------------------------------------------------------------------
+struct SaveFormat { const char* label; const char* ext; const char* fmt; };
+static const SaveFormat kSaveFormats[] = {
+    { "XYZ (.xyz)",               ".xyz",  "xyz"   },
+    { "CIF (.cif)",               ".cif",  "cif"   },
+    { "VASP POSCAR (.vasp)",      ".vasp", "vasp"  },
+    { "PDB (.pdb)",               ".pdb",  "pdb"   },
+    { "SDF (.sdf)",               ".sdf",  "sdf"   },
+    { "Mol2 (.mol2)",             ".mol2", "mol2"  },
+    { "Quantum ESPRESSO (.pwi)",  ".pwi",  "pwscf" },
+    { "Gaussian Input (.gjf)",    ".gjf",  "gjf"   },
+};
+static constexpr int kNumSaveFormats = (int)(sizeof(kSaveFormats) / sizeof(kSaveFormats[0]));
+
 FileBrowser::FileBrowser()
-    : showAbout(false),
-      showEditColors(false),
-    showElementLabels(false),
-    requestMeasureDistance(false),      requestMeasureAngle(false),      requestAtomInfo(false),      openStructurePopup(false),
-      saveStructurePopup(false),
-      openDir("."),
+        : showAbout(false),
+            showEditColors(false),
+            showElementLabels(false),
+            requestMeasureDistance(false),
+            requestMeasureAngle(false),
+            requestAtomInfo(false),
+            requestResetDefaultView(false),
+            openStructurePopup(false),
+            saveStructurePopup(false),
+            openDir("."),
       historyIndex(-1),
       saveDir("."),
       saveHistoryIndex(-1),
@@ -125,6 +127,8 @@ void FileBrowser::draw(Structure& structure,
                 requestMeasureAngle = true;
             if (ImGui::MenuItem("Atom Info (1 selected)"))
                 requestAtomInfo = true;
+            if (ImGui::MenuItem("Reset Default View"))
+                requestResetDefaultView = true;
             ImGui::EndMenu();
         }
 
@@ -285,6 +289,7 @@ void FileBrowser::draw(Structure& structure,
                 }
 
                 updateBuffers(structure);
+                requestResetDefaultView = true;
             }
             ImGui::CloseCurrentPopup();
         }
@@ -304,35 +309,24 @@ void FileBrowser::draw(Structure& structure,
         saveStructurePopup = false;
     }
 
-    // Format table (label shown in combo, file extension, OpenBabel id)
-    static const struct { const char* label; const char* ext; const char* fmt; } kFmts[] = {
-        { "XYZ (.xyz)",                ".xyz",  "xyz"   },
-        { "CIF (.cif)",                ".cif",  "cif"   },
-        { "VASP POSCAR (.vasp)",       ".vasp", "vasp"  },
-        { "PDB (.pdb)",                ".pdb",  "pdb"   },
-        { "SDF (.sdf)",                ".sdf",  "sdf"   },
-        { "Mol2 (.mol2)",              ".mol2", "mol2"  },
-        { "Quantum ESPRESSO (.pwi)",   ".pwi",  "pwscf" },
-        { "Gaussian Input (.gjf)",     ".gjf",  "gjf"   },
-    };
-    static const int kNumFmts = (int)(sizeof(kFmts) / sizeof(kFmts[0]));
-
     ImGui::SetNextWindowSize(ImVec2(560, 480), ImGuiCond_FirstUseEver);
     if (ImGui::BeginPopupModal("Save As", NULL, ImGuiWindowFlags_AlwaysAutoResize))
     {
+        // Helper: navigate to a new directory and record it in history.
+        auto pushSaveDir = [&](const std::string& dir) {
+            saveDir = dir;
+            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
+                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
+            saveDirHistory.push_back(saveDir);
+            saveHistoryIndex = (int)saveDirHistory.size() - 1;
+        };
+
         ImGui::Text("Current folder: %s", saveDir.c_str());
         ImGui::SameLine();
         if (ImGui::Button("..##save"))
         {
             auto pos = saveDir.find_last_of("/\\");
-            if (pos != std::string::npos)
-                saveDir = saveDir.substr(0, pos);
-            else
-                saveDir = ".";
-            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
-                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
-            saveDirHistory.push_back(saveDir);
-            saveHistoryIndex = (int)saveDirHistory.size() - 1;
+            pushSaveDir(pos != std::string::npos ? saveDir.substr(0, pos) : ".");
         }
         ImGui::SameLine();
         if (ImGui::Button("Back##save") && saveHistoryIndex > 0)
@@ -348,22 +342,10 @@ void FileBrowser::draw(Structure& structure,
         }
         ImGui::SameLine();
         if (ImGui::Button("Root##save"))
-        {
-            saveDir = "/";
-            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
-                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
-            saveDirHistory.push_back(saveDir);
-            saveHistoryIndex = (int)saveDirHistory.size() - 1;
-        }
+            pushSaveDir("/");
         ImGui::SameLine();
         if (ImGui::Button("Home##save") && !driveRoots.empty())
-        {
-            saveDir = driveRoots[1];
-            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
-                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
-            saveDirHistory.push_back(saveDir);
-            saveHistoryIndex = (int)saveDirHistory.size() - 1;
-        }
+            pushSaveDir(driveRoots[1]);
 
         ImGui::Separator();
 
@@ -403,11 +385,7 @@ void FileBrowser::draw(Structure& structure,
                         std::string lbl = std::string("[DIR] ") + name + "##" + name;
                         if (ImGui::Selectable(lbl.c_str()))
                         {
-                            saveDir = (saveDir == "." ? name : saveDir + "/" + name);
-                            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
-                                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
-                            saveDirHistory.push_back(saveDir);
-                            saveHistoryIndex = (int)saveDirHistory.size() - 1;
+                            pushSaveDir(saveDir == "." ? name : saveDir + "/" + name);
                         }
                     }
                     else
@@ -430,25 +408,18 @@ void FileBrowser::draw(Structure& structure,
         ImGui::InputText("Filename##save", saveFilename, sizeof(saveFilename));
 
         // Format selector
-        static const char* kFmtLabels[] = {
-            "XYZ (.xyz)",
-            "CIF (.cif)",
-            "VASP POSCAR (.vasp)",
-            "PDB (.pdb)",
-            "SDF (.sdf)",
-            "Mol2 (.mol2)",
-            "Quantum ESPRESSO (.pwi)",
-            "Gaussian Input (.gjf)",
-        };
-        if (ImGui::Combo("Format", &selectedSaveFormat, kFmtLabels, kNumFmts))
+        if (ImGui::Combo("Format", &selectedSaveFormat,
+                         [](void* d, int i) -> const char* {
+                             return static_cast<const SaveFormat*>(d)[i].label;
+                         }, (void*)kSaveFormats, kNumSaveFormats))
         {
             // Auto-update file extension when format changes
             std::string fn(saveFilename);
             auto dot = fn.find_last_of('.');
             std::string base = (dot != std::string::npos) ? fn.substr(0, dot) : fn;
             if (base.empty()) base = "structure";
-            std::string newName = base + kFmts[selectedSaveFormat].ext;
-            std::snprintf(saveFilename, sizeof(saveFilename), "%s", newName.c_str());
+            std::snprintf(saveFilename, sizeof(saveFilename), "%s%s",
+                          base.c_str(), kSaveFormats[selectedSaveFormat].ext);
             saveStatusMsg[0] = '\0';
         }
 
@@ -475,7 +446,7 @@ void FileBrowser::draw(Structure& structure,
                     Structure structureToSave = (isTransformMatrixEnabled() && structure.hasUnitCell)
                         ? buildSupercell(structure, getTransformMatrix())
                         : structure;
-                    bool ok = saveStructure(structureToSave, fullPath, kFmts[selectedSaveFormat].fmt);
+                    bool ok = saveStructure(structureToSave, fullPath, kSaveFormats[selectedSaveFormat].fmt);
                 if (ok)
                 {
                     ImGui::CloseCurrentPopup();
@@ -574,7 +545,7 @@ void FileBrowser::draw(Structure& structure,
 
         if (selectedAtomicNumber >= 1 && selectedAtomicNumber <= 118)
         {
-            const char* selectedElementSymbol = (selectedAtomicNumber >= 1 && selectedAtomicNumber <= 118) ? elementSymbols[selectedAtomicNumber] : "?";
+            const char* selectedElementSymbol = elementSymbol(selectedAtomicNumber);
 
             // Determine the current color (override > structure atoms > default CPK)
             float color[3] = {0.0f, 0.0f, 0.0f};

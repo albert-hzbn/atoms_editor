@@ -6,8 +6,8 @@ class Camera
 public:
 
     // trackball parameters
-    float yaw   = 0.0f;
-    float pitch = 20.0f;
+    float yaw   = 45.0f;
+    float pitch = 35.2643897f;
 
     float distance = 10.0f;
 

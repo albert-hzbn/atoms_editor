@@ -1,0 +1,398 @@
+#include "ui/MeasurementOverlay.h"
+
+#include "ElementData.h"
+#include "imgui.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+
+namespace
+{
+constexpr float kPi = 3.14159265358979323846f;
+
+bool projectToScreen(const glm::vec3& p,
+                     const glm::mat4& projection,
+                     const glm::mat4& view,
+                     int w,
+                     int h,
+                     float& sx,
+                     float& sy)
+{
+    glm::vec4 clip = projection * view * glm::vec4(p, 1.0f);
+    if (clip.w <= 0.0f)
+        return false;
+
+    float invW = 1.0f / clip.w;
+    float nx = clip.x * invW;
+    float ny = clip.y * invW;
+    float nz = clip.z * invW;
+    if (nx < -1.0f || nx > 1.0f || ny < -1.0f || ny > 1.0f || nz < -1.0f || nz > 1.0f)
+        return false;
+
+    sx = (nx * 0.5f + 0.5f) * (float)w;
+    sy = (1.0f - (ny * 0.5f + 0.5f)) * (float)h;
+    return true;
+}
+
+void drawDashedLine(ImDrawList* drawList, ImVec2 a, ImVec2 b, ImU32 col)
+{
+    float dx = b.x - a.x;
+    float dy = b.y - a.y;
+    float len = std::sqrt(dx * dx + dy * dy);
+    if (len < 1.0f)
+        return;
+
+    float ux = dx / len;
+    float uy = dy / len;
+    for (float t = 0.0f; t < len; t += 12.0f)
+    {
+        float t2 = std::min(t + 7.0f, len);
+        drawList->AddLine(ImVec2(a.x + ux * t, a.y + uy * t),
+                          ImVec2(a.x + ux * t2, a.y + uy * t2),
+                          col, 2.0f);
+    }
+}
+} // namespace
+
+void MeasurementOverlayState::clearVisuals()
+{
+    showDistanceLine = false;
+    showAngleLines = false;
+}
+
+void processMeasurementRequests(MeasurementOverlayState& state,
+                                bool requestMeasureDistance,
+                                bool requestMeasureAngle,
+                                bool requestAtomInfo,
+                                const std::vector<int>& selectedInstanceIndices,
+                                const SceneBuffers& sceneBuffers,
+                                const Structure& structure)
+{
+    if (requestMeasureDistance)
+    {
+        if (selectedInstanceIndices.size() != 2)
+        {
+            std::snprintf(state.distanceMessage, sizeof(state.distanceMessage),
+                          "Select exactly 2 atoms to measure distance.");
+        }
+        else
+        {
+            int idxA = selectedInstanceIndices[0];
+            int idxB = selectedInstanceIndices[1];
+
+            bool validA = idxA >= 0 && idxA < (int)sceneBuffers.atomPositions.size();
+            bool validB = idxB >= 0 && idxB < (int)sceneBuffers.atomPositions.size();
+
+            if (!validA || !validB)
+            {
+                std::snprintf(state.distanceMessage, sizeof(state.distanceMessage),
+                              "Unable to measure distance for current selection.");
+                state.showDistanceLine = false;
+            }
+            else
+            {
+                glm::vec3 pA = sceneBuffers.atomPositions[idxA];
+                glm::vec3 pB = sceneBuffers.atomPositions[idxB];
+                float distance = glm::length(pA - pB);
+
+                int baseA = (idxA < (int)sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[idxA] : -1;
+                int baseB = (idxB < (int)sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[idxB] : -1;
+                const char* symA = (baseA >= 0 && baseA < (int)structure.atoms.size()) ? structure.atoms[baseA].symbol.c_str() : "A";
+                const char* symB = (baseB >= 0 && baseB < (int)structure.atoms.size()) ? structure.atoms[baseB].symbol.c_str() : "B";
+
+                std::snprintf(state.distanceMessage, sizeof(state.distanceMessage),
+                              "Distance %s-%s: %.4f", symA, symB, distance);
+                state.showDistanceLine = true;
+                state.distanceLineIdx0 = idxA;
+                state.distanceLineIdx1 = idxB;
+            }
+        }
+        state.showDistancePopup = true;
+    }
+
+    if (requestMeasureAngle)
+    {
+        if (selectedInstanceIndices.size() != 3)
+        {
+            std::snprintf(state.angleMessage, sizeof(state.angleMessage),
+                          "Select exactly 3 atoms to measure angle.");
+            state.showAngleLines = false;
+        }
+        else
+        {
+            int idx0 = selectedInstanceIndices[0];
+            int idx1 = selectedInstanceIndices[1];
+            int idx2 = selectedInstanceIndices[2];
+
+            bool ok = idx0 >= 0 && idx0 < (int)sceneBuffers.atomPositions.size() &&
+                      idx1 >= 0 && idx1 < (int)sceneBuffers.atomPositions.size() &&
+                      idx2 >= 0 && idx2 < (int)sceneBuffers.atomPositions.size();
+            if (!ok)
+            {
+                std::snprintf(state.angleMessage, sizeof(state.angleMessage),
+                              "Unable to measure angle for current selection.");
+                state.showAngleLines = false;
+            }
+            else
+            {
+                glm::vec3 p0 = sceneBuffers.atomPositions[idx0];
+                glm::vec3 p1 = sceneBuffers.atomPositions[idx1];
+                glm::vec3 p2 = sceneBuffers.atomPositions[idx2];
+
+                glm::vec3 v0 = glm::normalize(p0 - p1);
+                glm::vec3 v2 = glm::normalize(p2 - p1);
+                float cosA = glm::clamp(glm::dot(v0, v2), -1.0f, 1.0f);
+                float angleDeg = glm::degrees(std::acos(cosA));
+
+                int b0 = (idx0 < (int)sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[idx0] : -1;
+                int b1 = (idx1 < (int)sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[idx1] : -1;
+                int b2 = (idx2 < (int)sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[idx2] : -1;
+                const char* s0 = (b0 >= 0 && b0 < (int)structure.atoms.size()) ? structure.atoms[b0].symbol.c_str() : "A";
+                const char* s1 = (b1 >= 0 && b1 < (int)structure.atoms.size()) ? structure.atoms[b1].symbol.c_str() : "B";
+                const char* s2 = (b2 >= 0 && b2 < (int)structure.atoms.size()) ? structure.atoms[b2].symbol.c_str() : "C";
+
+                std::snprintf(state.angleMessage, sizeof(state.angleMessage),
+                              "Angle %s-%s-%s: %.2f deg", s0, s1, s2, angleDeg);
+                state.showAngleLines = true;
+                state.angleLineIdx0 = idx0;
+                state.angleLineIdx1 = idx1;
+                state.angleLineIdx2 = idx2;
+            }
+        }
+        state.showAnglePopup = true;
+    }
+
+    if (requestAtomInfo)
+    {
+        if (selectedInstanceIndices.size() != 1)
+        {
+            std::snprintf(state.atomInfoMessage, sizeof(state.atomInfoMessage),
+                          "Select exactly 1 atom to view info.");
+        }
+        else
+        {
+            int idx = selectedInstanceIndices[0];
+            bool valid = idx >= 0 && idx < (int)sceneBuffers.atomPositions.size() &&
+                         idx < (int)sceneBuffers.atomIndices.size();
+            if (!valid)
+            {
+                std::snprintf(state.atomInfoMessage, sizeof(state.atomInfoMessage),
+                              "Unable to retrieve atom info.");
+            }
+            else
+            {
+                int baseIdx = sceneBuffers.atomIndices[idx];
+                glm::vec3 pos = sceneBuffers.atomPositions[idx];
+                int len = 0;
+
+                if (baseIdx >= 0 && baseIdx < (int)structure.atoms.size())
+                {
+                    const AtomSite& atom = structure.atoms[baseIdx];
+                    len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                         "Element:  %s (%s)\n",
+                                         elementName(atom.atomicNumber), atom.symbol.c_str());
+                    len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                         "Atomic number:  %d\n", atom.atomicNumber);
+                }
+
+                len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                     "Cartesian:  (%.6f, %.6f, %.6f) A\n",
+                                     pos.x, pos.y, pos.z);
+
+                if (structure.hasUnitCell)
+                {
+                    glm::mat3 cellMat(
+                        glm::vec3((float)structure.cellVectors[0][0],
+                                  (float)structure.cellVectors[0][1],
+                                  (float)structure.cellVectors[0][2]),
+                        glm::vec3((float)structure.cellVectors[1][0],
+                                  (float)structure.cellVectors[1][1],
+                                  (float)structure.cellVectors[1][2]),
+                        glm::vec3((float)structure.cellVectors[2][0],
+                                  (float)structure.cellVectors[2][1],
+                                  (float)structure.cellVectors[2][2]));
+                    glm::vec3 origin((float)structure.cellOffset[0],
+                                     (float)structure.cellOffset[1],
+                                     (float)structure.cellOffset[2]);
+                    glm::vec3 frac = glm::inverse(cellMat) * (pos - origin);
+                    std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                  "Direct:  (%.6f, %.6f, %.6f)",
+                                  frac.x, frac.y, frac.z);
+                }
+            }
+        }
+        state.showAtomInfoPopup = true;
+    }
+}
+
+void drawMeasurementPopups(MeasurementOverlayState& state)
+{
+    if (state.showAnglePopup)
+    {
+        ImGui::OpenPopup("Measure Angle");
+        state.showAnglePopup = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(540.0f, 0.0f), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Measure Angle", nullptr))
+    {
+        ImGui::TextWrapped("%s", state.angleMessage);
+        if (ImGui::Button("OK"))
+        {
+            ImGui::CloseCurrentPopup();
+            state.showAngleLines = false;
+        }
+        ImGui::EndPopup();
+    }
+
+    if (state.showDistancePopup)
+    {
+        ImGui::OpenPopup("Measure Distance");
+        state.showDistancePopup = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(540.0f, 0.0f), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Measure Distance", nullptr))
+    {
+        ImGui::TextWrapped("%s", state.distanceMessage);
+        if (ImGui::Button("OK"))
+        {
+            ImGui::CloseCurrentPopup();
+            state.showDistanceLine = false;
+        }
+        ImGui::EndPopup();
+    }
+
+    if (state.showAtomInfoPopup)
+    {
+        ImGui::OpenPopup("Atom Info");
+        state.showAtomInfoPopup = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(480.0f, 0.0f), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Atom Info", nullptr))
+    {
+        ImGui::TextWrapped("%s", state.atomInfoMessage);
+        if (ImGui::Button("OK"))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+}
+
+void drawMeasurementOverlays(const MeasurementOverlayState& state,
+                             ImDrawList* drawList,
+                             const glm::mat4& projection,
+                             const glm::mat4& view,
+                             int viewportWidth,
+                             int viewportHeight,
+                             const SceneBuffers& sceneBuffers)
+{
+    if (state.showDistanceLine)
+    {
+        int idxA = state.distanceLineIdx0;
+        int idxB = state.distanceLineIdx1;
+        bool validA = idxA >= 0 && idxA < (int)sceneBuffers.atomPositions.size();
+        bool validB = idxB >= 0 && idxB < (int)sceneBuffers.atomPositions.size();
+
+        if (validA && validB)
+        {
+            float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+            if (projectToScreen(sceneBuffers.atomPositions[idxA], projection, view, viewportWidth, viewportHeight, ax, ay) &&
+                projectToScreen(sceneBuffers.atomPositions[idxB], projection, view, viewportWidth, viewportHeight, bx, by))
+            {
+                float dx = bx - ax;
+                float dy = by - ay;
+                float len = std::sqrt(dx * dx + dy * dy);
+                if (len > 1.0f)
+                {
+                    const float dashLen = 7.0f;
+                    const float gapLen = 5.0f;
+                    float ux = dx / len;
+                    float uy = dy / len;
+
+                    for (float t = 0.0f; t < len; t += (dashLen + gapLen))
+                    {
+                        float t2 = std::min(t + dashLen, len);
+                        ImVec2 p0(ax + ux * t, ay + uy * t);
+                        ImVec2 p1(ax + ux * t2, ay + uy * t2);
+                        drawList->AddLine(p0, p1, IM_COL32(255, 255, 80, 230), 2.0f);
+                    }
+                }
+            }
+        }
+    }
+
+    if (state.showAngleLines)
+    {
+        bool ok = state.angleLineIdx0 >= 0 && state.angleLineIdx0 < (int)sceneBuffers.atomPositions.size() &&
+                  state.angleLineIdx1 >= 0 && state.angleLineIdx1 < (int)sceneBuffers.atomPositions.size() &&
+                  state.angleLineIdx2 >= 0 && state.angleLineIdx2 < (int)sceneBuffers.atomPositions.size();
+
+        if (ok)
+        {
+            float x0, y0, x1, y1, x2, y2;
+            bool v0ok = projectToScreen(sceneBuffers.atomPositions[state.angleLineIdx0], projection, view, viewportWidth, viewportHeight, x0, y0);
+            bool v1ok = projectToScreen(sceneBuffers.atomPositions[state.angleLineIdx1], projection, view, viewportWidth, viewportHeight, x1, y1);
+            bool v2ok = projectToScreen(sceneBuffers.atomPositions[state.angleLineIdx2], projection, view, viewportWidth, viewportHeight, x2, y2);
+
+            ImU32 col = IM_COL32(80, 220, 255, 230);
+            if (v0ok && v1ok) drawDashedLine(drawList, ImVec2(x0, y0), ImVec2(x1, y1), col);
+            if (v2ok && v1ok) drawDashedLine(drawList, ImVec2(x2, y2), ImVec2(x1, y1), col);
+
+            if (v0ok && v1ok && v2ok)
+            {
+                float d0x = x0 - x1;
+                float d0y = y0 - y1;
+                float d2x = x2 - x1;
+                float d2y = y2 - y1;
+                float len0 = std::sqrt(d0x * d0x + d0y * d0y);
+                float len2 = std::sqrt(d2x * d2x + d2y * d2y);
+                float r = std::min({len0, len2, 30.0f}) * 0.35f;
+                if (r > 4.0f)
+                {
+                    float a0 = std::atan2(d0y, d0x);
+                    float a2 = std::atan2(d2y, d2x);
+                    float da = a2 - a0;
+                    while (da > kPi) da -= 2.0f * kPi;
+                    while (da < -kPi) da += 2.0f * kPi;
+                    const int segs = 20;
+                    for (int s = 0; s < segs; ++s)
+                    {
+                        float t0 = a0 + da * ((float)s / segs);
+                        float t1 = a0 + da * ((float)(s + 1) / segs);
+                        drawList->AddLine(ImVec2(x1 + r * std::cos(t0), y1 + r * std::sin(t0)),
+                                          ImVec2(x1 + r * std::cos(t1), y1 + r * std::sin(t1)),
+                                          col, 1.5f);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void drawElementLabelsOverlay(ImDrawList* drawList,
+                              const glm::mat4& projection,
+                              const glm::mat4& view,
+                              int viewportWidth,
+                              int viewportHeight,
+                              const SceneBuffers& sceneBuffers,
+                              const Structure& structure)
+{
+    for (size_t i = 0; i < sceneBuffers.atomPositions.size(); ++i)
+    {
+        int baseIdx = (i < sceneBuffers.atomIndices.size()) ? sceneBuffers.atomIndices[i] : -1;
+        if (baseIdx < 0 || baseIdx >= (int)structure.atoms.size())
+            continue;
+
+        float sx, sy;
+        if (!projectToScreen(sceneBuffers.atomPositions[i], projection, view, viewportWidth, viewportHeight, sx, sy))
+            continue;
+
+        const std::string& label = structure.atoms[baseIdx].symbol;
+        ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+        drawList->AddText(ImVec2(sx - textSize.x * 0.5f, sy - textSize.y * 0.5f),
+                          IM_COL32(255, 255, 255, 255),
+                          label.c_str());
+    }
+}

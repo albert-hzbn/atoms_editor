@@ -14,10 +14,7 @@ void AtomContextMenu::draw(Structure& structure,
                            SceneBuffers& sceneBuffers,
                            const std::vector<glm::vec3>& elementColors,
                            std::vector<int>& selectedInstanceIndices,
-                           bool& doDelete,
-                           bool& requestMeasureDistance,
-                           bool& requestMeasureAngle,
-                           bool& requestAtomInfo,
+                           AtomRequests& requests,
                            const std::function<void(Structure&)>& updateBuffers)
 {
     bool doOpenPeriodicTable = false;
@@ -48,23 +45,23 @@ void AtomContextMenu::draw(Structure& structure,
         bool canMeasureDistance = selectedInstanceIndices.size() == 2;
         if (!canMeasureDistance) ImGui::BeginDisabled();
         if (ImGui::MenuItem("Measure Distance"))
-            requestMeasureDistance = true;
+            requests.measureDistance = true;
         if (!canMeasureDistance) ImGui::EndDisabled();
 
         bool canMeasureAngle = selectedInstanceIndices.size() == 3;
         if (!canMeasureAngle) ImGui::BeginDisabled();
         if (ImGui::MenuItem("Measure Angle"))
-            requestMeasureAngle = true;
+            requests.measureAngle = true;
         if (!canMeasureAngle) ImGui::EndDisabled();
 
         bool canShowInfo = selectedInstanceIndices.size() == 1;
         if (!canShowInfo) ImGui::BeginDisabled();
         if (ImGui::MenuItem("Atom Info"))
-            requestAtomInfo = true;
+            requests.atomInfo = true;
         if (!canShowInfo) ImGui::EndDisabled();
 
         if (ImGui::MenuItem("Delete"))
-            doDelete = true;
+            requests.doDelete = true;
 
         if (ImGui::MenuItem("Deselect"))
         {

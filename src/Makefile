@@ -34,6 +34,7 @@ UI_SOURCES = \
     ui/EditMenuDialogs.cpp                \
     ui/FileBrowser.cpp                    \
     ui/ImGuiSetup.cpp                     \
+    ui/MeasurementOverlay.cpp             \
     ui/PeriodicTableDialog.cpp            \
     ui/TransformAtomsDialog.cpp
 

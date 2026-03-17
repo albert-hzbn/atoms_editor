@@ -10,6 +10,16 @@
 
 // Manages the right-click context menu and the periodic-table picker that
 // drives Substitute and Insert-at-Midpoint actions.
+
+// Requests produced by the context menu (and forwarded from the View menu).
+// All fields start false; main.cpp ORs them with the per-frame booleans.
+struct AtomRequests {
+    bool doDelete        = false;
+    bool measureDistance = false;
+    bool measureAngle    = false;
+    bool atomInfo        = false;
+};
+
 struct AtomContextMenu
 {
     // Signal that the menu should open on the next draw() call.
@@ -22,10 +32,7 @@ struct AtomContextMenu
               SceneBuffers& sceneBuffers,
               const std::vector<glm::vec3>& elementColors,
               std::vector<int>& selectedInstanceIndices,
-              bool& doDelete,
-              bool& requestMeasureAngle,
-              bool& requestMeasureDistance,
-              bool& requestAtomInfo,
+              AtomRequests& requests,
               const std::function<void(Structure&)>& updateBuffers);
 
 private:
