@@ -31,7 +31,8 @@ void TransformAtomsDialog::drawDialog(const std::function<void()>& onApply)
         showDialog = false;
     }
 
-    if (ImGui::BeginPopupModal("Transform Atoms", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    bool transformAtomsOpen = true;
+    if (ImGui::BeginPopupModal("Transform Atoms", &transformAtomsOpen, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Text("Enter 3x3 integer transformation matrix:");
 
@@ -52,11 +53,8 @@ void TransformAtomsDialog::drawDialog(const std::function<void()>& onApply)
             ImGui::CloseCurrentPopup();
             onApply();
         }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
-            ImGui::CloseCurrentPopup();
-
         ImGui::EndPopup();
     }
+    if (!transformAtomsOpen)
+        ImGui::CloseCurrentPopup();
 }

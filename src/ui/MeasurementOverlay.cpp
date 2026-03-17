@@ -235,15 +235,16 @@ void drawMeasurementPopups(MeasurementOverlayState& state)
     }
 
     ImGui::SetNextWindowSize(ImVec2(540.0f, 0.0f), ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal("Measure Angle", nullptr))
+    bool measureAngleOpen = true;
+    if (ImGui::BeginPopupModal("Measure Angle", &measureAngleOpen))
     {
         ImGui::TextWrapped("%s", state.angleMessage);
-        if (ImGui::Button("OK"))
-        {
-            ImGui::CloseCurrentPopup();
-            state.showAngleLines = false;
-        }
         ImGui::EndPopup();
+    }
+    if (!measureAngleOpen)
+    {
+        state.showAngleLines = false;
+        ImGui::CloseCurrentPopup();
     }
 
     if (state.showDistancePopup)
@@ -253,15 +254,16 @@ void drawMeasurementPopups(MeasurementOverlayState& state)
     }
 
     ImGui::SetNextWindowSize(ImVec2(540.0f, 0.0f), ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal("Measure Distance", nullptr))
+    bool measureDistanceOpen = true;
+    if (ImGui::BeginPopupModal("Measure Distance", &measureDistanceOpen))
     {
         ImGui::TextWrapped("%s", state.distanceMessage);
-        if (ImGui::Button("OK"))
-        {
-            ImGui::CloseCurrentPopup();
-            state.showDistanceLine = false;
-        }
         ImGui::EndPopup();
+    }
+    if (!measureDistanceOpen)
+    {
+        state.showDistanceLine = false;
+        ImGui::CloseCurrentPopup();
     }
 
     if (state.showAtomInfoPopup)
@@ -271,13 +273,14 @@ void drawMeasurementPopups(MeasurementOverlayState& state)
     }
 
     ImGui::SetNextWindowSize(ImVec2(480.0f, 0.0f), ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal("Atom Info", nullptr))
+    bool atomInfoOpen = true;
+    if (ImGui::BeginPopupModal("Atom Info", &atomInfoOpen))
     {
         ImGui::TextWrapped("%s", state.atomInfoMessage);
-        if (ImGui::Button("OK"))
-            ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
+    if (!atomInfoOpen)
+        ImGui::CloseCurrentPopup();
 }
 
 void drawMeasurementOverlays(const MeasurementOverlayState& state,

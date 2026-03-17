@@ -228,7 +228,7 @@ bool drawPeriodicTable(std::vector<ElementSelection>& outSelections)
     const float cellW = 44.0f;
     const float cellH = 34.0f;
     const float padX  =  6.0f; // left margin
-    const float padY  =  4.0f; // top margin (below title bar, within content area)
+    const float padY  = 10.0f; // top margin to keep H/He clear of the window clip rect
     const float fGap  = 10.0f; // gap between main rows and f-block
 
     // Returns window-local Y for the top of a given row (1-9).
@@ -405,7 +405,7 @@ bool drawPeriodicTableInlineSelector(int& selectedAtomicNumber)
     const float cellW = 44.0f;
     const float cellH = 34.0f;
     const float padX  =  6.0f;
-    const float padY  =  4.0f;
+    const float padY  = 10.0f;
     const float fGap  = 10.0f;
 
     auto rowLocalY = [&](int row) -> float {

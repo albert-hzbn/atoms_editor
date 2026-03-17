@@ -37,7 +37,8 @@ void EditMenuDialogs::drawPopups(Structure& structure,
     // Atomic Sizes modal
     // ------------------------------------------------------------------
 
-    if (ImGui::BeginPopupModal("Atomic Sizes##edit", nullptr,
+    bool atomicSizesOpen = true;
+    if (ImGui::BeginPopupModal("Atomic Sizes##edit", &atomicSizesOpen,
                                ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Text("Select an element in the periodic table and edit its radius.");
@@ -48,10 +49,6 @@ void EditMenuDialogs::drawPopups(Structure& structure,
             elementRadii = makeLiteratureCovalentRadii();
             updateBuffers(structure);
         }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Close"))
-            ImGui::CloseCurrentPopup();
 
         ImGui::Separator();
         drawPeriodicTableInlineSelector(m_selectedRadiusElement);
@@ -85,12 +82,15 @@ void EditMenuDialogs::drawPopups(Structure& structure,
 
         ImGui::EndPopup();
     }
+    if (!atomicSizesOpen)
+        ImGui::CloseCurrentPopup();
 
     // ------------------------------------------------------------------
     // Element Colors modal
     // ------------------------------------------------------------------
 
-    if (ImGui::BeginPopupModal("Element Colors##edit", nullptr,
+    bool elementColorsOpen = true;
+    if (ImGui::BeginPopupModal("Element Colors##edit", &elementColorsOpen,
                                ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Text("Select an element in the periodic table and edit its color.");
@@ -137,19 +137,18 @@ void EditMenuDialogs::drawPopups(Structure& structure,
             updateBuffers(structure);
         }
 
-        ImGui::SameLine();
-        if (ImGui::Button("Close"))
-            ImGui::CloseCurrentPopup();
-
         ImGui::EndPopup();
     }
+    if (!elementColorsOpen)
+        ImGui::CloseCurrentPopup();
 
     // ------------------------------------------------------------------
     // Edit Structure modal
     // ------------------------------------------------------------------
 
     ImGui::SetNextWindowSize(ImVec2(980.0f, 640.0f), ImGuiCond_FirstUseEver);
-    if (ImGui::BeginPopupModal("Edit Structure##edit", nullptr,
+    bool editStructureOpen = true;
+    if (ImGui::BeginPopupModal("Edit Structure##edit", &editStructureOpen,
                                ImGuiWindowFlags_NoResize))
     {
         ImGui::Text("Modify lattice vectors and atom list (add/edit/delete).\n"
@@ -354,13 +353,10 @@ void EditMenuDialogs::drawPopups(Structure& structure,
             }
 
         }
-
-        ImGui::Separator();
-        if (ImGui::Button("Close##edit-structure"))
-            ImGui::CloseCurrentPopup();
-
         ImGui::EndPopup();
     }
+    if (!editStructureOpen)
+        ImGui::CloseCurrentPopup();
 
     if (m_showEditStructureElementPicker)
     {
@@ -369,7 +365,8 @@ void EditMenuDialogs::drawPopups(Structure& structure,
     }
 
     ImGui::SetNextWindowSize(ImVec2(940.0f, 560.0f), ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal("Edit Atom Element##edit-structure", nullptr,
+    bool editAtomElementOpen = true;
+    if (ImGui::BeginPopupModal("Edit Atom Element##edit-structure", &editAtomElementOpen,
                                ImGuiWindowFlags_NoResize))
     {
         ImGui::Text("Select replacement element from the periodic table.");
@@ -407,16 +404,14 @@ void EditMenuDialogs::drawPopups(Structure& structure,
             ImGui::CloseCurrentPopup();
         }
 
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel Element##edit-structure-window"))
-        {
-            m_editStructureElementTargetAtom = -1;
-            if (m_restoreEditStructureAfterElementPicker)
-                m_openEditStructure = true;
-            m_restoreEditStructureAfterElementPicker = false;
-            ImGui::CloseCurrentPopup();
-        }
-
         ImGui::EndPopup();
+    }
+    if (!editAtomElementOpen)
+    {
+        m_editStructureElementTargetAtom = -1;
+        if (m_restoreEditStructureAfterElementPicker)
+            m_openEditStructure = true;
+        m_restoreEditStructureAfterElementPicker = false;
+        ImGui::CloseCurrentPopup();
     }
 }

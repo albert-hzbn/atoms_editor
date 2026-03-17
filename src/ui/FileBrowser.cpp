@@ -151,7 +151,8 @@ void FileBrowser::draw(Structure& structure,
         openStructurePopup = false;
     }
 
-    if (ImGui::BeginPopupModal("Open Structure", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    bool openStructureOpen = true;
+    if (ImGui::BeginPopupModal("Open Structure", &openStructureOpen, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Text("Current folder: %s", openDir.c_str());
         ImGui::SameLine();
@@ -293,14 +294,10 @@ void FileBrowser::draw(Structure& structure,
             }
             ImGui::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
-        {
-            ImGui::CloseCurrentPopup();
-        }
-
         ImGui::EndPopup();
     }
+    if (!openStructureOpen)
+        ImGui::CloseCurrentPopup();
 
     // ---- Save As dialog ------------------------------------------------
     if (saveStructurePopup)
@@ -310,7 +307,8 @@ void FileBrowser::draw(Structure& structure,
     }
 
     ImGui::SetNextWindowSize(ImVec2(560, 480), ImGuiCond_FirstUseEver);
-    if (ImGui::BeginPopupModal("Save As", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    bool saveAsOpen = true;
+    if (ImGui::BeginPopupModal("Save As", &saveAsOpen, ImGuiWindowFlags_AlwaysAutoResize))
     {
         // Helper: navigate to a new directory and record it in history.
         auto pushSaveDir = [&](const std::string& dir) {
@@ -458,12 +456,10 @@ void FileBrowser::draw(Structure& structure,
                 }
             }
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel##save"))
-            ImGui::CloseCurrentPopup();
-
         ImGui::EndPopup();
     }
+    if (!saveAsOpen)
+        ImGui::CloseCurrentPopup();
     // ---- end Save As dialog --------------------------------------------
 
     if (showAbout)
@@ -472,7 +468,8 @@ void FileBrowser::draw(Structure& structure,
         showAbout = false;
     }
 
-    if (ImGui::BeginPopupModal("About", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    bool aboutOpen = true;
+    if (ImGui::BeginPopupModal("About", &aboutOpen, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Text("Atoms Editor");
         ImGui::Text("Open-source molecular structure viewer and editor.");
@@ -535,11 +532,10 @@ void FileBrowser::draw(Structure& structure,
         ImGui::BulletText("Atom Info (1 selected)");
         ImGui::BulletText("Reset Default View");
 
-        ImGui::Separator();
-        if (ImGui::Button("OK"))
-            ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
+    if (!aboutOpen)
+        ImGui::CloseCurrentPopup();
 
     if (showEditColors)
     {
@@ -551,7 +547,8 @@ void FileBrowser::draw(Structure& structure,
     }
 
     ImGui::SetNextWindowSize(ImVec2(950, 600), ImGuiCond_FirstUseEver);
-    if (ImGui::BeginPopupModal("Edit Element Colors", NULL, ImGuiWindowFlags_NoResize))
+    bool editElementColorsOpen = true;
+    if (ImGui::BeginPopupModal("Edit Element Colors", &editElementColorsOpen, ImGuiWindowFlags_NoResize))
     {
         ImGui::Text("Select an element to edit its color.");
         ImGui::Separator();
@@ -616,11 +613,10 @@ void FileBrowser::draw(Structure& structure,
             ImGui::TextDisabled("No element selected.");
         }
 
-        ImGui::Separator();
-        if (ImGui::Button("Close"))
-            ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
+    if (!editElementColorsOpen)
+        ImGui::CloseCurrentPopup();
 }
 
 void FileBrowser::pushHistory(const std::string& dir)
