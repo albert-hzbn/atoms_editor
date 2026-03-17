@@ -16,6 +16,10 @@ PORTABLE_LIB_DIR := $(PORTABLE_DIR)/lib
 
 APP_SOURCES = \
     main.cpp                              \
+    app/EditorApplication.cpp             \
+    app/EditorOps.cpp                     \
+    app/InteractionHandlers.cpp           \
+    app/WindowSetup.cpp                   \
     ElementData.cpp
 
 CAMERA_SOURCES = \
