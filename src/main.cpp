@@ -104,6 +104,15 @@ int main()
     // ----------------------------------------------------------------
 
     auto updateBuffers = [&](Structure& s) {
+        // Treat Transform Atoms as an explicit supercell build step.
+        // This prevents subsequent atom edits (insert/substitute/delete)
+        // from being echoed to symmetry-equivalent render replicas.
+        if (fileBrowser.isTransformMatrixEnabled() && s.hasUnitCell)
+        {
+            s = buildSupercell(s, fileBrowser.getTransformMatrix());
+            fileBrowser.clearTransformMatrix();
+        }
+
         for (auto& atom : s.atoms)
         {
             int z = atom.atomicNumber;
@@ -281,6 +290,9 @@ int main()
 
         if (ImGui::IsKeyPressed(ImGuiKey_O) && ImGui::GetIO().KeyCtrl)
             fileBrowser.openFileDialog();
+
+        if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::GetIO().KeyCtrl)
+            fileBrowser.saveFileDialog();
 
         // ------------------------------------------------------------
         // UI modules

@@ -25,9 +25,12 @@ struct FileBrowser
 
     bool isTransformMatrixEnabled() const { return transformDialog.isEnabled(); }
     const int (&getTransformMatrix() const)[3][3] { return transformDialog.getMatrix(); }
+    void clearTransformMatrix() { transformDialog.clearTransform(); }
 
     // Programmatically trigger file open dialog (for keyboard shortcuts)
     void openFileDialog() { openStructurePopup = true; }
+    // Trigger save-as dialog (e.g. from Ctrl+S shortcut)
+    void saveFileDialog() { saveStructurePopup = true; }
 
 private:
     void pushHistory(const std::string& dir);
@@ -37,10 +40,19 @@ private:
     bool showAbout;
     bool showEditColors;
     bool openStructurePopup;
+    bool saveStructurePopup;
 
     std::string openDir;
     std::vector<std::string> dirHistory;
     int historyIndex;
+
+    // Save-as dialog state
+    std::string saveDir;
+    std::vector<std::string> saveDirHistory;
+    int saveHistoryIndex;
+    int selectedSaveFormat;
+    char saveFilename[1024];
+    char saveStatusMsg[256];
 
     int selectedAtomicNumber;
 

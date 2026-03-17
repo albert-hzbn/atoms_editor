@@ -5,6 +5,7 @@
 #include <openbabel3/openbabel/atom.h>
 #include <openbabel3/openbabel/elements.h>
 #include <openbabel3/openbabel/generic.h>
+#include <openbabel3/openbabel/math/vector3.h>
 
 #include <iostream>
 #include <array>
@@ -203,4 +204,39 @@ Structure loadStructure(const std::string& filename)
     }
 
     return structure;
+}
+
+bool saveStructure(const Structure& structure, const std::string& filename, const std::string& format)
+{
+    OpenBabel::OBMol mol;
+    mol.BeginModify();
+
+    for (const auto& site : structure.atoms)
+    {
+        OpenBabel::OBAtom* atom = mol.NewAtom();
+        atom->SetAtomicNum(site.atomicNumber);
+        atom->SetVector(site.x, site.y, site.z);
+    }
+
+    if (structure.hasUnitCell)
+    {
+        OpenBabel::OBUnitCell* cell = new OpenBabel::OBUnitCell();
+        OpenBabel::vector3 va(structure.cellVectors[0][0], structure.cellVectors[0][1], structure.cellVectors[0][2]);
+        OpenBabel::vector3 vb(structure.cellVectors[1][0], structure.cellVectors[1][1], structure.cellVectors[1][2]);
+        OpenBabel::vector3 vc(structure.cellVectors[2][0], structure.cellVectors[2][1], structure.cellVectors[2][2]);
+        cell->SetData(va, vb, vc);
+        mol.SetData(cell);
+    }
+
+    mol.ConnectTheDots();
+    mol.PerceiveBondOrders();
+    mol.EndModify();
+
+    OpenBabel::OBConversion conv;
+    OpenBabel::OBFormat* outFmt = conv.FindFormat(format.c_str());
+    if (!outFmt)
+        return false;
+
+    conv.SetOutFormat(outFmt);
+    return conv.WriteFile(&mol, filename);
 }

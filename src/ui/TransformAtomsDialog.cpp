@@ -2,6 +2,21 @@
 
 #include "imgui.h"
 
+void TransformAtomsDialog::clearTransform()
+{
+    useTransformMatrix = false;
+
+    for (int i = 0; i < 3; ++i)
+    {
+        for (int j = 0; j < 3; ++j)
+        {
+            int value = (i == j) ? 1 : 0;
+            transformMatrix[i][j] = value;
+            pendingMatrix[i][j] = value;
+        }
+    }
+}
+
 void TransformAtomsDialog::drawMenuItem(bool hasUnitCell)
 {
     if (ImGui::MenuItem("Transform Atoms...", NULL, false, hasUnitCell))

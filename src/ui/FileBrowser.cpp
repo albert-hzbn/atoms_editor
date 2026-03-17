@@ -16,6 +16,8 @@ static const std::array<const char*, 119> elementSymbols = {
     "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og"
 };
 #include "FileBrowser.h"
+#include "io/StructureLoader.h"
+#include "graphics/StructureInstanceBuilder.h"
 
 #include "ui/PeriodicTableDialog.h"
 
@@ -36,8 +38,12 @@ FileBrowser::FileBrowser()
     : showAbout(false),
       showEditColors(false),
       openStructurePopup(false),
+      saveStructurePopup(false),
       openDir("."),
       historyIndex(-1),
+      saveDir("."),
+      saveHistoryIndex(-1),
+      selectedSaveFormat(0),
       selectedAtomicNumber(1)
 {
     allowedExtensions = {".cif", ".mol", ".pdb", ".xyz", ".sdf"};
@@ -49,6 +55,8 @@ FileBrowser::FileBrowser()
     driveRoots.push_back("/media");
 
     openFilename[0] = '\0';
+    saveFilename[0] = '\0';
+    saveStatusMsg[0] = '\0';
 }
 
 void FileBrowser::initFromPath(const std::string& initialPath)
@@ -80,6 +88,17 @@ void FileBrowser::draw(Structure& structure,
         {
             if (ImGui::MenuItem("Open...",  "Ctrl+O"))
                 openStructurePopup = true;
+
+            if (ImGui::MenuItem("Save As...", "Ctrl+S"))
+            {
+                saveStructurePopup = true;
+                saveDir = openDir;
+                saveDirHistory = dirHistory;
+                saveHistoryIndex = historyIndex;
+                saveStatusMsg[0] = '\0';
+            }
+
+            ImGui::Separator();
 
             if (ImGui::MenuItem("Quit"))
                 glfwSetWindowShouldClose(glfwGetCurrentContext(), true);
@@ -265,6 +284,204 @@ void FileBrowser::draw(Structure& structure,
         ImGui::EndPopup();
     }
 
+    // ---- Save As dialog ------------------------------------------------
+    if (saveStructurePopup)
+    {
+        ImGui::OpenPopup("Save As");
+        saveStructurePopup = false;
+    }
+
+    // Format table (label shown in combo, file extension, OpenBabel id)
+    static const struct { const char* label; const char* ext; const char* fmt; } kFmts[] = {
+        { "XYZ (.xyz)",                ".xyz",  "xyz"   },
+        { "CIF (.cif)",                ".cif",  "cif"   },
+        { "VASP POSCAR (.vasp)",       ".vasp", "vasp"  },
+        { "PDB (.pdb)",                ".pdb",  "pdb"   },
+        { "SDF (.sdf)",                ".sdf",  "sdf"   },
+        { "Mol2 (.mol2)",              ".mol2", "mol2"  },
+        { "Quantum ESPRESSO (.pwi)",   ".pwi",  "pwscf" },
+        { "Gaussian Input (.gjf)",     ".gjf",  "gjf"   },
+    };
+    static const int kNumFmts = (int)(sizeof(kFmts) / sizeof(kFmts[0]));
+
+    ImGui::SetNextWindowSize(ImVec2(560, 480), ImGuiCond_FirstUseEver);
+    if (ImGui::BeginPopupModal("Save As", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Current folder: %s", saveDir.c_str());
+        ImGui::SameLine();
+        if (ImGui::Button("..##save"))
+        {
+            auto pos = saveDir.find_last_of("/\\");
+            if (pos != std::string::npos)
+                saveDir = saveDir.substr(0, pos);
+            else
+                saveDir = ".";
+            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
+                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
+            saveDirHistory.push_back(saveDir);
+            saveHistoryIndex = (int)saveDirHistory.size() - 1;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Back##save") && saveHistoryIndex > 0)
+        {
+            saveHistoryIndex--;
+            saveDir = saveDirHistory[saveHistoryIndex];
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Forward##save") && saveHistoryIndex + 1 < (int)saveDirHistory.size())
+        {
+            saveHistoryIndex++;
+            saveDir = saveDirHistory[saveHistoryIndex];
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Root##save"))
+        {
+            saveDir = "/";
+            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
+                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
+            saveDirHistory.push_back(saveDir);
+            saveHistoryIndex = (int)saveDirHistory.size() - 1;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Home##save") && !driveRoots.empty())
+        {
+            saveDir = driveRoots[1];
+            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
+                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
+            saveDirHistory.push_back(saveDir);
+            saveHistoryIndex = (int)saveDirHistory.size() - 1;
+        }
+
+        ImGui::Separator();
+
+        if (ImGui::BeginChild("##savefilebrowser", ImVec2(500, 200), true))
+        {
+            DIR* dir = opendir(saveDir.c_str());
+            if (dir)
+            {
+                struct dirent* de;
+                std::vector<std::pair<std::string, bool>> entries;
+                while ((de = readdir(dir)) != nullptr)
+                {
+                    std::string name(de->d_name);
+                    if (name == "." || name == "..")
+                        continue;
+                    std::string fullPath = saveDir + "/" + name;
+                    struct stat st;
+                    bool isDir = (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode));
+                    entries.emplace_back(name, isDir);
+                }
+                closedir(dir);
+
+                std::sort(entries.begin(), entries.end(),
+                          [](const std::pair<std::string, bool>& a,
+                             const std::pair<std::string, bool>& b) {
+                    if (a.second != b.second) return a.second > b.second;
+                    return a.first < b.first;
+                });
+
+                for (size_t i = 0; i < entries.size(); ++i)
+                {
+                    const std::string& name = entries[i].first;
+                    bool isDir = entries[i].second;
+                    ImGui::PushID((int)(i + 10000));
+                    if (isDir)
+                    {
+                        std::string lbl = std::string("[DIR] ") + name + "##" + name;
+                        if (ImGui::Selectable(lbl.c_str()))
+                        {
+                            saveDir = (saveDir == "." ? name : saveDir + "/" + name);
+                            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
+                                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
+                            saveDirHistory.push_back(saveDir);
+                            saveHistoryIndex = (int)saveDirHistory.size() - 1;
+                        }
+                    }
+                    else
+                    {
+                        std::string lbl = name + "##" + name;
+                        bool sel = (std::string(saveFilename) == name);
+                        if (ImGui::Selectable(lbl.c_str(), sel))
+                            std::snprintf(saveFilename, sizeof(saveFilename), "%s", name.c_str());
+                    }
+                    ImGui::PopID();
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("Unable to open folder");
+            }
+            ImGui::EndChild();
+        }
+
+        ImGui::InputText("Filename##save", saveFilename, sizeof(saveFilename));
+
+        // Format selector
+        static const char* kFmtLabels[] = {
+            "XYZ (.xyz)",
+            "CIF (.cif)",
+            "VASP POSCAR (.vasp)",
+            "PDB (.pdb)",
+            "SDF (.sdf)",
+            "Mol2 (.mol2)",
+            "Quantum ESPRESSO (.pwi)",
+            "Gaussian Input (.gjf)",
+        };
+        if (ImGui::Combo("Format", &selectedSaveFormat, kFmtLabels, kNumFmts))
+        {
+            // Auto-update file extension when format changes
+            std::string fn(saveFilename);
+            auto dot = fn.find_last_of('.');
+            std::string base = (dot != std::string::npos) ? fn.substr(0, dot) : fn;
+            if (base.empty()) base = "structure";
+            std::string newName = base + kFmts[selectedSaveFormat].ext;
+            std::snprintf(saveFilename, sizeof(saveFilename), "%s", newName.c_str());
+            saveStatusMsg[0] = '\0';
+        }
+
+        if (saveStatusMsg[0] != '\0')
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", saveStatusMsg);
+
+        ImGui::Separator();
+
+        if (ImGui::Button("Save"))
+        {
+            if (structure.atoms.empty())
+            {
+                std::snprintf(saveStatusMsg, sizeof(saveStatusMsg), "Error: no atoms to save.");
+            }
+            else if (saveFilename[0] == '\0')
+            {
+                std::snprintf(saveStatusMsg, sizeof(saveStatusMsg), "Error: please enter a filename.");
+            }
+            else
+            {
+                std::string fullPath = saveDir + "/" + saveFilename;
+                    // When a supercell transform is active, expand to the full
+                    // supercell so the saved file contains all visible atoms.
+                    Structure structureToSave = (isTransformMatrixEnabled() && structure.hasUnitCell)
+                        ? buildSupercell(structure, getTransformMatrix())
+                        : structure;
+                    bool ok = saveStructure(structureToSave, fullPath, kFmts[selectedSaveFormat].fmt);
+                if (ok)
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                else
+                {
+                    std::snprintf(saveStatusMsg, sizeof(saveStatusMsg),
+                                  "Error: failed to save (format may not support this structure).");
+                }
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel##save"))
+            ImGui::CloseCurrentPopup();
+
+        ImGui::EndPopup();
+    }
+    // ---- end Save As dialog --------------------------------------------
+
     if (showAbout)
     {
         ImGui::OpenPopup("About");
@@ -305,8 +522,19 @@ void FileBrowser::draw(Structure& structure,
         ImGui::BulletText("Transform Atoms: apply a 3x3 matrix to all atom positions");
 
         ImGui::Spacing();
-        ImGui::Text("File → Open");
+        ImGui::Text("File → Open  (Ctrl+O)");
         ImGui::BulletText("Supported: .cif  .mol  .pdb  .xyz  .sdf");
+
+        ImGui::Spacing();
+        ImGui::Text("File → Save As  (Ctrl+S)");
+        ImGui::BulletText("XYZ (.xyz)");
+        ImGui::BulletText("CIF (.cif)");
+        ImGui::BulletText("VASP POSCAR (.vasp)");
+        ImGui::BulletText("PDB (.pdb)");
+        ImGui::BulletText("SDF (.sdf)");
+        ImGui::BulletText("Mol2 (.mol2)");
+        ImGui::BulletText("Quantum ESPRESSO (.pwi)");
+        ImGui::BulletText("Gaussian Input (.gjf)");
 
         ImGui::Separator();
         if (ImGui::Button("OK"))

@@ -21,3 +21,13 @@ StructureInstanceData buildStructureInstanceData(
     const int (&transformMatrix)[3][3],
     const std::vector<float>& elementRadii
 );
+
+    // Expand `structure` according to `transformMatrix` and return a new Structure
+    // whose atoms list contains every atom in the resulting supercell with Cartesian
+    // coordinates, and whose cellVectors reflect the supercell unit cell.
+    // If the transform is identity / singular or the structure has no unit cell,
+    // the original structure is returned unchanged.
+    Structure buildSupercell(
+        const Structure& structure,
+        const int (&transformMatrix)[3][3]
+    );

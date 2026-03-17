@@ -101,15 +101,13 @@ void AtomContextMenu::draw(Structure& structure,
 
                 for (int idx : selectedInstanceIndices)
                 {
-                    if (idx < 0 || idx >= (int)sceneBuffers.atomIndices.size())
+                        if (idx < 0 || idx >= (int)sceneBuffers.atomPositions.size())
                         continue;
-                    int baseIdx = sceneBuffers.atomIndices[idx];
-                    if (baseIdx < 0 || baseIdx >= (int)structure.atoms.size())
-                        continue;
-
-                    sumX += structure.atoms[baseIdx].x;
-                    sumY += structure.atoms[baseIdx].y;
-                    sumZ += structure.atoms[baseIdx].z;
+                        // Use the actual rendered world position so that picking a
+                        // supercell copy gives the correct Cartesian coordinates.
+                        sumX += sceneBuffers.atomPositions[idx].x;
+                        sumY += sceneBuffers.atomPositions[idx].y;
+                        sumZ += sceneBuffers.atomPositions[idx].z;
                     ++validCount;
                 }
 

@@ -211,3 +211,87 @@ StructureInstanceData buildStructureInstanceData(
 
     return data;
 }
+
+    Structure buildSupercell(const Structure& structure, const int (&transformMatrix)[3][3])
+    {
+        if (!structure.hasUnitCell)
+            return structure;
+
+        glm::vec3 origin((float)structure.cellOffset[0],
+                         (float)structure.cellOffset[1],
+                         (float)structure.cellOffset[2]);
+
+        glm::vec3 a((float)structure.cellVectors[0][0], (float)structure.cellVectors[0][1], (float)structure.cellVectors[0][2]);
+        glm::vec3 b((float)structure.cellVectors[1][0], (float)structure.cellVectors[1][1], (float)structure.cellVectors[1][2]);
+        glm::vec3 c((float)structure.cellVectors[2][0], (float)structure.cellVectors[2][1], (float)structure.cellVectors[2][2]);
+
+        glm::mat3 cellMat(a, b, c);
+        glm::mat3 invCellMat = glm::inverse(cellMat);
+
+        glm::mat3 transform(1.0f);
+        for (int row = 0; row < 3; ++row)
+            for (int col = 0; col < 3; ++col)
+                transform[col][row] = (float)transformMatrix[row][col];
+
+        float det = glm::determinant(transform);
+        if (std::abs(det) <= kEpsilon)
+            return structure;
+
+        glm::mat3 invTransform = glm::inverse(transform);
+
+        int nMin[3] = {0, 0, 0};
+        int nMax[3] = {0, 0, 0};
+        for (int row = 0; row < 3; ++row)
+        {
+            int rowMin = 0, rowMax = 0;
+            for (int col = 0; col < 3; ++col)
+            {
+                if (transformMatrix[row][col] < 0) rowMin += transformMatrix[row][col];
+                if (transformMatrix[row][col] > 0) rowMax += transformMatrix[row][col];
+            }
+            nMin[row] = rowMin - 1;
+            nMax[row] = rowMax + 1;
+        }
+
+        Structure result;
+        result.hasUnitCell = true;
+        result.cellOffset  = structure.cellOffset;
+
+        glm::vec3 aT = (float)transformMatrix[0][0]*a + (float)transformMatrix[0][1]*b + (float)transformMatrix[0][2]*c;
+        glm::vec3 bT = (float)transformMatrix[1][0]*a + (float)transformMatrix[1][1]*b + (float)transformMatrix[1][2]*c;
+        glm::vec3 cT = (float)transformMatrix[2][0]*a + (float)transformMatrix[2][1]*b + (float)transformMatrix[2][2]*c;
+        result.cellVectors[0] = { (double)aT.x, (double)aT.y, (double)aT.z };
+        result.cellVectors[1] = { (double)bT.x, (double)bT.y, (double)bT.z };
+        result.cellVectors[2] = { (double)cT.x, (double)cT.y, (double)cT.z };
+
+        for (const auto& atom : structure.atoms)
+        {
+            glm::vec3 worldPos((float)atom.x, (float)atom.y, (float)atom.z);
+            glm::vec3 frac = invCellMat * (worldPos - origin);
+            frac.x -= std::floor(frac.x);
+            frac.y -= std::floor(frac.y);
+            frac.z -= std::floor(frac.z);
+
+            for (int ix = nMin[0]; ix <= nMax[0]; ++ix)
+            for (int iy = nMin[1]; iy <= nMax[1]; ++iy)
+            for (int iz = nMin[2]; iz <= nMax[2]; ++iz)
+            {
+                glm::vec3 shiftedFrac = frac + glm::vec3((float)ix, (float)iy, (float)iz);
+                glm::vec3 mappedFrac  = invTransform * shiftedFrac;
+
+                if (mappedFrac.x < -kEpsilon || mappedFrac.y < -kEpsilon || mappedFrac.z < -kEpsilon)
+                    continue;
+                if (mappedFrac.x >= 1.0f - kEpsilon || mappedFrac.y >= 1.0f - kEpsilon || mappedFrac.z >= 1.0f - kEpsilon)
+                    continue;
+
+                glm::vec3 newWorld = origin + shiftedFrac.x*a + shiftedFrac.y*b + shiftedFrac.z*c;
+                AtomSite site = atom;
+                site.x = (double)newWorld.x;
+                site.y = (double)newWorld.y;
+                site.z = (double)newWorld.z;
+                result.atoms.push_back(site);
+            }
+        }
+
+        return result;
+    }

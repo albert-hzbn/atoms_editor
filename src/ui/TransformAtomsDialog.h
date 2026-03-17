@@ -6,6 +6,7 @@ struct TransformAtomsDialog
 {
     bool isEnabled() const { return useTransformMatrix; }
     const int (&getMatrix() const)[3][3] { return transformMatrix; }
+    void clearTransform();
 
     void drawMenuItem(bool hasUnitCell);
     void drawDialog(const std::function<void()>& onApply);
