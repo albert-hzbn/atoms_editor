@@ -7,6 +7,18 @@
 
 #include <algorithm>
 
+namespace
+{
+bool isInsideSelectionRect(const ImVec2& p, const ImVec2& a, const ImVec2& b)
+{
+    const float minX = std::min(a.x, b.x);
+    const float maxX = std::max(a.x, b.x);
+    const float minY = std::min(a.y, b.y);
+    const float maxY = std::max(a.y, b.y);
+    return p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY;
+}
+}
+
 FrameActionRequests beginFrameActionRequests(EditorState& state)
 {
     FrameActionRequests requests;
@@ -115,7 +127,90 @@ void handleRightClick(Camera& camera, EditorState& state)
     if (!camera.pendingRightClick)
         return;
 
+    if (state.fileBrowser.isBoxSelectModeEnabled())
+    {
+        camera.pendingRightClick = false;
+        return;
+    }
+
     camera.pendingRightClick = false;
     if (!state.selectedInstanceIndices.empty())
         state.contextMenu.open();
+}
+
+void handleBoxSelection(
+    EditorState& state,
+    int windowWidth,
+    int windowHeight,
+    const glm::mat4& projection,
+    const glm::mat4& view,
+    ImDrawList* drawList)
+{
+    if (!state.fileBrowser.isBoxSelectModeEnabled())
+        return;
+
+    if (state.sceneBuffers.cpuCachesDisabled)
+        return;
+
+    static bool dragging = false;
+    static ImVec2 dragStart(0.0f, 0.0f);
+    static ImVec2 dragEnd(0.0f, 0.0f);
+
+    ImGuiIO& io = ImGui::GetIO();
+    const ImVec2 mousePos = io.MousePos;
+
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !io.WantCaptureMouse)
+    {
+        dragging = true;
+        dragStart = mousePos;
+        dragEnd = mousePos;
+    }
+
+    if (dragging && ImGui::IsMouseDown(ImGuiMouseButton_Right))
+        dragEnd = mousePos;
+
+    if (dragging)
+    {
+        const ImVec2 minCorner(std::min(dragStart.x, dragEnd.x), std::min(dragStart.y, dragEnd.y));
+        const ImVec2 maxCorner(std::max(dragStart.x, dragEnd.x), std::max(dragStart.y, dragEnd.y));
+        drawList->AddRectFilled(minCorner, maxCorner, IM_COL32(80, 160, 255, 45));
+        drawList->AddRect(minCorner, maxCorner, IM_COL32(80, 160, 255, 220), 0.0f, 0, 1.5f);
+    }
+
+    if (dragging && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+    {
+        dragging = false;
+
+        const float width = std::abs(dragEnd.x - dragStart.x);
+        const float height = std::abs(dragEnd.y - dragStart.y);
+        if (width < 4.0f || height < 4.0f)
+            return;
+
+        const bool additive = io.KeyCtrl;
+        if (!additive)
+            clearSelection(state);
+
+        for (int i = 0; i < (int)state.sceneBuffers.atomPositions.size(); ++i)
+        {
+            const glm::vec3& worldPos = state.sceneBuffers.atomPositions[i];
+            const glm::vec4 clip = projection * view * glm::vec4(worldPos, 1.0f);
+            if (clip.w <= 1e-6f)
+                continue;
+
+            const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+            if (ndc.z < -1.0f || ndc.z > 1.0f)
+                continue;
+
+            const ImVec2 screenPos(
+                (ndc.x * 0.5f + 0.5f) * (float)windowWidth,
+                (1.0f - (ndc.y * 0.5f + 0.5f)) * (float)windowHeight);
+
+            if (!isInsideSelectionRect(screenPos, dragStart, dragEnd))
+                continue;
+
+            auto it = std::find(state.selectedInstanceIndices.begin(), state.selectedInstanceIndices.end(), i);
+            if (it == state.selectedInstanceIndices.end())
+                state.selectedInstanceIndices.push_back(i);
+        }
+    }
 }

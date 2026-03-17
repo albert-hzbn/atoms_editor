@@ -168,6 +168,15 @@ int runAtomsEditor()
         else if (requests.requestRedo && state.undoRedo.canRedo())
             applySnapshot(state, state.undoRedo.redo());
 
+        ImDrawList* drawList = ImGui::GetForegroundDrawList();
+        handleBoxSelection(
+            state,
+            frame.windowWidth,
+            frame.windowHeight,
+            frame.projection,
+            frame.view,
+            drawList);
+
         AtomRequests contextRequests;
         state.contextMenu.draw(
             state.structure,
@@ -197,7 +206,6 @@ int runAtomsEditor()
 
         refreshSelectionHighlights(state);
 
-        ImDrawList* drawList = ImGui::GetForegroundDrawList();
         drawMeasurementOverlays(
             state.measurementState,
             drawList,

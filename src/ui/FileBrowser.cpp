@@ -38,6 +38,7 @@ FileBrowser::FileBrowser()
             showEditColors(false),
             showElementLabels(false),
             showBonds(false),
+            boxSelectMode(false),
             requestMeasureDistance(false),
             requestMeasureAngle(false),
             requestAtomInfo(false),
@@ -122,6 +123,8 @@ void FileBrowser::draw(Structure& structure,
                 requestUndo = true;
             if (ImGui::MenuItem("Redo", "Ctrl+Y", false, canRedo))
                 requestRedo = true;
+            ImGui::Separator();
+            ImGui::MenuItem("Box Select Mode", nullptr, &boxSelectMode);
             ImGui::Separator();
             editMenuDialogs.drawMenuItems();
             ImGui::Separator();

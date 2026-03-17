@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 struct Camera;
+struct ImDrawList;
 
 struct FrameActionRequests
 {
@@ -28,5 +29,13 @@ void handlePendingAtomPick(
     int windowHeight,
     const glm::mat4& projection,
     const glm::mat4& view);
+
+void handleBoxSelection(
+    EditorState& state,
+    int windowWidth,
+    int windowHeight,
+    const glm::mat4& projection,
+    const glm::mat4& view,
+    ImDrawList* drawList);
 
 void handleRightClick(Camera& camera, EditorState& state);
