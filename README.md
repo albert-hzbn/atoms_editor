@@ -43,6 +43,11 @@ Supported formats: `.cif`, `.mol`, `.pdb`, `.xyz`, `.sdf`.
 | Pan | Right drag |
 | Zoom | Scroll wheel |
 
+Default camera behavior:
+- New structures are framed automatically so the full structure is visible.
+- Default orientation is isometric.
+- Use **View → Reset Default View** to re-apply isometric framing at any time.
+
 ### Atom selection
 
 | Action | Input |
@@ -57,13 +62,30 @@ Supported formats: `.cif`, `.mol`, `.pdb`, `.xyz`, `.sdf`.
 
 - **Substitute Atom…** — replace all selected atoms with a chosen element (periodic table picker)
 - **Insert Atom at Midpoint…** — insert a new atom at the centroid of ≥ 2 selected atoms
+- **Measure Distance** — available when exactly 2 atoms are selected
+- **Measure Angle** — available when exactly 3 atoms are selected (angle at the 2nd selected atom)
+- **Atom Info** — available when exactly 1 atom is selected (element, Cartesian, direct coordinates)
 - **Delete** / **Deselect**
+
+### View menu
+
+- **Show Element** — toggle on-screen element symbol labels
+- **Measure Distance (2 selected)**
+- **Measure Angle (3 selected)**
+- **Atom Info (1 selected)**
+- **Reset Default View** — restore isometric view and fit structure to window
 
 ### Edit menu
 
 - **Atomic Sizes…** — adjust per-element covalent radii (literature defaults: Cordero et al., *Dalton Trans.* 2008)
 - **Element Colors…** — override CPK colours per element
 - **Transform Atoms…** — apply a 3×3 matrix transformation to all atom positions (only available when the structure has a unit cell)
+
+### Measurements and overlays
+
+- Distance and angle tools open result dialogs and draw dashed helper lines.
+- **Atom Info** shows element name, atomic number, Cartesian coordinates, and direct coordinates (when a unit cell exists).
+- Dashed helper lines are cleared when selection changes or when the dialog is confirmed.
 
 ## Project layout
 

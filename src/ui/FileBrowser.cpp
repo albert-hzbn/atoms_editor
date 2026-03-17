@@ -482,6 +482,8 @@ void FileBrowser::draw(Structure& structure,
         ImGui::BulletText("Left drag: rotate");
         ImGui::BulletText("Right drag: pan");
         ImGui::BulletText("Scroll: zoom");
+        ImGui::BulletText("Default view: isometric");
+        ImGui::BulletText("Structures auto-fit in window after loading");
 
         ImGui::Spacing();
         ImGui::Text("Selection");
@@ -496,6 +498,9 @@ void FileBrowser::draw(Structure& structure,
         ImGui::BulletText("Substitute Atom: replace selected atoms with a new element");
         ImGui::BulletText("Insert Atom at Midpoint: place a new atom at the centroid");
         ImGui::BulletText("  (requires >= 2 atoms selected)");
+        ImGui::BulletText("Measure Distance (requires exactly 2 selected)");
+        ImGui::BulletText("Measure Angle (requires exactly 3 selected)");
+        ImGui::BulletText("Atom Info (requires exactly 1 selected)");
         ImGui::BulletText("Delete / Deselect");
 
         ImGui::Spacing();
@@ -519,6 +524,14 @@ void FileBrowser::draw(Structure& structure,
         ImGui::BulletText("Mol2 (.mol2)");
         ImGui::BulletText("Quantum ESPRESSO (.pwi)");
         ImGui::BulletText("Gaussian Input (.gjf)");
+
+        ImGui::Spacing();
+        ImGui::Text("View menu");
+        ImGui::BulletText("Show Element");
+        ImGui::BulletText("Measure Distance (2 selected)");
+        ImGui::BulletText("Measure Angle (3 selected)");
+        ImGui::BulletText("Atom Info (1 selected)");
+        ImGui::BulletText("Reset Default View");
 
         ImGui::Separator();
         if (ImGui::Button("OK"))
