@@ -96,6 +96,17 @@ Box selection:
 - **Manual** — complete in-app reference for controls and menu actions
 - **About** — project overview, libraries, and references
 
+### Analysis menu
+
+- **Common Neighbour Analysis…** — run CNA from a dedicated dialog.
+- Pair-signature distribution is reported in Honeycutt-Andersen style `1-j-k-l`.
+- Per-atom environment summary is reported (FCC-like/HCP-like/BCC-like/ICO-like/Unknown).
+- Per-atom CNA details are listed (coordination, dominant signature, environment).
+- PBC-aware analysis is used when a unit cell is present (toggle in dialog).
+- **Radial Distribution Function…** — compute and plot RDF from a dedicated dialog.
+- RDF controls include species filters, PBC toggle, normalization, radius range, bin count, smoothing, and plot overlays.
+- RDF results include the plotted curve, per-bin table, density/volume summary, and first-peak / first-minimum estimates.
+
 ### Measurements and overlays
 
 - Distance and angle tools open result dialogs and draw dashed helper lines.

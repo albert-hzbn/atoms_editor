@@ -40,11 +40,13 @@ MATH_SOURCES = \
 
 UI_SOURCES = \
     ui/AtomContextMenu.cpp                \
+    ui/CommonNeighbourAnalysis.cpp        \
     ui/EditMenuDialogs.cpp                \
     ui/FileBrowser.cpp                    \
     ui/ImGuiSetup.cpp                     \
     ui/MeasurementOverlay.cpp             \
     ui/PeriodicTableDialog.cpp            \
+    ui/RadialDistributionAnalysis.cpp     \
     ui/StructureInfoDialog.cpp            \
     ui/TransformAtomsDialog.cpp
 

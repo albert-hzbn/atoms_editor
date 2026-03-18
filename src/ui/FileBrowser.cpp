@@ -150,6 +150,13 @@ void FileBrowser::draw(Structure& structure,
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Analysis"))
+        {
+            cnaDialog.drawMenuItem(!structure.atoms.empty());
+            rdfDialog.drawMenuItem(!structure.atoms.empty());
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("Help"))
         {
             if (ImGui::MenuItem("Manual"))
@@ -167,6 +174,8 @@ void FileBrowser::draw(Structure& structure,
     editMenuDialogs.drawPopups(structure, updateBuffers);
 
     transformDialog.drawDialog([&]() { updateBuffers(structure); });
+    cnaDialog.drawDialog(structure);
+    rdfDialog.drawDialog(structure);
 
     if (openStructurePopup)
     {
@@ -543,6 +552,11 @@ void FileBrowser::draw(Structure& structure,
             ImGui::BulletText("Measure Angle (3 selected): open angle dialog and overlay");
             ImGui::BulletText("Atom Info (1 selected): metadata, coordinates, and PBC-aware coordination/bond-length stats");
             ImGui::BulletText("Reset Default View: restore fitted isometric camera view");
+
+            ImGui::Spacing();
+            ImGui::Text("Analysis Menu");
+            ImGui::BulletText("Common Neighbour Analysis...: run CNA and inspect pair signatures and per-atom environments");
+            ImGui::BulletText("Radial Distribution Function...: plot RDF with configurable species filters, radius range, bins, smoothing, and normalization");
 
             ImGui::Spacing();
             ImGui::Text("Context Menu (Selection)");

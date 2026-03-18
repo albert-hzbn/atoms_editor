@@ -1,6 +1,8 @@
 #pragma once
 
 #include "StructureLoader.h"
+#include "ui/CommonNeighbourAnalysis.h"
+#include "ui/RadialDistributionAnalysis.h"
 #include "ui/TransformAtomsDialog.h"
 #include "ui/EditMenuDialogs.h"
 
@@ -122,5 +124,7 @@ private:
 
     char openFilename[1024];
 
+    CommonNeighbourAnalysisDialog cnaDialog;
+    RadialDistributionAnalysisDialog rdfDialog;
     TransformAtomsDialog transformDialog;
 };
