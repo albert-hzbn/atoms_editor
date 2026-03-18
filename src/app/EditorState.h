@@ -9,6 +9,7 @@
 #include "ui/MeasurementOverlay.h"
 #include "ui/StructureInfoDialog.h"
 
+#include <string>
 #include <vector>
 
 struct EditorState
@@ -22,6 +23,7 @@ struct EditorState
     MeasurementOverlayState measurementState;
     StructureInfoDialogState structureInfoDialog;
     UndoRedoManager undoRedo;
+    std::vector<std::string> pendingDroppedFiles;
     bool suppressHistoryCommit = false;
     bool pendingDefaultViewReset = true;
 };

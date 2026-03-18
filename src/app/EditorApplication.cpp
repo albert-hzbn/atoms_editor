@@ -106,6 +106,46 @@ void buildFrameView(Camera& camera,
         glm::vec3(0, 1, 0));
 }
 
+void dropFileCallback(GLFWwindow* window, int count, const char** paths)
+{
+    if (count <= 0 || paths == nullptr)
+        return;
+
+    EditorState* state = static_cast<EditorState*>(glfwGetWindowUserPointer(window));
+    if (!state)
+        return;
+
+    for (int i = 0; i < count; ++i)
+    {
+        if (paths[i] == nullptr || paths[i][0] == '\0')
+            continue;
+        state->pendingDroppedFiles.push_back(paths[i]);
+    }
+}
+
+void processDroppedFiles(EditorState& state)
+{
+    if (state.pendingDroppedFiles.empty())
+        return;
+
+    const std::string droppedFile = state.pendingDroppedFiles.back();
+    state.pendingDroppedFiles.clear();
+
+    Structure loadedStructure;
+    std::string loadError;
+    if (!loadStructureFromFile(droppedFile, loadedStructure, loadError))
+    {
+        state.fileBrowser.showLoadError(loadError);
+        return;
+    }
+
+    state.structure = std::move(loadedStructure);
+    state.fileBrowser.initFromPath(droppedFile);
+    state.fileBrowser.applyElementColorOverrides(state.structure);
+    updateBuffers(state);
+    state.pendingDefaultViewReset = true;
+}
+
 } // namespace
 
 int runAtomsEditor()
@@ -127,6 +167,9 @@ int runAtomsEditor()
     state.structure = loadStructure(filename);
     state.fileBrowser.initFromPath(filename);
 
+    glfwSetWindowUserPointer(window, &state);
+    glfwSetDropCallback(window, dropFileCallback);
+
     state.sceneBuffers.init(sphere.vao, cylinder.vao);
 
     Renderer renderer;
@@ -140,6 +183,7 @@ int runAtomsEditor()
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+        processDroppedFiles(state);
 
         FrameView frame;
         if (!updateViewport(window, frame))

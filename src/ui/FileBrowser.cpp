@@ -245,6 +245,7 @@ FileBrowser::FileBrowser()
             requestRedo(false),
             openStructurePopup(false),
             saveStructurePopup(false),
+            loadErrorPopupRequested(false),
             openDir("."),
       historyIndex(-1),
       saveDir("."),
@@ -286,6 +287,8 @@ FileBrowser::FileBrowser()
         appendUniquePath(driveRoots, ".");
 
     openFilename[0] = '\0';
+    openStatusMsg[0] = '\0';
+    loadErrorMsg[0] = '\0';
     saveFilename[0] = '\0';
     saveStatusMsg[0] = '\0';
 }
@@ -428,10 +431,30 @@ void FileBrowser::draw(Structure& structure,
     cnaDialog.drawDialog(structure);
     rdfDialog.drawDialog(structure);
 
+    if (loadErrorPopupRequested)
+    {
+        ImGui::OpenPopup("Load Error");
+        loadErrorPopupRequested = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(720.0f, 0.0f), ImGuiCond_Appearing);
+    bool loadErrorOpen = true;
+    if (ImGui::BeginPopupModal("Load Error", &loadErrorOpen, ImGuiWindowFlags_NoResize))
+    {
+        ImGui::TextUnformatted(loadErrorMsg);
+        ImGui::Spacing();
+        if (ImGui::Button("OK", ImVec2(120, 0)))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    if (!loadErrorOpen)
+        ImGui::CloseCurrentPopup();
+
     if (openStructurePopup)
     {
         ImGui::OpenPopup("Open Structure");
         openStructurePopup = false;
+        openStatusMsg[0] = '\0';
     }
 
     bool openStructureOpen = true;
@@ -443,6 +466,7 @@ void FileBrowser::draw(Structure& structure,
         {
             openDir = parentPath(openDir);
             pushHistory(openDir);
+            openStatusMsg[0] = '\0';
         }
 
         ImGui::SameLine();
@@ -450,12 +474,14 @@ void FileBrowser::draw(Structure& structure,
         {
             historyIndex--;
             openDir = dirHistory[historyIndex];
+            openStatusMsg[0] = '\0';
         }
         ImGui::SameLine();
         if (ImGui::Button("Forward") && historyIndex + 1 < (int)dirHistory.size())
         {
             historyIndex++;
             openDir = dirHistory[historyIndex];
+            openStatusMsg[0] = '\0';
         }
 
         ImGui::SameLine();
@@ -463,12 +489,14 @@ void FileBrowser::draw(Structure& structure,
         {
             openDir = !driveRoots.empty() ? driveRoots.front() : "/";
             pushHistory(openDir);
+            openStatusMsg[0] = '\0';
         }
         ImGui::SameLine();
         if (ImGui::Button("Home"))
         {
             openDir = detectHomePath();
             pushHistory(openDir);
+            openStatusMsg[0] = '\0';
         }
 
         ImGui::Separator();
@@ -492,6 +520,7 @@ void FileBrowser::draw(Structure& structure,
                     [&](const std::string& name) {
                         openDir = joinPath(openDir, name);
                         pushHistory(openDir);
+                        openStatusMsg[0] = '\0';
                     });
             }
 
@@ -499,32 +528,32 @@ void FileBrowser::draw(Structure& structure,
         }
 
         ImGui::InputText("Filename", openFilename, sizeof(openFilename));
+        if (openStatusMsg[0] != '\0')
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", openStatusMsg);
 
         if (ImGui::Button("Load"))
         {
             std::string fullPath = joinPath(openDir, openFilename);
-            Structure newStructure = loadStructure(fullPath);
-            if (!newStructure.atoms.empty())
+            Structure newStructure;
+            std::string loadError;
+            if (loadStructureFromFile(fullPath, newStructure, loadError))
             {
                 structure = std::move(newStructure);
-
-                // Apply any user-specified element color overrides
-                for (auto& atom : structure.atoms)
-                {
-                    int atomicNumber = atom.atomicNumber;
-                    auto it = elementColorOverrides.find(atomicNumber);
-                    if (it != elementColorOverrides.end())
-                    {
-                        atom.r = it->second[0];
-                        atom.g = it->second[1];
-                        atom.b = it->second[2];
-                    }
-                }
+                applyElementColorOverrides(structure);
 
                 updateBuffers(structure);
                 requestResetDefaultView = true;
+                openStatusMsg[0] = '\0';
+                ImGui::CloseCurrentPopup();
             }
-            ImGui::CloseCurrentPopup();
+            else
+            {
+                std::snprintf(
+                    openStatusMsg,
+                    sizeof(openStatusMsg),
+                    "%s",
+                    loadError.empty() ? "Failed to load file." : loadError.c_str());
+            }
         }
         ImGui::EndPopup();
     }
@@ -902,6 +931,31 @@ void FileBrowser::draw(Structure& structure,
     }
     if (!editElementColorsOpen)
         ImGui::CloseCurrentPopup();
+}
+
+void FileBrowser::applyElementColorOverrides(Structure& structure) const
+{
+    for (std::size_t i = 0; i < structure.atoms.size(); ++i)
+    {
+        const int atomicNumber = structure.atoms[i].atomicNumber;
+        std::unordered_map<int, std::array<float, 3>>::const_iterator it = elementColorOverrides.find(atomicNumber);
+        if (it == elementColorOverrides.end())
+            continue;
+
+        structure.atoms[i].r = it->second[0];
+        structure.atoms[i].g = it->second[1];
+        structure.atoms[i].b = it->second[2];
+    }
+}
+
+void FileBrowser::showLoadError(const std::string& message)
+{
+    std::snprintf(
+        loadErrorMsg,
+        sizeof(loadErrorMsg),
+        "%s",
+        message.empty() ? "Failed to load file." : message.c_str());
+    loadErrorPopupRequested = true;
 }
 
 void FileBrowser::pushHistory(const std::string& dir)

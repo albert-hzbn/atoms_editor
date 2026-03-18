@@ -90,6 +90,12 @@ struct FileBrowser
     // Trigger save-as dialog (e.g. from Ctrl+S shortcut)
     void saveFileDialog() { saveStructurePopup = true; }
 
+    // Apply persistent user element color overrides to a loaded structure.
+    void applyElementColorOverrides(Structure& structure) const;
+
+    // Show a modal error popup for file-load failures.
+    void showLoadError(const std::string& message);
+
 private:
     void pushHistory(const std::string& dir);
     static std::string toLower(const std::string& s);
@@ -111,6 +117,7 @@ private:
     bool requestRedo;
     bool openStructurePopup;
     bool saveStructurePopup;
+    bool loadErrorPopupRequested;
 
     std::string openDir;
     std::vector<std::string> dirHistory;
@@ -121,6 +128,8 @@ private:
     std::vector<std::string> saveDirHistory;
     int saveHistoryIndex;
     int selectedSaveFormat;
+    char openStatusMsg[256];
+    char loadErrorMsg[512];
     char saveFilename[1024];
     char saveStatusMsg[256];
 

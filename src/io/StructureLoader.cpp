@@ -12,6 +12,7 @@
 #include <iostream>
 #include <array>
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <vector>
 #include <sys/stat.h>
@@ -141,6 +142,48 @@ void ensureOpenBabelPlugins()
     }
 
     OpenBabel::OBPlugin::LoadAllPlugins();
+}
+
+std::string toLowerCopy(const std::string& value)
+{
+    std::string out = value;
+    for (std::size_t i = 0; i < out.size(); ++i)
+        out[i] = (char)std::tolower((unsigned char)out[i]);
+    return out;
+}
+
+std::string extractExtension(const std::string& filename)
+{
+    const std::size_t slashPos = filename.find_last_of("/\\");
+    const std::size_t dotPos = filename.find_last_of('.');
+    if (dotPos == std::string::npos)
+        return std::string();
+    if (slashPos != std::string::npos && dotPos < slashPos)
+        return std::string();
+    return filename.substr(dotPos);
+}
+
+bool isSupportedExtension(const std::string& extLower)
+{
+    static const char* kSupportedExtensions[] = {
+        ".cif",
+        ".mol",
+        ".pdb",
+        ".xyz",
+        ".sdf"
+    };
+
+    for (std::size_t i = 0; i < sizeof(kSupportedExtensions) / sizeof(kSupportedExtensions[0]); ++i)
+    {
+        if (extLower == kSupportedExtensions[i])
+            return true;
+    }
+    return false;
+}
+
+std::string supportedExtensionsSummary()
+{
+    return ".cif, .mol, .pdb, .xyz, .sdf";
 }
 }
 
@@ -279,17 +322,58 @@ void getDefaultElementColor(int Z,float& r,float& g,float& b)
     b = colors[Z][2];
 }
 
-Structure loadStructure(const std::string& filename)
+bool isSupportedStructureFile(const std::string& filename)
 {
-    ensureOpenBabelPlugins();
+    const std::string extLower = toLowerCopy(extractExtension(filename));
+    return isSupportedExtension(extLower);
+}
 
-    Structure structure;
+bool loadStructureFromFile(const std::string& filename, Structure& structure, std::string& errorMessage)
+{
+    structure = Structure();
+    errorMessage.clear();
+
+    if (filename.empty())
+    {
+        errorMessage = "No file selected.";
+        return false;
+    }
+
+    const std::string ext = extractExtension(filename);
+    const std::string extLower = toLowerCopy(ext);
+    if (!isSupportedExtension(extLower))
+    {
+        if (extLower.empty())
+            errorMessage = "Unsupported file format (missing extension). Supported formats: " + supportedExtensionsSummary();
+        else
+            errorMessage = "Unsupported file format '" + ext + "'. Supported formats: " + supportedExtensionsSummary();
+        return false;
+    }
+
+    struct stat fileStat;
+    if (stat(filename.c_str(), &fileStat) != 0)
+    {
+        errorMessage = "File not found: " + filename;
+        return false;
+    }
+
+    ensureOpenBabelPlugins();
 
     OpenBabel::OBMol mol;
     OpenBabel::OBConversion conv;
 
-    conv.SetInFormat(conv.FormatFromExt(filename.c_str()));
-    conv.ReadFile(&mol, filename);
+    OpenBabel::OBFormat* inFmt = conv.FormatFromExt(filename.c_str());
+    if (!inFmt || !conv.SetInFormat(inFmt))
+    {
+        errorMessage = "Unsupported file format '" + ext + "'. Supported formats: " + supportedExtensionsSummary();
+        return false;
+    }
+
+    if (!conv.ReadFile(&mol, filename))
+    {
+        errorMessage = "Failed to load file. The file may be corrupted or unreadable.";
+        return false;
+    }
 
     // If the file provides unit cell / periodic information, make sure we
     // generate the full unit cell (symmetry-equivalent atoms) so that we
@@ -359,6 +443,22 @@ Structure loadStructure(const std::string& filename)
         std::cerr << "Loaded structure with " << structure.atoms.size() 
                   << " atoms." << std::endl;
     }
+
+    if (structure.atoms.empty())
+    {
+        errorMessage = "File loaded but no atoms were found.";
+        return false;
+    }
+
+    return true;
+}
+
+Structure loadStructure(const std::string& filename)
+{
+    Structure structure;
+    std::string errorMessage;
+    if (!filename.empty() && !loadStructureFromFile(filename, structure, errorMessage))
+        std::cerr << "Warning: " << errorMessage << std::endl;
 
     return structure;
 }
