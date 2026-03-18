@@ -153,11 +153,28 @@ ifeq ($(IS_WINDOWS),1)
             SPGLIB_CFLAGS := $(shell $(PKG_CONFIG) --cflags symspg 2>/dev/null)
             SPGLIB_LIBS   := $(shell $(PKG_CONFIG) $(PKG_CONFIG_LIBS_MODE) symspg 2>/dev/null)
         endif
+    endif
 
-        ifneq ($(strip $(SPGLIB_LIBS)),)
-            CXXFLAGS += -DATOMS_ENABLE_SPGLIB $(SPGLIB_CFLAGS)
-            LIBS += $(SPGLIB_LIBS)
+    # Fallback when pkg-config metadata is missing but libraries are present.
+    ifeq ($(strip $(SPGLIB_LIBS)),)
+        ifneq ($(wildcard $(WINDOWS_PREFIX)/lib/libsymspg.a),)
+            SPGLIB_LIBS := -lsymspg
+            SPGLIB_CFLAGS := -I$(WINDOWS_PREFIX)/include
+        else ifneq ($(wildcard $(WINDOWS_PREFIX)/lib/libspglib.a),)
+            SPGLIB_LIBS := -lspglib
+            SPGLIB_CFLAGS := -I$(WINDOWS_PREFIX)/include
+        else ifneq ($(wildcard $(WINDOWS_PREFIX)/lib/libsymspg.dll.a),)
+            SPGLIB_LIBS := -lsymspg
+            SPGLIB_CFLAGS := -I$(WINDOWS_PREFIX)/include
+        else ifneq ($(wildcard $(WINDOWS_PREFIX)/lib/libspglib.dll.a),)
+            SPGLIB_LIBS := -lspglib
+            SPGLIB_CFLAGS := -I$(WINDOWS_PREFIX)/include
         endif
+    endif
+
+    ifneq ($(strip $(SPGLIB_LIBS)),)
+        CXXFLAGS += -DATOMS_ENABLE_SPGLIB $(SPGLIB_CFLAGS)
+        LIBS += $(SPGLIB_LIBS)
     endif
 else ifeq ($(UNAME_S), Linux)
   ECHO_MESSAGE = Linux
