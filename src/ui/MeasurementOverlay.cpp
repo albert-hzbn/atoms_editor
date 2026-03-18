@@ -5,11 +5,154 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <cstdio>
+#include <limits>
 
 namespace
 {
 constexpr float kPi = 3.14159265358979323846f;
+constexpr float kBondToleranceFactor = 1.18f;
+constexpr float kMinBondDistance = 0.10f;
+
+struct BondStats
+{
+    int coordinationNumber = 0;
+    float averageDistance = 0.0f;
+    float minDistance = 0.0f;
+    float maxDistance = 0.0f;
+};
+
+glm::vec3 minimumImageDelta(const glm::vec3& deltaCartesian,
+                            bool usePbc,
+                            const glm::mat3& cell,
+                            const glm::mat3& invCell)
+{
+    if (!usePbc)
+        return deltaCartesian;
+
+    glm::vec3 frac = invCell * deltaCartesian;
+    frac -= glm::round(frac);
+    return cell * frac;
+}
+
+BondStats computeBondStatsForAtom(int centerInstanceIdx,
+                                  int centerBaseIdx,
+                                  const SceneBuffers& sceneBuffers,
+                                  const Structure& structure)
+{
+    BondStats stats;
+
+    if (centerInstanceIdx < 0 || centerInstanceIdx >= (int)sceneBuffers.atomPositions.size() ||
+        centerInstanceIdx >= (int)sceneBuffers.atomRadii.size())
+    {
+        return stats;
+    }
+
+    bool canUseBaseAtoms = centerBaseIdx >= 0 && centerBaseIdx < (int)structure.atoms.size();
+    const glm::vec3 centerPos = canUseBaseAtoms
+        ? glm::vec3((float)structure.atoms[centerBaseIdx].x,
+                    (float)structure.atoms[centerBaseIdx].y,
+                    (float)structure.atoms[centerBaseIdx].z)
+        : sceneBuffers.atomPositions[centerInstanceIdx];
+
+    const float radiusCenter = sceneBuffers.atomRadii[centerInstanceIdx];
+
+    std::vector<float> baseRadii;
+    baseRadii.assign(structure.atoms.size(), -1.0f);
+    const int pairCount = std::min((int)sceneBuffers.atomIndices.size(), (int)sceneBuffers.atomRadii.size());
+    for (int i = 0; i < pairCount; ++i)
+    {
+        int b = sceneBuffers.atomIndices[i];
+        if (b >= 0 && b < (int)baseRadii.size() && baseRadii[b] < 0.0f)
+            baseRadii[b] = sceneBuffers.atomRadii[i];
+    }
+
+    bool usePbc = false;
+    glm::mat3 cell(1.0f);
+    glm::mat3 invCell(1.0f);
+    if (structure.hasUnitCell)
+    {
+        cell = glm::mat3(
+            glm::vec3((float)structure.cellVectors[0][0], (float)structure.cellVectors[0][1], (float)structure.cellVectors[0][2]),
+            glm::vec3((float)structure.cellVectors[1][0], (float)structure.cellVectors[1][1], (float)structure.cellVectors[1][2]),
+            glm::vec3((float)structure.cellVectors[2][0], (float)structure.cellVectors[2][1], (float)structure.cellVectors[2][2]));
+
+        float det = glm::determinant(cell);
+        if (std::abs(det) > 1e-8f)
+        {
+            invCell = glm::inverse(cell);
+            usePbc = true;
+        }
+    }
+
+    float minDistance = std::numeric_limits<float>::max();
+    float maxDistance = 0.0f;
+    float sumDistance = 0.0f;
+    int count = 0;
+
+    if (canUseBaseAtoms)
+    {
+        for (int j = 0; j < (int)structure.atoms.size(); ++j)
+        {
+            if (j == centerBaseIdx)
+                continue;
+
+            const glm::vec3 otherPos((float)structure.atoms[j].x,
+                                     (float)structure.atoms[j].y,
+                                     (float)structure.atoms[j].z);
+            const glm::vec3 delta = minimumImageDelta(otherPos - centerPos, usePbc, cell, invCell);
+            const float distance = glm::length(delta);
+            if (distance <= kMinBondDistance)
+                continue;
+
+            const float radiusOther = (j >= 0 && j < (int)baseRadii.size() && baseRadii[j] > 0.0f)
+                ? baseRadii[j]
+                : 1.0f;
+            const float maxBondDistance = (radiusCenter + radiusOther) * kBondToleranceFactor;
+            if (distance > maxBondDistance)
+                continue;
+
+            minDistance = std::min(minDistance, distance);
+            maxDistance = std::max(maxDistance, distance);
+            sumDistance += distance;
+            ++count;
+        }
+    }
+    else
+    {
+        for (int i = 0; i < (int)sceneBuffers.atomPositions.size(); ++i)
+        {
+            if (i == centerInstanceIdx || i >= (int)sceneBuffers.atomRadii.size())
+                continue;
+
+            const glm::vec3 delta = sceneBuffers.atomPositions[i] - centerPos;
+            const float distance = glm::length(delta);
+            if (distance <= kMinBondDistance)
+                continue;
+
+            const float radiusOther = sceneBuffers.atomRadii[i];
+            const float maxBondDistance = (radiusCenter + radiusOther) * kBondToleranceFactor;
+            if (distance > maxBondDistance)
+                continue;
+
+            minDistance = std::min(minDistance, distance);
+            maxDistance = std::max(maxDistance, distance);
+            sumDistance += distance;
+            ++count;
+        }
+    }
+
+    stats.coordinationNumber = count;
+    if (count > 0)
+    {
+        stats.averageDistance = sumDistance / (float)count;
+        stats.minDistance = minDistance;
+        stats.maxDistance = maxDistance;
+    }
+
+    return stats;
+}
 
 bool projectToScreen(const glm::vec3& p,
                      const glm::mat4& projection,
@@ -230,6 +373,34 @@ void processMeasurementRequests(MeasurementOverlayState& state,
                     std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
                                   "Direct:  (%.6f, %.6f, %.6f)",
                                   frac.x, frac.y, frac.z);
+                    len = (int)std::strlen(state.atomInfoMessage);
+                }
+
+                BondStats stats = computeBondStatsForAtom(idx, baseIdx, sceneBuffers, structure);
+                len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                     "\nCoordination number:  %d\n",
+                                     stats.coordinationNumber);
+
+                if (stats.coordinationNumber > 0)
+                {
+                    len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                         "Avg bond length:  %.4f A\n",
+                                         stats.averageDistance);
+                    len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                         "Min bond length:  %.4f A\n",
+                                         stats.minDistance);
+                    len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                         "Max bond length:  %.4f A",
+                                         stats.maxDistance);
+                }
+                else
+                {
+                    len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                         "Avg bond length:  N/A\n");
+                    len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                         "Min bond length:  N/A\n");
+                    len += std::snprintf(state.atomInfoMessage + len, sizeof(state.atomInfoMessage) - len,
+                                         "Max bond length:  N/A");
                 }
             }
         }

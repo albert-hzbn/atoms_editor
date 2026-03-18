@@ -99,7 +99,7 @@ Box selection:
 ### Measurements and overlays
 
 - Distance and angle tools open result dialogs and draw dashed helper lines.
-- **Atom Info** shows element name, atomic number, Cartesian coordinates, and direct coordinates (when a unit cell exists).
+- **Atom Info** shows element name, atomic number, Cartesian/direct coordinates, and coordination number with average/min/max bond length (bond stats use PBC when a unit cell exists).
 - Dashed helper lines are cleared when selection changes or when the dialog is confirmed.
 - **Show Element** labels are rendered for periodic image atoms as well.
 

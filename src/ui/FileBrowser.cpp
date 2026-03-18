@@ -541,7 +541,7 @@ void FileBrowser::draw(Structure& structure,
             ImGui::BulletText("Structure Info: composition, lattice metrics, positions, and symmetry");
             ImGui::BulletText("Measure Distance (2 selected): open distance dialog and overlay");
             ImGui::BulletText("Measure Angle (3 selected): open angle dialog and overlay");
-            ImGui::BulletText("Atom Info (1 selected): show atom metadata and coordinates");
+            ImGui::BulletText("Atom Info (1 selected): metadata, coordinates, and PBC-aware coordination/bond-length stats");
             ImGui::BulletText("Reset Default View: restore fitted isometric camera view");
 
             ImGui::Spacing();
