@@ -58,13 +58,34 @@ bool updateViewport(GLFWwindow* window, FrameView& frame)
     return true;
 }
 
-void buildFrameView(Camera& camera, const SceneBuffers& sceneBuffers, FrameView& frame)
+void buildFrameView(Camera& camera,
+                    const SceneBuffers& sceneBuffers,
+                    bool useOrthographicView,
+                    FrameView& frame)
 {
-    frame.projection = glm::perspective(
-        glm::radians(45.0f),
-        (float)frame.framebufferWidth / frame.framebufferHeight,
-        0.1f,
-        1000.0f);
+    const float aspect = (float)frame.framebufferWidth / (float)frame.framebufferHeight;
+    const float verticalFov = glm::radians(45.0f);
+
+    if (useOrthographicView)
+    {
+        const float halfHeight = std::max(0.1f, camera.distance * std::tan(verticalFov * 0.5f));
+        const float halfWidth = halfHeight * aspect;
+        frame.projection = glm::ortho(
+            -halfWidth,
+            halfWidth,
+            -halfHeight,
+            halfHeight,
+            -1000.0f,
+            1000.0f);
+    }
+    else
+    {
+        frame.projection = glm::perspective(
+            verticalFov,
+            aspect,
+            0.1f,
+            1000.0f);
+    }
 
     float yaw = glm::radians(camera.yaw);
     float pitch = glm::radians(camera.pitch);
@@ -130,7 +151,10 @@ int runAtomsEditor()
             state.pendingDefaultViewReset = false;
         }
 
-        buildFrameView(camera, state.sceneBuffers, frame);
+        buildFrameView(camera,
+                   state.sceneBuffers,
+                   state.fileBrowser.isOrthographicViewEnabled(),
+                   frame);
 
         handlePendingAtomPick(
             camera,

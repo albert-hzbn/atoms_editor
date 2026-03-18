@@ -14,6 +14,12 @@
 #include <unordered_map>
 #include <vector>
 
+enum class ViewMode
+{
+    Isometric,
+    Orthographic,
+};
+
 struct FileBrowser
 {
     FileBrowser();
@@ -34,6 +40,7 @@ struct FileBrowser
     void clearTransformMatrix() { transformDialog.clearTransform(); }
     bool isShowElementEnabled() const { return showElementLabels; }
     bool isShowBondsEnabled() const { return showBonds; }
+    bool isOrthographicViewEnabled() const { return viewMode == ViewMode::Orthographic; }
     bool isBoxSelectModeEnabled() const { return boxSelectMode; }
     bool consumeMeasureDistanceRequest()
     {
@@ -93,6 +100,7 @@ private:
     bool showEditColors;
     bool showElementLabels;
     bool showBonds;
+    ViewMode viewMode;
     bool boxSelectMode;
     bool requestMeasureDistance;
     bool requestMeasureAngle;

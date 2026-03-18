@@ -108,6 +108,7 @@ FileBrowser::FileBrowser()
             showEditColors(false),
             showElementLabels(false),
             showBonds(false),
+            viewMode(ViewMode::Isometric),
             boxSelectMode(false),
             requestMeasureDistance(false),
             requestMeasureAngle(false),
@@ -214,6 +215,23 @@ void FileBrowser::draw(Structure& structure,
         {
             ImGui::MenuItem("Show Element", nullptr, &showElementLabels);
             ImGui::MenuItem("Show Bonds", nullptr, &showBonds);
+            ImGui::Separator();
+
+            const bool isIsometricView = (viewMode == ViewMode::Isometric);
+            if (ImGui::MenuItem("Isometric View", nullptr, isIsometricView) && !isIsometricView)
+            {
+                viewMode = ViewMode::Isometric;
+                requestResetDefaultView = true;
+            }
+
+            const bool isOrthographicView = (viewMode == ViewMode::Orthographic);
+            if (ImGui::MenuItem("Orthographic View", nullptr, isOrthographicView) && !isOrthographicView)
+            {
+                viewMode = ViewMode::Orthographic;
+                requestResetDefaultView = true;
+            }
+
+            ImGui::Separator();
             if (ImGui::MenuItem("Structure Info"))
                 requestStructureInfo = true;
             if (ImGui::MenuItem("Measure Distance (2 selected)"))
@@ -554,6 +572,8 @@ void FileBrowser::draw(Structure& structure,
             ImGui::Text("View Menu");
             ImGui::BulletText("Show Element: toggle element labels");
             ImGui::BulletText("Show Bonds: toggle bond rendering");
+            ImGui::BulletText("Isometric View: fit and reset to the default angled 3D perspective view");
+            ImGui::BulletText("Orthographic View: switch to orthographic projection while keeping the default fitted viewing angle");
             ImGui::BulletText("Structure Info: composition, lattice metrics, positions, and symmetry");
             ImGui::BulletText("Measure Distance (2 selected): open distance dialog and overlay");
             ImGui::BulletText("Measure Angle (3 selected): open angle dialog and overlay");
