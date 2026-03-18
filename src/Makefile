@@ -40,6 +40,7 @@ MATH_SOURCES = \
 
 UI_SOURCES = \
     ui/AtomContextMenu.cpp                \
+    ui/CSLGrainBoundaryDialog.cpp         \
     ui/CommonNeighbourAnalysis.cpp        \
     ui/EditMenuDialogs.cpp                \
     ui/FileBrowser.cpp                    \

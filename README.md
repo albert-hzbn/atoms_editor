@@ -107,6 +107,15 @@ Box selection:
 - RDF controls include species filters, PBC toggle, normalization, radius range, bin count, smoothing, and plot overlays.
 - RDF results include the plotted curve, per-bin table, density/volume summary, and first-peak / first-minimum estimates.
 
+### Build menu
+
+- **CSL Grain Boundary…** — create a bicrystal grain-boundary structure from cubic lattice templates only (`sc`, `bcc`, `fcc`, `diamond`).
+- The builder does not use the loaded structure as the source lattice; it generates from selected basis, lattice parameter, and element.
+- Sigma can be chosen explicitly by generating a Sigma candidate list from the selected axis and choosing one entry (`Sigma`, `m`, `n`, angle).
+- In-plane replication controls (`r2 r3`) are available to expand the generated GB cell without creating multiple GB images along the normal.
+- Builder controls include rotation axis `[u v w]`, `(m, n)` misorientation parameters (Sigma/angle), GB plane `(h k l)`, dimensions, overlap removal, optional rigid translation, and box padding.
+- Generation replaces the current structure and reports atoms in/out, overlap removals, Sigma, and misorientation angle.
+
 ### Measurements and overlays
 
 - Distance and angle tools open result dialogs and draw dashed helper lines.

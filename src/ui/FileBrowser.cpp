@@ -133,6 +133,12 @@ void FileBrowser::draw(Structure& structure,
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Build"))
+        {
+            cslDialog.drawMenuItem(true);
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("View"))
         {
             ImGui::MenuItem("Show Element", nullptr, &showElementLabels);
@@ -174,6 +180,7 @@ void FileBrowser::draw(Structure& structure,
     editMenuDialogs.drawPopups(structure, updateBuffers);
 
     transformDialog.drawDialog([&]() { updateBuffers(structure); });
+    cslDialog.drawDialog(structure, updateBuffers);
     cnaDialog.drawDialog(structure);
     rdfDialog.drawDialog(structure);
 
@@ -542,6 +549,10 @@ void FileBrowser::draw(Structure& structure,
             ImGui::BulletText("Atomic Sizes...: adjust per-element covalent radii");
             ImGui::BulletText("Element Colors...: adjust per-element colors and material shininess");
             ImGui::BulletText("Transform Structure...: apply a 3x3 integer transformation matrix");
+
+            ImGui::Spacing();
+            ImGui::Text("Build Menu");
+            ImGui::BulletText("CSL Grain Boundary...: cubic GB builder with Sigma-list selection and in-plane supercell replication");
 
             ImGui::Spacing();
             ImGui::Text("View Menu");
