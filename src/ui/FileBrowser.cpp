@@ -135,6 +135,7 @@ void FileBrowser::draw(Structure& structure,
 
         if (ImGui::BeginMenu("Build"))
         {
+            bulkCrystalDialog.drawMenuItem(true);
             cslDialog.drawMenuItem(true);
             ImGui::EndMenu();
         }
@@ -180,6 +181,7 @@ void FileBrowser::draw(Structure& structure,
     editMenuDialogs.drawPopups(structure, updateBuffers);
 
     transformDialog.drawDialog([&]() { updateBuffers(structure); });
+    bulkCrystalDialog.drawDialog(structure, editMenuDialogs.elementColors, updateBuffers);
     cslDialog.drawDialog(structure, updateBuffers);
     cnaDialog.drawDialog(structure);
     rdfDialog.drawDialog(structure);
@@ -511,7 +513,7 @@ void FileBrowser::draw(Structure& structure,
     bool manualOpen = true;
     if (ImGui::BeginPopupModal("Manual", &manualOpen, ImGuiWindowFlags_NoResize))
     {
-        ImGui::Text("Atoms Editor Manual");
+        ImGui::Text("AtomForge Manual");
         ImGui::TextDisabled("Complete reference for all features and operations");
         ImGui::Separator();
 
@@ -552,6 +554,7 @@ void FileBrowser::draw(Structure& structure,
 
             ImGui::Spacing();
             ImGui::Text("Build Menu");
+            ImGui::BulletText("Bulk Crystal...: build a full unit cell from crystal system, space group, lattice parameters, and asymmetric-unit atoms");
             ImGui::BulletText("CSL Grain Boundary...: cubic GB builder with Sigma-list selection and in-plane supercell replication");
 
             ImGui::Spacing();
@@ -605,7 +608,7 @@ void FileBrowser::draw(Structure& structure,
     bool aboutOpen = true;
     if (ImGui::BeginPopupModal("About", &aboutOpen, ImGuiWindowFlags_NoResize))
     {
-        ImGui::Text("Atoms Editor");
+        ImGui::Text("AtomForge");
         ImGui::TextDisabled("Molecular structure viewer and editor with periodic-cell tools");
         ImGui::Separator();
 

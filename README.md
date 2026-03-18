@@ -1,4 +1,4 @@
-# Atoms Editor
+# AtomForge
 
 An OpenGL-based molecular structure viewer and editor using Dear ImGui and Open Babel.
 
@@ -25,7 +25,7 @@ make
 Then run:
 
 ```bash
-./atoms_editor
+./AtomForge
 ```
 
 ## Usage
@@ -109,6 +109,11 @@ Box selection:
 
 ### Build menu
 
+- **Bulk Crystal…** — build a full periodic unit cell from a selected crystal system, space group, lattice parameters, and asymmetric-unit atoms.
+- Space-group selection is grouped by crystal system (triclinic, monoclinic, orthorhombic, tetragonal, trigonal, hexagonal, cubic).
+- Lattice inputs are constrained by the selected crystal system; trigonal currently uses the hexagonal setting.
+- Asymmetric-unit atoms can be added, edited, deleted, and substituted directly in the dialog before symmetry expansion.
+- Generation applies the selected space-group symmetry operations to fill the full unit cell and replaces the current structure.
 - **CSL Grain Boundary…** — create a bicrystal grain-boundary structure from cubic lattice templates only (`sc`, `bcc`, `fcc`, `diamond`).
 - The builder does not use the loaded structure as the source lattice; it generates from selected basis, lattice parameter, and element.
 - Sigma can be chosen explicitly by generating a Sigma candidate list from the selected axis and choosing one entry (`Sigma`, `m`, `n`, angle).

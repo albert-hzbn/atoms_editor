@@ -10,7 +10,7 @@ GLFWwindow* createMainWindow()
     if (!glfwInit())
         return nullptr;
 
-    GLFWwindow* window = glfwCreateWindow(1280, 800, "Atoms Editor", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1280, 800, "AtomForge", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();

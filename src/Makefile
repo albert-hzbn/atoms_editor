@@ -2,7 +2,7 @@
 # Configuration — edit these sections to add/remove files or change flags
 # ==============================================================================
 
-EXE   = atoms_editor
+EXE   = AtomForge
 CXX   = g++
 IMGUI = ../
 LINK_MODE ?= shared
@@ -40,6 +40,7 @@ MATH_SOURCES = \
 
 UI_SOURCES = \
     ui/AtomContextMenu.cpp                \
+    ui/BulkCrystalBuilderDialog.cpp       \
     ui/CSLGrainBoundaryDialog.cpp         \
     ui/CommonNeighbourAnalysis.cpp        \
     ui/EditMenuDialogs.cpp                \
