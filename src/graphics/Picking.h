@@ -8,6 +8,11 @@ glm::vec3 pickRayDir(double mx, double my, int w, int h,
                      const glm::mat4& projection,
                      const glm::mat4& view);
 
+// Unproject a window-space cursor position onto the near clip plane in world space.
+glm::vec3 pickRayOrigin(double mx, double my, int w, int h,
+                        const glm::mat4& projection,
+                        const glm::mat4& view);
+
 // Ray–sphere intersection test against a list of atom positions.
 // Returns the index of the nearest hit atom, or -1 if none.
 // Per-instance radii are taken from 'radii'; 'fallbackRadius' is used when

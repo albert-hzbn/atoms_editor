@@ -6,6 +6,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace
 {
@@ -53,6 +54,9 @@ void applyKeyboardShortcuts(EditorState& state, FrameActionRequests& requests)
     if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::GetIO().KeyCtrl)
         state.fileBrowser.saveFileDialog();
 
+    if (ImGui::IsKeyPressed(ImGuiKey_W) && ImGui::GetIO().KeyCtrl)
+        state.fileBrowser.closeStructure();
+
     if (ImGui::IsKeyPressed(ImGuiKey_Z) && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift)
         requests.requestUndo = true;
 
@@ -83,9 +87,13 @@ void handlePendingAtomPick(
     }
 
     camera.pendingClick = false;
+    const bool isOrthographicProjection = std::abs(projection[3][3] - 1.0f) <= 1e-4f;
+    const glm::vec3 rayOrigin = isOrthographicProjection
+        ? pickRayOrigin(camera.clickX, camera.clickY, windowWidth, windowHeight, projection, view)
+        : cameraPosition;
     glm::vec3 ray = pickRayDir(camera.clickX, camera.clickY, windowWidth, windowHeight, projection, view);
     int pickedIndex = pickAtom(
-        cameraPosition,
+        rayOrigin,
         ray,
         state.sceneBuffers.atomPositions,
         state.sceneBuffers.atomRadii,

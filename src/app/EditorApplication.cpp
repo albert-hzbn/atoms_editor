@@ -262,6 +262,14 @@ int runAtomsEditor()
         requests.requestRedo = requests.requestRedo || state.fileBrowser.consumeRedoRequest();
         requests.requestStructureInfo = requests.requestStructureInfo || state.fileBrowser.consumeStructureInfoRequest();
 
+        if (state.fileBrowser.consumeCloseStructureRequest())
+        {
+            clearSelection(state);
+            state.structure = Structure();
+            updateBuffers(state);
+            state.pendingDefaultViewReset = true;
+        }
+
         if (state.fileBrowser.consumeResetDefaultViewRequest())
             state.pendingDefaultViewReset = true;
 

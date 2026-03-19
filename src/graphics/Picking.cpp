@@ -2,9 +2,13 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-glm::vec3 pickRayDir(double mx, double my, int w, int h,
-                     const glm::mat4& projection,
-                     const glm::mat4& view)
+namespace
+{
+void unprojectCursorRayEndpoints(double mx, double my, int w, int h,
+                                 const glm::mat4& projection,
+                                 const glm::mat4& view,
+                                 glm::vec3& nearPoint,
+                                 glm::vec3& farPoint)
 {
     float ndcX =  2.0f * (float)mx / (float)w - 1.0f;
     float ndcY = -2.0f * (float)my / (float)h + 1.0f;
@@ -17,7 +21,29 @@ glm::vec3 pickRayDir(double mx, double my, int w, int h,
     nearP /= nearP.w;
     farP  /= farP.w;
 
-    return glm::normalize(glm::vec3(farP - nearP));
+    nearPoint = glm::vec3(nearP);
+    farPoint = glm::vec3(farP);
+}
+}
+
+glm::vec3 pickRayOrigin(double mx, double my, int w, int h,
+                        const glm::mat4& projection,
+                        const glm::mat4& view)
+{
+    glm::vec3 nearPoint(0.0f);
+    glm::vec3 farPoint(0.0f);
+    unprojectCursorRayEndpoints(mx, my, w, h, projection, view, nearPoint, farPoint);
+    return nearPoint;
+}
+
+glm::vec3 pickRayDir(double mx, double my, int w, int h,
+                     const glm::mat4& projection,
+                     const glm::mat4& view)
+{
+    glm::vec3 nearPoint(0.0f);
+    glm::vec3 farPoint(0.0f);
+    unprojectCursorRayEndpoints(mx, my, w, h, projection, view, nearPoint, farPoint);
+    return glm::normalize(farPoint - nearPoint);
 }
 
 int pickAtom(const glm::vec3& origin, const glm::vec3& dir,

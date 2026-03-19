@@ -84,11 +84,19 @@ struct FileBrowser
         requestRedo = false;
         return requested;
     }
+    bool consumeCloseStructureRequest()
+    {
+        bool requested = requestCloseStructure;
+        requestCloseStructure = false;
+        return requested;
+    }
 
     // Programmatically trigger file open dialog (for keyboard shortcuts)
     void openFileDialog() { openStructurePopup = true; }
     // Trigger save-as dialog (e.g. from Ctrl+S shortcut)
     void saveFileDialog() { saveStructurePopup = true; }
+    // Trigger unload of current structure (e.g. from Ctrl+W shortcut)
+    void closeStructure() { requestCloseStructure = true; }
 
     // Apply persistent user element color overrides to a loaded structure.
     void applyElementColorOverrides(Structure& structure) const;
@@ -115,6 +123,7 @@ private:
     bool requestStructureInfo;
     bool requestUndo;
     bool requestRedo;
+    bool requestCloseStructure;
     bool openStructurePopup;
     bool saveStructurePopup;
     bool loadErrorPopupRequested;

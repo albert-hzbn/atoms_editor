@@ -243,6 +243,7 @@ FileBrowser::FileBrowser()
             requestStructureInfo(false),
             requestUndo(false),
             requestRedo(false),
+            requestCloseStructure(false),
             openStructurePopup(false),
             saveStructurePopup(false),
             loadErrorPopupRequested(false),
@@ -327,6 +328,9 @@ void FileBrowser::draw(Structure& structure,
         {
             if (ImGui::MenuItem("Open...",  "Ctrl+O"))
                 openStructurePopup = true;
+
+            if (ImGui::MenuItem("Close", "Ctrl+W", false, !structure.atoms.empty()))
+                requestCloseStructure = true;
 
             if (ImGui::MenuItem("Save As...", "Ctrl+S"))
             {
