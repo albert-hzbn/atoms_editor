@@ -373,6 +373,11 @@ bool loadStructureFromFile(const std::string& filename, Structure& structure, st
         return false;
     }
 
+    // Suppress automatic bond detection inside format readers (e.g. PDB calls
+    // ConnectTheDots() internally).  Bond topology is not used by this
+    // application so there is no value in the O(n²) work.
+    conv.AddOption("b", OpenBabel::OBConversion::INOPTIONS);
+
     if (!conv.ReadFile(&mol, filename))
     {
         errorMessage = "Failed to load file. The file may be corrupted or unreadable.";
@@ -491,8 +496,18 @@ bool saveStructure(const Structure& structure, const std::string& filename, cons
         mol.SetData(cell);
     }
 
-    mol.ConnectTheDots();
-    mol.PerceiveBondOrders();
+    // ConnectTheDots / PerceiveBondOrders are O(n²) and cause OOM crashes
+    // for structures with more than a few hundred atoms, or for any periodic
+    // structure where every atom is within bonding range of many neighbours.
+    // For formats that actually store bonds (mol2, sdf) the data is
+    // irrelevant for export; for all other formats (xyz, cif, vasp …) bonds
+    // are not part of the file format at all.
+    constexpr size_t kBondDetectionAtomLimit = 500;
+    if (!structure.hasUnitCell && structure.atoms.size() <= kBondDetectionAtomLimit)
+    {
+        mol.ConnectTheDots();
+        mol.PerceiveBondOrders();
+    }
     mol.EndModify();
 
     OpenBabel::OBConversion conv;
