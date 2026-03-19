@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 namespace
 {
@@ -48,7 +49,15 @@ void updateBuffers(EditorState& state)
 {
     if (state.fileBrowser.isTransformMatrixEnabled() && state.structure.hasUnitCell)
     {
+        const size_t inputAtomCount = state.structure.atoms.size();
+        const int (&matrix)[3][3] = state.fileBrowser.getTransformMatrix();
         state.structure = buildSupercell(state.structure, state.fileBrowser.getTransformMatrix());
+        std::cout << "[Operation] Applied supercell transform: "
+                  << "matrix=[[" << matrix[0][0] << " " << matrix[0][1] << " " << matrix[0][2] << "]"
+                  << ",[" << matrix[1][0] << " " << matrix[1][1] << " " << matrix[1][2] << "]"
+                  << ",[" << matrix[2][0] << " " << matrix[2][1] << " " << matrix[2][2] << "]]"
+                  << ", atoms=" << inputAtomCount << " -> " << state.structure.atoms.size()
+                  << std::endl;
         state.fileBrowser.clearTransformMatrix();
     }
 
@@ -165,6 +174,8 @@ void deleteSelectedAtoms(EditorState& state)
         if (baseIndex >= 0 && baseIndex < (int)state.structure.atoms.size())
             state.structure.atoms.erase(state.structure.atoms.begin() + baseIndex);
     }
+
+    std::cout << "[Operation] Deleted atoms (selection): " << baseIndicesToDelete.size() << std::endl;
 
     updateBuffers(state);
 }

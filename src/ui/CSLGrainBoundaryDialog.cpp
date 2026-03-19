@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <limits>
 #include <map>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -770,6 +771,8 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
             {
                 lastResult.success = false;
                 lastResult.message = "Generate and select a Sigma candidate first.";
+                std::cout << "[Operation] CSL grain boundary generation failed: "
+                          << lastResult.message << std::endl;
             }
             else
             {
@@ -797,7 +800,28 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
                                           vacuumPadding,
                                           1, replicationsInPlane[0], replicationsInPlane[1]);
             if (lastResult.success)
+            {
                 updateBuffers(structure);
+                std::cout << "[Operation] Built CSL grain boundary: "
+                          << "basis=" << cubicBasisName((CubicBasisType)lastResult.basisIndex)
+                          << ", element=" << elementSymbol(lastResult.atomicNumber)
+                          << "(" << lastResult.atomicNumber << ")"
+                          << ", Sigma=" << lastResult.sigma
+                          << ", theta_deg=" << lastResult.thetaDeg
+                          << ", GB_plane=(" << lastResult.gbPlane[0] << " "
+                          << lastResult.gbPlane[1] << " " << lastResult.gbPlane[2] << ")"
+                          << ", dims=[" << lastResult.dims[0] << " "
+                          << lastResult.dims[1] << " " << lastResult.dims[2] << "]"
+                          << ", reps=[" << lastResult.reps[0] << " "
+                          << lastResult.reps[1] << " " << lastResult.reps[2] << "]"
+                          << ", generated_atoms=" << lastResult.generatedAtoms
+                          << std::endl;
+            }
+            else
+            {
+                std::cout << "[Operation] CSL grain boundary generation failed: "
+                          << lastResult.message << std::endl;
+            }
             }
         }
 

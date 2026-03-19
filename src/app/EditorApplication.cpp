@@ -22,6 +22,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <cmath>
+#include <iostream>
 #include <string>
 
 namespace {
@@ -169,6 +170,8 @@ void processDroppedFiles(EditorState& state)
     std::string loadError;
     if (!loadStructureFromFile(droppedFile, loadedStructure, loadError))
     {
+        std::cout << "[Operation] Drop-load failed: " << droppedFile
+                  << " (" << loadError << ")" << std::endl;
         state.fileBrowser.showLoadError(loadError);
         return;
     }
@@ -178,6 +181,9 @@ void processDroppedFiles(EditorState& state)
     state.fileBrowser.applyElementColorOverrides(state.structure);
     updateBuffers(state);
     state.pendingDefaultViewReset = true;
+
+    std::cout << "[Operation] Drop-loaded structure: " << droppedFile
+              << " (atoms=" << state.structure.atoms.size() << ")" << std::endl;
 }
 
 } // namespace
@@ -268,15 +274,23 @@ int runAtomsEditor()
             state.structure = Structure();
             updateBuffers(state);
             state.pendingDefaultViewReset = true;
+
+            std::cout << "[Operation] Structure unloaded" << std::endl;
         }
 
         if (state.fileBrowser.consumeResetDefaultViewRequest())
             state.pendingDefaultViewReset = true;
 
         if (requests.requestUndo && state.undoRedo.canUndo())
+        {
             applySnapshot(state, state.undoRedo.undo());
+            std::cout << "[Operation] Undo" << std::endl;
+        }
         else if (requests.requestRedo && state.undoRedo.canRedo())
+        {
             applySnapshot(state, state.undoRedo.redo());
+            std::cout << "[Operation] Redo" << std::endl;
+        }
 
         ImDrawList* drawList = ImGui::GetForegroundDrawList();
         handleBoxSelection(

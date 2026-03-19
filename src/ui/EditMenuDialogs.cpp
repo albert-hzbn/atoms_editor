@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 namespace
 {
@@ -264,6 +265,10 @@ void EditMenuDialogs::drawPopups(Structure& structure,
             structure.atoms.push_back(newAtom);
             m_selectedEditAtom = (int)structure.atoms.size() - 1;
             m_scrollEditRowsToBottom = true;
+            std::cout << "[Operation] Added atom (edit structure): "
+                      << newAtom.symbol << "(" << newAtom.atomicNumber << ")"
+                      << " at [" << newAtom.x << ", " << newAtom.y << ", " << newAtom.z << "]"
+                      << std::endl;
             updateBuffers(structure);
         }
 
@@ -366,9 +371,13 @@ void EditMenuDialogs::drawPopups(Structure& structure,
 
             if (pendingDelete >= 0 && pendingDelete < (int)structure.atoms.size())
             {
+                const AtomSite deletedAtom = structure.atoms[pendingDelete];
                 structure.atoms.erase(structure.atoms.begin() + pendingDelete);
                 if (m_selectedEditAtom >= (int)structure.atoms.size())
                     m_selectedEditAtom = std::max(0, (int)structure.atoms.size() - 1);
+                std::cout << "[Operation] Deleted atom (edit structure row): "
+                          << deletedAtom.symbol << "(" << deletedAtom.atomicNumber << ")"
+                          << " row=" << pendingDelete << std::endl;
                 updateBuffers(structure);
             }
             else if (anyPositionChanged)
@@ -405,6 +414,8 @@ void EditMenuDialogs::drawPopups(Structure& structure,
                 m_editStructureElementTargetAtom < (int)structure.atoms.size())
             {
                 AtomSite& target = structure.atoms[m_editStructureElementTargetAtom];
+                const int oldAtomicNumber = target.atomicNumber;
+                const std::string oldSymbol = target.symbol;
                 target.atomicNumber = m_selectedEditElement;
                 target.symbol = elementSymbol(m_selectedEditElement);
                 if (m_selectedEditElement >= 0 &&
@@ -418,6 +429,11 @@ void EditMenuDialogs::drawPopups(Structure& structure,
                 {
                     getDefaultElementColor(m_selectedEditElement, target.r, target.g, target.b);
                 }
+                std::cout << "[Operation] Substituted atom (edit structure): "
+                          << "row=" << m_editStructureElementTargetAtom << " "
+                          << oldSymbol << "(" << oldAtomicNumber << ") -> "
+                          << target.symbol << "(" << target.atomicNumber << ")"
+                          << std::endl;
                 updateBuffers(structure);
             }
 

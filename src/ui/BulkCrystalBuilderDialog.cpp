@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -614,12 +615,18 @@ void BulkCrystalBuilderDialog::drawDialog(Structure& structure,
         {
             addDefaultAsymmetricAtom(asymmetricAtoms, elementColors);
             scrollRowsToBottom = true;
+            const AtomSite& atom = asymmetricAtoms.back();
+            std::cout << "[Operation] Added asymmetric atom (bulk builder): "
+                      << atom.symbol << "(" << atom.atomicNumber << ")"
+                      << " at [" << atom.x << ", " << atom.y << ", " << atom.z << "]"
+                      << std::endl;
         }
         ImGui::SameLine();
         if (ImGui::Button("Clear Atoms"))
         {
             asymmetricAtoms.clear();
             addDefaultAsymmetricAtom(asymmetricAtoms, elementColors);
+            std::cout << "[Operation] Cleared asymmetric atoms (bulk builder); reset to default H(1)" << std::endl;
         }
 
         int pendingDelete = -1;
@@ -672,9 +679,13 @@ void BulkCrystalBuilderDialog::drawDialog(Structure& structure,
 
         if (pendingDelete >= 0 && pendingDelete < (int)asymmetricAtoms.size())
         {
+            const AtomSite deletedAtom = asymmetricAtoms[pendingDelete];
             asymmetricAtoms.erase(asymmetricAtoms.begin() + pendingDelete);
             if (asymmetricAtoms.empty())
                 addDefaultAsymmetricAtom(asymmetricAtoms, elementColors);
+            std::cout << "[Operation] Deleted asymmetric atom (bulk builder): "
+                      << deletedAtom.symbol << "(" << deletedAtom.atomicNumber << ")"
+                      << " row=" << pendingDelete << std::endl;
         }
 
         ImGui::Separator();
@@ -688,7 +699,20 @@ void BulkCrystalBuilderDialog::drawDialog(Structure& structure,
                                           asymmetricAtoms,
                                           elementColors);
             if (lastResult.success)
+            {
                 updateBuffers(structure);
+                std::cout << "[Operation] Built bulk crystal: system="
+                          << crystalSystemLabel((CrystalSystem)crystalSystemIndex)
+                          << ", SG=" << lastResult.spaceGroupNumber
+                          << " (" << lastResult.spaceGroupSymbol << ")"
+                          << ", asym_atoms=" << asymmetricAtoms.size()
+                          << ", generated_atoms=" << lastResult.generatedAtoms
+                          << std::endl;
+            }
+            else
+            {
+                std::cout << "[Operation] Bulk crystal build failed: " << lastResult.message << std::endl;
+            }
         }
 
         if (!lastResult.message.empty())
@@ -728,6 +752,8 @@ void BulkCrystalBuilderDialog::drawDialog(Structure& structure,
             if (targetAtomIndex >= 0 && targetAtomIndex < (int)asymmetricAtoms.size())
             {
                 AtomSite& atom = asymmetricAtoms[targetAtomIndex];
+                const int oldAtomicNumber = atom.atomicNumber;
+                const std::string oldSymbol = atom.symbol;
                 atom.atomicNumber = selectedEditElement;
                 atom.symbol = elementSymbol(selectedEditElement);
                 if (selectedEditElement >= 0 && selectedEditElement < (int)elementColors.size())
@@ -740,6 +766,11 @@ void BulkCrystalBuilderDialog::drawDialog(Structure& structure,
                 {
                     getDefaultElementColor(selectedEditElement, atom.r, atom.g, atom.b);
                 }
+                std::cout << "[Operation] Substituted asymmetric atom (bulk builder): "
+                          << "row=" << targetAtomIndex << " "
+                          << oldSymbol << "(" << oldAtomicNumber << ") -> "
+                          << atom.symbol << "(" << atom.atomicNumber << ")"
+                          << std::endl;
             }
             targetAtomIndex = -1;
             if (reopenBulkDialogAfterPicker)

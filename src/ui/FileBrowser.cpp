@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -380,7 +381,10 @@ void FileBrowser::draw(Structure& structure,
                 openStructurePopup = true;
 
             if (ImGui::MenuItem("Close", "Ctrl+W", false, !structure.atoms.empty()))
+            {
                 requestCloseStructure = true;
+                std::cout << "[Operation] Close structure requested" << std::endl;
+            }
 
             if (ImGui::MenuItem("Save As...", "Ctrl+S"))
             {
@@ -627,6 +631,8 @@ void FileBrowser::draw(Structure& structure,
                 updateBuffers(structure);
                 requestResetDefaultView = true;
                 openStatusMsg[0] = '\0';
+                std::cout << "[Operation] Loaded structure: " << fullPath
+                          << " (atoms=" << structure.atoms.size() << ")" << std::endl;
                 ImGui::CloseCurrentPopup();
             }
             else
@@ -636,6 +642,8 @@ void FileBrowser::draw(Structure& structure,
                     sizeof(openStatusMsg),
                     "%s",
                     loadError.empty() ? "Failed to load file." : loadError.c_str());
+                std::cout << "[Operation] Load failed: " << fullPath
+                          << " (" << (loadError.empty() ? "Failed to load file." : loadError) << ")" << std::endl;
             }
         }
         ImGui::EndPopup();
@@ -766,12 +774,17 @@ void FileBrowser::draw(Structure& structure,
                     bool ok = saveStructure(structureToSave, fullPath, kSaveFormats[selectedSaveFormat].fmt);
                 if (ok)
                 {
+                    std::cout << "[Operation] Saved structure: " << fullPath
+                              << " (format=" << kSaveFormats[selectedSaveFormat].fmt
+                              << ", atoms=" << structureToSave.atoms.size() << ")" << std::endl;
                     ImGui::CloseCurrentPopup();
                 }
                 else
                 {
                     std::snprintf(saveStatusMsg, sizeof(saveStatusMsg),
                                   "Error: failed to save (format may not support this structure).");
+                    std::cout << "[Operation] Save failed: " << fullPath
+                              << " (format=" << kSaveFormats[selectedSaveFormat].fmt << ")" << std::endl;
                 }
             }
         }

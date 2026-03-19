@@ -1,9 +1,14 @@
 #include "AtomContextMenu.h"
 
+#include "ElementData.h"
 #include "PeriodicTableDialog.h"
 #include "io/StructureLoader.h"
 
 #include "imgui.h"
+
+#include <iostream>
+#include <map>
+#include <sstream>
 
 void AtomContextMenu::open()
 {
@@ -100,6 +105,8 @@ void AtomContextMenu::draw(Structure& structure,
             if (m_pendingAction == PeriodicAction::Substitute &&
                 !selectedInstanceIndices.empty())
             {
+                std::map<int, int> fromElementCounts;
+                int replacedCount = 0;
                 for (int idx : selectedInstanceIndices)
                 {
                     if (idx < 0 || idx >= (int)sceneBuffers.atomIndices.size())
@@ -107,6 +114,9 @@ void AtomContextMenu::draw(Structure& structure,
                     int baseIdx = sceneBuffers.atomIndices[idx];
                     if (baseIdx < 0 || baseIdx >= (int)structure.atoms.size())
                         continue;
+
+                    fromElementCounts[structure.atoms[baseIdx].atomicNumber]++;
+                    replacedCount++;
 
                     structure.atoms[baseIdx].symbol      = sel.symbol;
                     structure.atoms[baseIdx].atomicNumber = sel.atomicNumber;
@@ -118,6 +128,22 @@ void AtomContextMenu::draw(Structure& structure,
                         structure.atoms[baseIdx].b = elementColors[sel.atomicNumber].b;
                     }
                 }
+
+                std::ostringstream fromSummary;
+                bool first = true;
+                for (std::map<int, int>::const_iterator it = fromElementCounts.begin(); it != fromElementCounts.end(); ++it)
+                {
+                    if (!first)
+                        fromSummary << ", ";
+                    first = false;
+                    fromSummary << elementSymbol(it->first) << "(" << it->first << "):" << it->second;
+                }
+
+                std::cout << "[Operation] Substituted atoms (context menu): "
+                          << "count=" << replacedCount
+                          << ", to=" << sel.symbol << "(" << sel.atomicNumber << ")"
+                          << ", from={" << fromSummary.str() << "}"
+                          << std::endl;
                 updateBuffers(structure);
             }
 
@@ -162,6 +188,11 @@ void AtomContextMenu::draw(Structure& structure,
                     }
 
                     structure.atoms.push_back(newAtom);
+                    std::cout << "[Operation] Inserted atom at midpoint: "
+                              << newAtom.symbol << "(" << newAtom.atomicNumber << ")"
+                              << " at [" << newAtom.x << ", " << newAtom.y << ", " << newAtom.z << "]"
+                              << " from_selected=" << validCount
+                              << std::endl;
                     updateBuffers(structure);
                 }
             }
