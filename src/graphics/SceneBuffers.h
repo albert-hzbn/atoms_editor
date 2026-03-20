@@ -37,6 +37,13 @@ struct SceneBuffers
     std::vector<float>     atomRadii;
     std::vector<float>     atomShininess;
     std::vector<int>       atomIndices;
+
+    // CPU-side bond caches used for overlay tooling and SVG export.
+    std::vector<glm::vec3> bondStarts;
+    std::vector<glm::vec3> bondEnds;
+    std::vector<glm::vec3> bondColorsA;
+    std::vector<glm::vec3> bondColorsB;
+    std::vector<float>     bondRadiiCpu;
     
     // Flag: if true, CPU caches are disabled (large structure)
     bool cpuCachesDisabled = false;

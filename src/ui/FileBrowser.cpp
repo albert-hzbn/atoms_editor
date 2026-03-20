@@ -250,6 +250,14 @@ static const SaveFormat kSaveFormats[] = {
 };
 static constexpr int kNumSaveFormats = (int)(sizeof(kSaveFormats) / sizeof(kSaveFormats[0]));
 
+struct ImageExportFormatOption { const char* label; const char* ext; ImageExportFormat fmt; };
+static const ImageExportFormatOption kImageExportFormats[] = {
+    { "PNG (.png)", ".png", ImageExportFormat::Png },
+    { "JPEG (.jpg)", ".jpg", ImageExportFormat::Jpg },
+    { "SVG (.svg)", ".svg", ImageExportFormat::Svg },
+};
+static constexpr int kNumImageExportFormats = (int)(sizeof(kImageExportFormats) / sizeof(kImageExportFormats[0]));
+
 FileBrowser::FileBrowser()
         : showAbout(false),
             showManual(false),
@@ -267,14 +275,20 @@ FileBrowser::FileBrowser()
             requestUndo(false),
             requestRedo(false),
             requestCloseStructure(false),
+            requestImageExport(false),
             openStructurePopup(false),
             saveStructurePopup(false),
+            exportImagePopup(false),
             loadErrorPopupRequested(false),
             openDir("."),
       historyIndex(-1),
       saveDir("."),
       saveHistoryIndex(-1),
       selectedSaveFormat(0),
+        exportDir("."),
+        exportHistoryIndex(-1),
+        selectedExportFormat(0),
+        exportIncludeBackground(true),
       selectedAtomicNumber(1)
 {
     allowedExtensions = {".cif", ".mol", ".pdb", ".xyz", ".sdf", ".vasp", ".mol2", ".pwi", ".gjf"};
@@ -315,6 +329,8 @@ FileBrowser::FileBrowser()
     loadErrorMsg[0] = '\0';
     saveFilename[0] = '\0';
     saveStatusMsg[0] = '\0';
+    std::snprintf(exportFilename, sizeof(exportFilename), "%s", "structure.png");
+    exportStatusMsg[0] = '\0';
     std::snprintf(bondElementFilterInput, sizeof(bondElementFilterInput), "%s", "O,F");
     bondElementFilterMask.fill(false);
     updateBondElementFilterMask();
@@ -393,6 +409,19 @@ void FileBrowser::draw(Structure& structure,
                 saveDirHistory = dirHistory;
                 saveHistoryIndex = historyIndex;
                 saveStatusMsg[0] = '\0';
+            }
+
+            if (ImGui::MenuItem("Export Image...", "Ctrl+Shift+S", false, !structure.atoms.empty()))
+            {
+                exportImagePopup = true;
+                exportDir = openDir;
+                exportDirHistory = dirHistory;
+                exportHistoryIndex = historyIndex;
+
+                if (exportFilename[0] == '\0')
+                    std::snprintf(exportFilename, sizeof(exportFilename), "%s", "structure.png");
+
+                exportStatusMsg[0] = '\0';
             }
 
             ImGui::Separator();
@@ -794,6 +823,172 @@ void FileBrowser::draw(Structure& structure,
         ImGui::CloseCurrentPopup();
     // ---- end Save As dialog --------------------------------------------
 
+    // ---- Export Image dialog -------------------------------------------
+    if (exportImagePopup)
+    {
+        if (exportDir.empty())
+            exportDir = openDir.empty() ? "." : openDir;
+
+        if (exportDirHistory.empty())
+        {
+            exportDirHistory = dirHistory;
+            exportHistoryIndex = historyIndex;
+            if (exportDirHistory.empty())
+            {
+                exportDirHistory.push_back(exportDir);
+                exportHistoryIndex = 0;
+            }
+        }
+
+        ImGui::OpenPopup("Export Image");
+        exportImagePopup = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(560, 500), ImGuiCond_FirstUseEver);
+    bool exportImageOpen = true;
+    if (ImGui::BeginPopupModal("Export Image", &exportImageOpen, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        auto pushExportDir = [&](const std::string& dir) {
+            exportDir = dir;
+            if (exportHistoryIndex + 1 < (int)exportDirHistory.size())
+                exportDirHistory.erase(exportDirHistory.begin() + exportHistoryIndex + 1, exportDirHistory.end());
+            exportDirHistory.push_back(exportDir);
+            exportHistoryIndex = (int)exportDirHistory.size() - 1;
+        };
+
+        ImGui::Text("Current folder: %s", exportDir.c_str());
+        ImGui::SameLine();
+        if (ImGui::Button("..##export"))
+            pushExportDir(parentPath(exportDir));
+
+        ImGui::SameLine();
+        if (ImGui::Button("Back##export") && exportHistoryIndex > 0)
+        {
+            exportHistoryIndex--;
+            exportDir = exportDirHistory[exportHistoryIndex];
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Forward##export") && exportHistoryIndex + 1 < (int)exportDirHistory.size())
+        {
+            exportHistoryIndex++;
+            exportDir = exportDirHistory[exportHistoryIndex];
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Root##export"))
+            pushExportDir(!driveRoots.empty() ? driveRoots.front() : "/");
+        ImGui::SameLine();
+        if (ImGui::Button("Home##export"))
+            pushExportDir(detectHomePath());
+
+        ImGui::Separator();
+
+        if (ImGui::BeginChild("##exportfilebrowser", ImVec2(500, 200), true))
+        {
+            const std::string exportExtFilter = toLower(kImageExportFormats[selectedExportFormat].ext);
+
+            std::vector<DirectoryEntry> entries;
+            bool listed = loadDirectoryEntries(
+                exportDir,
+                true,
+                [&](const std::string& name) {
+                    const std::string lowerName = toLower(name);
+                    if (exportExtFilter.empty())
+                        return true;
+                    if (lowerName.size() < exportExtFilter.size())
+                        return false;
+                    return lowerName.compare(lowerName.size() - exportExtFilter.size(), exportExtFilter.size(), exportExtFilter) == 0;
+                },
+                entries);
+
+            if (!listed)
+            {
+                ImGui::TextDisabled("Unable to open folder");
+            }
+            else
+            {
+                drawDirectoryEntries(entries, exportFilename, 20000,
+                    [&](const std::string& name) {
+                        pushExportDir(joinPath(exportDir, name));
+                    });
+            }
+            ImGui::EndChild();
+        }
+
+        ImGui::InputText("Filename##export", exportFilename, sizeof(exportFilename));
+
+        if (ImGui::Combo("Format##export", &selectedExportFormat,
+                         [](void* d, int i) -> const char* {
+                             return static_cast<const ImageExportFormatOption*>(d)[i].label;
+                         }, (void*)kImageExportFormats, kNumImageExportFormats))
+        {
+            std::string fn(exportFilename);
+            auto dot = fn.find_last_of('.');
+            std::string base = (dot != std::string::npos) ? fn.substr(0, dot) : fn;
+            if (base.empty()) base = "structure";
+
+            std::snprintf(exportFilename,
+                          sizeof(exportFilename),
+                          "%s%s",
+                          base.c_str(),
+                          kImageExportFormats[selectedExportFormat].ext);
+            exportStatusMsg[0] = '\0';
+        }
+
+        ImGui::Checkbox("Include background", &exportIncludeBackground);
+        if (kImageExportFormats[selectedExportFormat].fmt == ImageExportFormat::Jpg && !exportIncludeBackground)
+            ImGui::TextDisabled("JPEG has no transparency; transparent areas will be blended on white.");
+
+        if (exportStatusMsg[0] != '\0')
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", exportStatusMsg);
+
+        ImGui::Separator();
+
+        if (ImGui::Button("Export"))
+        {
+            if (structure.atoms.empty())
+            {
+                std::snprintf(exportStatusMsg, sizeof(exportStatusMsg), "Error: no atoms to export.");
+            }
+            else if (exportFilename[0] == '\0')
+            {
+                std::snprintf(exportStatusMsg, sizeof(exportStatusMsg), "Error: please enter a filename.");
+            }
+            else
+            {
+                std::string finalName(exportFilename);
+                std::string selectedExt = kImageExportFormats[selectedExportFormat].ext;
+                std::string selectedExtLower = toLower(selectedExt);
+                std::string currentExt;
+                std::size_t dot = finalName.find_last_of('.');
+                if (dot != std::string::npos)
+                    currentExt = toLower(finalName.substr(dot));
+
+                if (currentExt != selectedExtLower)
+                {
+                    const std::string base = (dot != std::string::npos) ? finalName.substr(0, dot) : finalName;
+                    finalName = base + selectedExt;
+                    std::snprintf(exportFilename, sizeof(exportFilename), "%s", finalName.c_str());
+                }
+
+                pendingImageExport.outputPath = joinPath(exportDir, finalName);
+                pendingImageExport.format = kImageExportFormats[selectedExportFormat].fmt;
+                pendingImageExport.includeBackground = exportIncludeBackground;
+                requestImageExport = true;
+
+                std::cout << "[Operation] Image export requested: " << pendingImageExport.outputPath
+                          << " (format=" << selectedExt << ", background="
+                          << (exportIncludeBackground ? "on" : "off") << ")" << std::endl;
+
+                exportStatusMsg[0] = '\0';
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        ImGui::EndPopup();
+    }
+    if (!exportImageOpen)
+        ImGui::CloseCurrentPopup();
+    // ---- end Export Image dialog ---------------------------------------
+
     if (showManual)
     {
         ImGui::OpenPopup("Manual");
@@ -827,11 +1022,13 @@ void FileBrowser::draw(Structure& structure,
             ImGui::BulletText("Ctrl+Y or Ctrl+Shift+Z: redo");
             ImGui::BulletText("Ctrl+O: open structure file");
             ImGui::BulletText("Ctrl+S: save structure as");
+            ImGui::BulletText("Ctrl+Shift+S: export structure image");
 
             ImGui::Spacing();
             ImGui::Text("File Menu");
             ImGui::BulletText("Open...: load from .cif, .mol, .pdb, .xyz, .sdf");
             ImGui::BulletText("Save As...: export to .xyz, .cif, .vasp, .pdb, .sdf, .mol2, .pwi, .gjf");
+            ImGui::BulletText("Export Image...: export scene to .png, .jpg, or .svg with optional transparent background");
             ImGui::BulletText("Quit: exit application");
 
             ImGui::Spacing();

@@ -187,11 +187,21 @@ void SceneBuffers::upload(const StructureInstanceData& data,
         atomRadii.clear();
         atomShininess.clear();
         atomIndices.clear();
+        bondStarts.clear();
+        bondEnds.clear();
+        bondColorsA.clear();
+        bondColorsB.clear();
+        bondRadiiCpu.clear();
         atomPositions.shrink_to_fit();
         atomColors.shrink_to_fit();
         atomRadii.shrink_to_fit();
         atomShininess.shrink_to_fit();
         atomIndices.shrink_to_fit();
+        bondStarts.shrink_to_fit();
+        bondEnds.shrink_to_fit();
+        bondColorsA.shrink_to_fit();
+        bondColorsB.shrink_to_fit();
+        bondRadiiCpu.shrink_to_fit();
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
@@ -350,6 +360,12 @@ void SceneBuffers::upload(const StructureInstanceData& data,
     }
 
     bondCount = bondStarts.size();
+
+    this->bondStarts = bondStarts;
+    this->bondEnds = bondEnds;
+    this->bondColorsA = bondColorA;
+    this->bondColorsB = bondColorB;
+    this->bondRadiiCpu = bondRadii;
 
     glBindBuffer(GL_ARRAY_BUFFER, bondStartVBO);
     glBufferData(GL_ARRAY_BUFFER,

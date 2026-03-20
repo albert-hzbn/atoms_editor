@@ -2,6 +2,7 @@
 
 #include "app/EditorOps.h"
 #include "app/EditorState.h"
+#include "app/ImageExport.h"
 #include "app/InteractionHandlers.h"
 #include "app/WindowSetup.h"
 
@@ -264,6 +265,9 @@ int runAtomsEditor()
             state.undoRedo.canUndo(),
             state.undoRedo.canRedo());
 
+        ImageExportRequest imageExportRequest;
+        const bool hasImageExportRequest = state.fileBrowser.consumeImageExportRequest(imageExportRequest);
+
         requests.requestUndo = requests.requestUndo || state.fileBrowser.consumeUndoRequest();
         requests.requestRedo = requests.requestRedo || state.fileBrowser.consumeRedoRequest();
         requests.requestStructureInfo = requests.requestStructureInfo || state.fileBrowser.consumeStructureInfoRequest();
@@ -359,8 +363,9 @@ int runAtomsEditor()
 
         ImGui::Render();
 
+        const glm::vec4 sceneBackgroundColor(0.09f, 0.11f, 0.15f, 1.0f);
         glViewport(0, 0, frame.framebufferWidth, frame.framebufferHeight);
-        glClearColor(0.09f, 0.11f, 0.15f, 1.0f);
+        glClearColor(sceneBackgroundColor.r, sceneBackgroundColor.g, sceneBackgroundColor.b, sceneBackgroundColor.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         if (state.fileBrowser.isShowBondsEnabled())
@@ -389,6 +394,45 @@ int runAtomsEditor()
             frame.view,
             state.sceneBuffers.lineVAO,
             state.sceneBuffers.boxLines.size());
+
+        if (hasImageExportRequest)
+        {
+            ImageExportView exportView;
+            exportView.width = frame.framebufferWidth;
+            exportView.height = frame.framebufferHeight;
+            exportView.projection = frame.projection;
+            exportView.view = frame.view;
+            exportView.lightMVP = frame.lightMVP;
+            exportView.lightPosition = frame.lightPosition;
+            exportView.cameraPosition = frame.cameraPosition;
+
+            std::string exportError;
+            const bool exportOk = exportStructureImage(
+                imageExportRequest,
+                exportView,
+                sceneBackgroundColor,
+                state.fileBrowser.isShowBondsEnabled(),
+                state.sceneBuffers,
+                renderer,
+                shadow,
+                sphere,
+                cylinder,
+                exportError);
+
+            if (exportOk)
+            {
+                std::cout << "[Operation] Image exported: " << imageExportRequest.outputPath << std::endl;
+            }
+            else
+            {
+                const std::string message = exportError.empty()
+                    ? "Failed to export image."
+                    : ("Failed to export image: " + exportError);
+                state.fileBrowser.showLoadError(message);
+                std::cout << "[Operation] Image export failed: " << imageExportRequest.outputPath
+                          << " (" << (exportError.empty() ? "Unknown error" : exportError) << ")" << std::endl;
+            }
+        }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);

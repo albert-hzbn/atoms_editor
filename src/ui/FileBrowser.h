@@ -20,6 +20,20 @@ enum class ViewMode
     Orthographic,
 };
 
+enum class ImageExportFormat
+{
+    Png,
+    Jpg,
+    Svg,
+};
+
+struct ImageExportRequest
+{
+    std::string outputPath;
+    ImageExportFormat format = ImageExportFormat::Png;
+    bool includeBackground = true;
+};
+
 struct FileBrowser
 {
     FileBrowser();
@@ -92,11 +106,22 @@ struct FileBrowser
         requestCloseStructure = false;
         return requested;
     }
+    bool consumeImageExportRequest(ImageExportRequest& request)
+    {
+        if (!requestImageExport)
+            return false;
+
+        request = pendingImageExport;
+        requestImageExport = false;
+        return true;
+    }
 
     // Programmatically trigger file open dialog (for keyboard shortcuts)
     void openFileDialog() { openStructurePopup = true; }
     // Trigger save-as dialog (e.g. from Ctrl+S shortcut)
     void saveFileDialog() { saveStructurePopup = true; }
+    // Trigger image-export dialog (e.g. from Ctrl+Shift+S shortcut)
+    void exportImageDialog() { exportImagePopup = true; }
     // Trigger unload of current structure (e.g. from Ctrl+W shortcut)
     void closeStructure() { requestCloseStructure = true; }
 
@@ -128,8 +153,10 @@ private:
     bool requestUndo;
     bool requestRedo;
     bool requestCloseStructure;
+    bool requestImageExport;
     bool openStructurePopup;
     bool saveStructurePopup;
+    bool exportImagePopup;
     bool loadErrorPopupRequested;
 
     std::string openDir;
@@ -141,10 +168,21 @@ private:
     std::vector<std::string> saveDirHistory;
     int saveHistoryIndex;
     int selectedSaveFormat;
+
+    // Image-export dialog state
+    std::string exportDir;
+    std::vector<std::string> exportDirHistory;
+    int exportHistoryIndex;
+    int selectedExportFormat;
+    bool exportIncludeBackground;
+    ImageExportRequest pendingImageExport;
+
     char openStatusMsg[256];
     char loadErrorMsg[512];
     char saveFilename[1024];
     char saveStatusMsg[256];
+    char exportFilename[1024];
+    char exportStatusMsg[256];
 
     int selectedAtomicNumber;
 

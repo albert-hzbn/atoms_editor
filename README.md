@@ -13,7 +13,7 @@ An OpenGL-based molecular structure viewer and editor using Dear ImGui and Open 
 
 ```bash
 sudo apt update
-sudo apt install build-essential cmake libglfw3-dev libglew-dev libglm-dev \
+sudo apt install build-essential cmake pkg-config libglfw3-dev libglew-dev libglm-dev \
                  libopenbabel-dev libopenbabel3 libsymspg-dev
 ```
 
@@ -27,6 +27,7 @@ pacman -Syu
 pacman -Su
 
 pacman -S --needed mingw-w64-ucrt-x86_64-toolchain \
+                  mingw-w64-ucrt-x86_64-cmake \
                   mingw-w64-ucrt-x86_64-glfw \
                   mingw-w64-ucrt-x86_64-glew \
                   mingw-w64-ucrt-x86_64-glm \
@@ -41,35 +42,37 @@ pacman -S --needed mingw-w64-ucrt-x86_64-spglib
 ```
 
 > **Note:** This project uses OpenGL 3.0+ (GLSL 130) and GLFW.
+> In Windows PowerShell, `cmake` may be unavailable unless MSYS2 paths are added.
+> Use the MSYS2 **UCRT64** shell for the commands below.
 
-## Build
+## Build (CMake)
 
 ### Linux
 
-From the `src/` directory:
+From the repository root:
 
 ```bash
-make
-```
-
-Then run:
-
-```bash
-./AtomForge
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+./build/AtomForge
 ```
 
 ### Windows (MSYS2 UCRT64)
 
-From the `src/` directory in the UCRT64 shell:
+From the repository root in the UCRT64 shell:
 
 ```bash
-mingw32-make
+cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+./build/AtomForge.exe
 ```
 
-Then run:
+### Clean build artifacts
 
 ```bash
-./AtomForge.exe
+cmake --build build --target clean
+# or remove the full build tree
+rm -rf build
 ```
 
 ## Windows troubleshooting
@@ -84,8 +87,8 @@ export BABEL_LIBDIR=/ucrt64/lib/openbabel/3.1.0/
 - **Application does not start due to missing DLLs**:
   run from the UCRT64 shell, or add `C:/msys64/ucrt64/bin` to `PATH`.
 
-- **`make: command not found` in UCRT64**:
-  use `mingw32-make` instead of `make`.
+- **CMake cannot find dependencies**:
+  ensure `pkg-config` (Linux) / `pkgconf` (MSYS2) and all prerequisite packages are installed.
 
 ## Usage
 
@@ -208,6 +211,7 @@ Box selection:
 ## Project layout
 
 ```
+CMakeLists.txt              — cross-platform build configuration
 src/
   main.cpp                   — application entry point, render loop
   ElementData.cpp/.h         — element symbols, radii, colours

@@ -51,7 +51,10 @@ void applyKeyboardShortcuts(EditorState& state, FrameActionRequests& requests)
     if (ImGui::IsKeyPressed(ImGuiKey_O) && ImGui::GetIO().KeyCtrl)
         state.fileBrowser.openFileDialog();
 
-    if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::GetIO().KeyCtrl)
+    if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift)
+        state.fileBrowser.exportImageDialog();
+
+    if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift)
         state.fileBrowser.saveFileDialog();
 
     if (ImGui::IsKeyPressed(ImGuiKey_W) && ImGui::GetIO().KeyCtrl)
