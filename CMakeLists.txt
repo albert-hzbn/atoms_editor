@@ -21,9 +21,12 @@ pkg_check_modules(OPENBABEL REQUIRED IMPORTED_TARGET openbabel-3)
 set(ATOMFORGE_SOURCES
     src/main.cpp
     src/app/EditorApplication.cpp
+    src/app/FileDropHandler.cpp
     src/app/ImageExport.cpp
     src/app/EditorOps.cpp
     src/app/InteractionHandlers.cpp
+    src/app/SceneView.cpp
+    src/app/StructureFileService.cpp
     src/app/WindowSetup.cpp
     src/ElementData.cpp
     src/camera/Camera.cpp

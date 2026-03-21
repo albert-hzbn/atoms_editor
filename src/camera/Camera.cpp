@@ -1,5 +1,8 @@
 #include "Camera.h"
 #include "imgui.h"
+
+#include <GLFW/glfw3.h>
+
 #include <cmath>
 
 Camera* Camera::instance = nullptr;

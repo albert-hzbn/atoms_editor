@@ -1,6 +1,8 @@
 #include "app/EditorApplication.h"
 
+#include "app/FileDropHandler.h"
 #include "app/EditorOps.h"
+#include "app/SceneView.h"
 #include "app/EditorState.h"
 #include "app/ImageExport.h"
 #include "app/InteractionHandlers.h"
@@ -20,174 +22,9 @@
 #include "ui/ImGuiSetup.h"
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
-#include <cmath>
 #include <iostream>
 #include <string>
-
-namespace {
-
-float estimateSceneRadius(const SceneBuffers& sceneBuffers)
-{
-    float maxRadius = 0.0f;
-
-    if (!sceneBuffers.atomPositions.empty())
-    {
-        for (size_t i = 0; i < sceneBuffers.atomPositions.size(); ++i)
-        {
-            const float radius = (i < sceneBuffers.atomRadii.size()) ? sceneBuffers.atomRadii[i] : 0.0f;
-            const float distance = glm::length(sceneBuffers.atomPositions[i] - sceneBuffers.orbitCenter) + radius;
-            maxRadius = std::max(maxRadius, distance);
-        }
-    }
-    else if (!sceneBuffers.boxLines.empty())
-    {
-        for (const glm::vec3& point : sceneBuffers.boxLines)
-        {
-            const float distance = glm::length(point - sceneBuffers.orbitCenter);
-            maxRadius = std::max(maxRadius, distance);
-        }
-    }
-
-    return std::max(maxRadius, 1.0f);
-}
-
-struct FrameView
-{
-    int framebufferWidth = 0;
-    int framebufferHeight = 0;
-    int windowWidth = 0;
-    int windowHeight = 0;
-
-    glm::mat4 projection = glm::mat4(1.0f);
-    glm::mat4 view = glm::mat4(1.0f);
-    glm::mat4 lightMVP = glm::mat4(1.0f);
-    glm::vec3 lightPosition = glm::vec3(0.0f);
-    glm::vec3 cameraPosition = glm::vec3(0.0f);
-};
-
-bool updateViewport(GLFWwindow* window, FrameView& frame)
-{
-    glfwGetFramebufferSize(window, &frame.framebufferWidth, &frame.framebufferHeight);
-    if (frame.framebufferWidth == 0 || frame.framebufferHeight == 0)
-    {
-        glfwSwapBuffers(window);
-        return false;
-    }
-
-    glfwGetWindowSize(window, &frame.windowWidth, &frame.windowHeight);
-    if (frame.windowWidth == 0)
-        frame.windowWidth = frame.framebufferWidth;
-    if (frame.windowHeight == 0)
-        frame.windowHeight = frame.framebufferHeight;
-
-    return true;
-}
-
-void buildFrameView(Camera& camera,
-                    const SceneBuffers& sceneBuffers,
-                    bool useOrthographicView,
-                    FrameView& frame)
-{
-    const float aspect = (float)frame.framebufferWidth / (float)frame.framebufferHeight;
-    const float verticalFov = glm::radians(45.0f);
-    const float sceneRadius = estimateSceneRadius(sceneBuffers);
-    const float depthPadding = std::max(10.0f, sceneRadius * 0.25f);
-
-    if (useOrthographicView)
-    {
-        const float halfHeight = std::max(0.1f, camera.distance * std::tan(verticalFov * 0.5f));
-        const float halfWidth = halfHeight * aspect;
-        const float depthRange = std::max(1000.0f, camera.distance + sceneRadius + depthPadding);
-        frame.projection = glm::ortho(
-            -halfWidth,
-            halfWidth,
-            -halfHeight,
-            halfHeight,
-            -depthRange,
-            depthRange);
-    }
-    else
-    {
-        const float nearestSurface = camera.distance - sceneRadius;
-        const float nearClip = (nearestSurface > 0.0f)
-            ? std::max(0.01f, nearestSurface * 0.25f)
-            : 0.01f;
-        const float farClip = std::max(nearClip + 100.0f, camera.distance + sceneRadius + depthPadding);
-
-        frame.projection = glm::perspective(
-            verticalFov,
-            aspect,
-            nearClip,
-            farClip);
-    }
-
-    float yaw = glm::radians(camera.yaw);
-    float pitch = glm::radians(camera.pitch);
-
-    glm::vec3 cameraOffset(
-        camera.distance * std::cos(pitch) * std::sin(yaw),
-        camera.distance * std::sin(pitch),
-        camera.distance * std::cos(pitch) * std::cos(yaw));
-
-    frame.cameraPosition = sceneBuffers.orbitCenter + cameraOffset;
-    frame.view = glm::lookAt(frame.cameraPosition, sceneBuffers.orbitCenter, glm::vec3(0, 1, 0));
-
-    glm::mat4 lightProjection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 1000.0f);
-    frame.lightPosition = sceneBuffers.orbitCenter + glm::vec3(40.0f, 40.0f, 40.0f);
-    frame.lightMVP = lightProjection * glm::lookAt(
-        frame.lightPosition,
-        sceneBuffers.orbitCenter,
-        glm::vec3(0, 1, 0));
-}
-
-void dropFileCallback(GLFWwindow* window, int count, const char** paths)
-{
-    if (count <= 0 || paths == nullptr)
-        return;
-
-    EditorState* state = static_cast<EditorState*>(glfwGetWindowUserPointer(window));
-    if (!state)
-        return;
-
-    for (int i = 0; i < count; ++i)
-    {
-        if (paths[i] == nullptr || paths[i][0] == '\0')
-            continue;
-        state->pendingDroppedFiles.push_back(paths[i]);
-    }
-}
-
-void processDroppedFiles(EditorState& state)
-{
-    if (state.pendingDroppedFiles.empty())
-        return;
-
-    const std::string droppedFile = state.pendingDroppedFiles.back();
-    state.pendingDroppedFiles.clear();
-
-    Structure loadedStructure;
-    std::string loadError;
-    if (!loadStructureFromFile(droppedFile, loadedStructure, loadError))
-    {
-        std::cout << "[Operation] Drop-load failed: " << droppedFile
-                  << " (" << loadError << ")" << std::endl;
-        state.fileBrowser.showLoadError(loadError);
-        return;
-    }
-
-    state.structure = std::move(loadedStructure);
-    state.fileBrowser.initFromPath(droppedFile);
-    state.fileBrowser.applyElementColorOverrides(state.structure);
-    updateBuffers(state);
-    state.pendingDefaultViewReset = true;
-
-    std::cout << "[Operation] Drop-loaded structure: " << droppedFile
-              << " (atoms=" << state.structure.atoms.size() << ")" << std::endl;
-}
-
-} // namespace
 
 int runAtomsEditor()
 {
@@ -207,9 +44,7 @@ int runAtomsEditor()
     EditorState state;
     state.structure = loadStructure(filename);
     state.fileBrowser.initFromPath(filename);
-
-    glfwSetWindowUserPointer(window, &state);
-    glfwSetDropCallback(window, dropFileCallback);
+    installDropFileCallback(window, state);
 
     state.sceneBuffers.init(sphere.vao, cylinder.vao);
 

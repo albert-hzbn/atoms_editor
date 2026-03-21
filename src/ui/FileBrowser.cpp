@@ -1,7 +1,6 @@
 #include "FileBrowser.h"
 #include "ElementData.h"
-#include "io/StructureLoader.h"
-#include "graphics/StructureInstanceBuilder.h"
+#include "app/StructureFileService.h"
 #include "ui/PeriodicTableDialog.h"
 
 #include "imgui.h"
@@ -652,7 +651,7 @@ void FileBrowser::draw(Structure& structure,
             std::string fullPath = joinPath(openDir, openFilename);
             Structure newStructure;
             std::string loadError;
-            if (loadStructureFromFile(fullPath, newStructure, loadError))
+            if (loadStructureFromPath(fullPath, newStructure, loadError))
             {
                 structure = std::move(newStructure);
                 applyElementColorOverrides(structure);
@@ -795,17 +794,19 @@ void FileBrowser::draw(Structure& structure,
             else
             {
                 std::string fullPath = joinPath(saveDir, saveFilename);
-                    // When a supercell transform is active, expand to the full
-                    // supercell so the saved file contains all visible atoms.
-                    Structure structureToSave = (isTransformMatrixEnabled() && structure.hasUnitCell)
-                        ? buildSupercell(structure, getTransformMatrix())
-                        : structure;
-                    bool ok = saveStructure(structureToSave, fullPath, kSaveFormats[selectedSaveFormat].fmt);
+                std::size_t savedAtomCount = 0;
+                bool ok = saveStructureWithOptionalSupercell(
+                    structure,
+                    isTransformMatrixEnabled(),
+                    getTransformMatrix(),
+                    fullPath,
+                    kSaveFormats[selectedSaveFormat].fmt,
+                    savedAtomCount);
                 if (ok)
                 {
                     std::cout << "[Operation] Saved structure: " << fullPath
                               << " (format=" << kSaveFormats[selectedSaveFormat].fmt
-                              << ", atoms=" << structureToSave.atoms.size() << ")" << std::endl;
+                              << ", atoms=" << savedAtomCount << ")" << std::endl;
                     ImGui::CloseCurrentPopup();
                 }
                 else
