@@ -358,6 +358,100 @@ const char* speciesLabelGetter(void* userData, int idx)
     return (*entries)[idx].second.c_str();
 }
 
+std::vector<std::pair<int, std::string> > buildSpeciesOptions(const Structure& structure)
+{
+    std::vector<std::pair<int, std::string> > options;
+    options.push_back(std::make_pair(0, std::string("All elements")));
+
+    std::set<int> seen;
+    for (int i = 0; i < (int)structure.atoms.size(); ++i)
+    {
+        const int z = structure.atoms[i].atomicNumber;
+        if (!seen.insert(z).second)
+            continue;
+
+        char buffer[64];
+        std::snprintf(buffer, sizeof(buffer), "%s (%d)", elementSymbol(z), z);
+        options.push_back(std::make_pair(z, std::string(buffer)));
+    }
+
+    return options;
+}
+
+void clampSpeciesSelectionIndices(int& refSpeciesIndex,
+                                  int& targetSpeciesIndex,
+                                  int optionCount)
+{
+    if (refSpeciesIndex >= optionCount)
+        refSpeciesIndex = 0;
+    if (targetSpeciesIndex >= optionCount)
+        targetSpeciesIndex = 0;
+}
+
+void drawRdfSummary(const RdfResult& result)
+{
+    ImGui::Separator();
+    ImGui::Text("Status: %s", result.message.c_str());
+    ImGui::Text("Atoms: %d", result.atomCount);
+    ImGui::Text("Reference atoms: %d", result.refCount);
+    ImGui::Text("Target atoms: %d", result.targetCount);
+    ImGui::Text("PBC used in analysis: %s", result.pbcUsed ? "Yes" : "No");
+    ImGui::Text("Volume used: %.6f A^3", result.volume);
+    ImGui::Text("Target density: %.6f A^-3", result.density);
+    ImGui::Text("Bin width: %.5f A", result.binWidth);
+
+    if (result.hasFirstPeak)
+        ImGui::Text("First peak: r = %.4f A, value = %.4f", result.firstPeakR, result.firstPeakValue);
+    else
+        ImGui::Text("First peak: not detected");
+
+    if (result.hasFirstMinimum)
+        ImGui::Text("First minimum after peak: r = %.4f A, value = %.4f", result.firstMinimumR, result.firstMinimumValue);
+    else
+        ImGui::Text("First minimum after peak: not detected");
+}
+
+void drawRdfTable(const RdfResult& result, bool normalize)
+{
+    if (!result.valid)
+        return;
+
+    ImGui::Separator();
+    ImGui::Text("Per-bin RDF data");
+    ImGui::BeginChild("##rdf-table-child", ImVec2(0.0f, 250.0f), true);
+    if (ImGui::BeginTable("##rdf-table", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
+    {
+        ImGui::TableSetupColumn("r", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+        ImGui::TableSetupColumn(normalize ? "g(r)" : "Histogram", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+        ImGui::TableSetupColumn("Counts", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+        ImGui::TableSetupColumn("Cumulative CN", ImGuiTableColumnFlags_WidthFixed, 130.0f);
+        ImGui::TableSetupColumn("Shell Range", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+
+        for (int i = 0; i < (int)result.bins.size(); ++i)
+        {
+            const RdfBin& bin = result.bins[i];
+            const float shellStart = result.rMin + i * result.binWidth;
+            const float shellEnd = shellStart + result.binWidth;
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("%.5f", bin.rCenter);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Text("%.6f", bin.g);
+            ImGui::TableSetColumnIndex(2);
+            ImGui::Text("%.2f", bin.rawCount);
+            ImGui::TableSetColumnIndex(3);
+            ImGui::Text("%.6f", bin.cumulative);
+            ImGui::TableSetColumnIndex(4);
+            ImGui::Text("[%.5f, %.5f)", shellStart, shellEnd);
+        }
+
+        ImGui::EndTable();
+    }
+    ImGui::EndChild();
+}
+
 } // namespace
 
 void RadialDistributionAnalysisDialog::drawMenuItem(bool enabled)
@@ -388,21 +482,8 @@ void RadialDistributionAnalysisDialog::drawDialog(const Structure& structure)
         requestRecompute = true;
     }
 
-    std::vector<std::pair<int, std::string> > speciesOptions;
-    speciesOptions.push_back(std::make_pair(0, std::string("All elements")));
-    std::set<int> seen;
-    for (int i = 0; i < (int)structure.atoms.size(); ++i)
-    {
-        int z = structure.atoms[i].atomicNumber;
-        if (seen.insert(z).second)
-        {
-            char buffer[64];
-            std::snprintf(buffer, sizeof(buffer), "%s (%d)", elementSymbol(z), z);
-            speciesOptions.push_back(std::make_pair(z, std::string(buffer)));
-        }
-    }
-    if (refSpeciesIndex >= (int)speciesOptions.size()) refSpeciesIndex = 0;
-    if (targetSpeciesIndex >= (int)speciesOptions.size()) targetSpeciesIndex = 0;
+    std::vector<std::pair<int, std::string> > speciesOptions = buildSpeciesOptions(structure);
+    clampSpeciesSelectionIndices(refSpeciesIndex, targetSpeciesIndex, (int)speciesOptions.size());
 
     ImGui::SetNextWindowSize(ImVec2(1120.0f, 820.0f), ImGuiCond_FirstUseEver);
     bool dialogOpen = true;
@@ -432,60 +513,10 @@ void RadialDistributionAnalysisDialog::drawDialog(const Structure& structure)
             requestRecompute = false;
         }
 
-        ImGui::Separator();
-        ImGui::Text("Status: %s", result.message.c_str());
-        ImGui::Text("Atoms: %d", result.atomCount);
-        ImGui::Text("Reference atoms: %d", result.refCount);
-        ImGui::Text("Target atoms: %d", result.targetCount);
-        ImGui::Text("PBC used in analysis: %s", result.pbcUsed ? "Yes" : "No");
-        ImGui::Text("Volume used: %.6f A^3", result.volume);
-        ImGui::Text("Target density: %.6f A^-3", result.density);
-        ImGui::Text("Bin width: %.5f A", result.binWidth);
-        if (result.hasFirstPeak)
-            ImGui::Text("First peak: r = %.4f A, value = %.4f", result.firstPeakR, result.firstPeakValue);
-        else
-            ImGui::Text("First peak: not detected");
-        if (result.hasFirstMinimum)
-            ImGui::Text("First minimum after peak: r = %.4f A, value = %.4f", result.firstMinimumR, result.firstMinimumValue);
-        else
-            ImGui::Text("First minimum after peak: not detected");
+        drawRdfSummary(result);
 
         drawPlot(result, showRawCounts, showCumulative);
-
-        if (result.valid)
-        {
-            ImGui::Separator();
-            ImGui::Text("Per-bin RDF data");
-            ImGui::BeginChild("##rdf-table-child", ImVec2(0.0f, 250.0f), true);
-            if (ImGui::BeginTable("##rdf-table", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
-            {
-                ImGui::TableSetupColumn("r", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-                ImGui::TableSetupColumn(normalize ? "g(r)" : "Histogram", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-                ImGui::TableSetupColumn("Counts", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-                ImGui::TableSetupColumn("Cumulative CN", ImGuiTableColumnFlags_WidthFixed, 130.0f);
-                ImGui::TableSetupColumn("Shell Range", ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableHeadersRow();
-                for (int i = 0; i < (int)result.bins.size(); ++i)
-                {
-                    const RdfBin& bin = result.bins[i];
-                    float shellStart = result.rMin + i * result.binWidth;
-                    float shellEnd = shellStart + result.binWidth;
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("%.5f", bin.rCenter);
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.6f", bin.g);
-                    ImGui::TableSetColumnIndex(2);
-                    ImGui::Text("%.2f", bin.rawCount);
-                    ImGui::TableSetColumnIndex(3);
-                    ImGui::Text("%.6f", bin.cumulative);
-                    ImGui::TableSetColumnIndex(4);
-                    ImGui::Text("[%.5f, %.5f)", shellStart, shellEnd);
-                }
-                ImGui::EndTable();
-            }
-            ImGui::EndChild();
-        }
+        drawRdfTable(result, normalize);
 
         ImGui::EndPopup();
     }

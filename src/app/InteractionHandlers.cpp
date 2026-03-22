@@ -18,6 +18,55 @@ bool isInsideSelectionRect(const ImVec2& p, const ImVec2& a, const ImVec2& b)
     const float maxY = std::max(a.y, b.y);
     return p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY;
 }
+
+bool isCtrlHeld()
+{
+    return ImGui::GetIO().KeyCtrl;
+}
+
+void selectAllInstances(EditorState& state)
+{
+    state.selectedInstanceIndices.clear();
+    for (int i = 0; i < (int)state.sceneBuffers.atomIndices.size(); ++i)
+        state.selectedInstanceIndices.push_back(i);
+}
+
+void toggleSelectedInstance(EditorState& state, int pickedIndex)
+{
+    auto it = std::find(
+        state.selectedInstanceIndices.begin(),
+        state.selectedInstanceIndices.end(),
+        pickedIndex);
+    if (it != state.selectedInstanceIndices.end())
+    {
+        state.sceneBuffers.restoreAtomColor(pickedIndex);
+        state.selectedInstanceIndices.erase(it);
+        return;
+    }
+
+    state.selectedInstanceIndices.push_back(pickedIndex);
+}
+
+void selectSingleInstance(EditorState& state, int pickedIndex)
+{
+    clearSelection(state);
+    state.selectedInstanceIndices.push_back(pickedIndex);
+}
+
+bool isDragLargeEnough(const ImVec2& start, const ImVec2& end)
+{
+    const float width = std::abs(end.x - start.x);
+    const float height = std::abs(end.y - start.y);
+    return width >= 4.0f && height >= 4.0f;
+}
+
+void drawSelectionRect(ImDrawList* drawList, const ImVec2& start, const ImVec2& end)
+{
+    const ImVec2 minCorner(std::min(start.x, end.x), std::min(start.y, end.y));
+    const ImVec2 maxCorner(std::max(start.x, end.x), std::max(start.y, end.y));
+    drawList->AddRectFilled(minCorner, maxCorner, IM_COL32(80, 160, 255, 45));
+    drawList->AddRect(minCorner, maxCorner, IM_COL32(80, 160, 255, 220), 0.0f, 0, 1.5f);
+}
 }
 
 FrameActionRequests beginFrameActionRequests(EditorState& state)
@@ -32,39 +81,37 @@ FrameActionRequests beginFrameActionRequests(EditorState& state)
 
 void applyKeyboardShortcuts(EditorState& state, FrameActionRequests& requests)
 {
+    const bool ctrlHeld = isCtrlHeld();
+
     if (ImGui::IsKeyPressed(ImGuiKey_Delete) && !state.selectedInstanceIndices.empty())
         requests.doDeleteSelected = true;
 
-    if (ImGui::IsKeyPressed(ImGuiKey_D) && ImGui::GetIO().KeyCtrl && !state.selectedInstanceIndices.empty())
+    if (ImGui::IsKeyPressed(ImGuiKey_D) && ctrlHeld && !state.selectedInstanceIndices.empty())
         clearSelection(state);
 
     if (ImGui::IsKeyPressed(ImGuiKey_Escape) && !state.selectedInstanceIndices.empty())
         clearSelection(state);
 
-    if (ImGui::IsKeyPressed(ImGuiKey_A) && ImGui::GetIO().KeyCtrl && !state.structure.atoms.empty())
-    {
-        state.selectedInstanceIndices.clear();
-        for (int i = 0; i < (int)state.sceneBuffers.atomIndices.size(); ++i)
-            state.selectedInstanceIndices.push_back(i);
-    }
+    if (ImGui::IsKeyPressed(ImGuiKey_A) && ctrlHeld && !state.structure.atoms.empty())
+        selectAllInstances(state);
 
-    if (ImGui::IsKeyPressed(ImGuiKey_O) && ImGui::GetIO().KeyCtrl)
+    if (ImGui::IsKeyPressed(ImGuiKey_O) && ctrlHeld)
         state.fileBrowser.openFileDialog();
 
-    if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift)
+    if (ImGui::IsKeyPressed(ImGuiKey_S) && ctrlHeld && ImGui::GetIO().KeyShift)
         state.fileBrowser.exportImageDialog();
 
-    if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift)
+    if (ImGui::IsKeyPressed(ImGuiKey_S) && ctrlHeld && !ImGui::GetIO().KeyShift)
         state.fileBrowser.saveFileDialog();
 
-    if (ImGui::IsKeyPressed(ImGuiKey_W) && ImGui::GetIO().KeyCtrl)
+    if (ImGui::IsKeyPressed(ImGuiKey_W) && ctrlHeld)
         state.fileBrowser.closeStructure();
 
-    if (ImGui::IsKeyPressed(ImGuiKey_Z) && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift)
+    if (ImGui::IsKeyPressed(ImGuiKey_Z) && ctrlHeld && !ImGui::GetIO().KeyShift)
         requests.requestUndo = true;
 
-    if ((ImGui::IsKeyPressed(ImGuiKey_Y) && ImGui::GetIO().KeyCtrl) ||
-        (ImGui::IsKeyPressed(ImGuiKey_Z) && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift))
+    if ((ImGui::IsKeyPressed(ImGuiKey_Y) && ctrlHeld) ||
+        (ImGui::IsKeyPressed(ImGuiKey_Z) && ctrlHeld && ImGui::GetIO().KeyShift))
     {
         requests.requestRedo = true;
     }
@@ -104,28 +151,10 @@ void handlePendingAtomPick(
 
     if (pickedIndex >= 0)
     {
-        bool ctrlHeld = ImGui::GetIO().KeyCtrl;
-        if (ctrlHeld)
-        {
-            auto it = std::find(
-                state.selectedInstanceIndices.begin(),
-                state.selectedInstanceIndices.end(),
-                pickedIndex);
-            if (it != state.selectedInstanceIndices.end())
-            {
-                state.sceneBuffers.restoreAtomColor(pickedIndex);
-                state.selectedInstanceIndices.erase(it);
-            }
-            else
-            {
-                state.selectedInstanceIndices.push_back(pickedIndex);
-            }
-        }
+        if (isCtrlHeld())
+            toggleSelectedInstance(state, pickedIndex);
         else
-        {
-            clearSelection(state);
-            state.selectedInstanceIndices.push_back(pickedIndex);
-        }
+            selectSingleInstance(state, pickedIndex);
     }
     else
     {
@@ -181,20 +210,13 @@ void handleBoxSelection(
         dragEnd = mousePos;
 
     if (dragging)
-    {
-        const ImVec2 minCorner(std::min(dragStart.x, dragEnd.x), std::min(dragStart.y, dragEnd.y));
-        const ImVec2 maxCorner(std::max(dragStart.x, dragEnd.x), std::max(dragStart.y, dragEnd.y));
-        drawList->AddRectFilled(minCorner, maxCorner, IM_COL32(80, 160, 255, 45));
-        drawList->AddRect(minCorner, maxCorner, IM_COL32(80, 160, 255, 220), 0.0f, 0, 1.5f);
-    }
+        drawSelectionRect(drawList, dragStart, dragEnd);
 
     if (dragging && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
     {
         dragging = false;
 
-        const float width = std::abs(dragEnd.x - dragStart.x);
-        const float height = std::abs(dragEnd.y - dragStart.y);
-        if (width < 4.0f || height < 4.0f)
+        if (!isDragLargeEnough(dragStart, dragEnd))
             return;
 
         const bool additive = io.KeyCtrl;

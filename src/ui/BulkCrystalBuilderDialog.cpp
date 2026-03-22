@@ -70,6 +70,30 @@ const SpaceGroupRange kSpaceGroupRanges[] = {
     { CrystalSystem::Cubic,        "Cubic",        195, 230 },
 };
 
+bool hasElementColor(int atomicNumber, const std::vector<glm::vec3>& elementColors)
+{
+    return atomicNumber >= 0 && atomicNumber < (int)elementColors.size();
+}
+
+void applyElementToAtom(AtomSite& atom,
+                        int atomicNumber,
+                        const std::vector<glm::vec3>& elementColors)
+{
+    atom.atomicNumber = atomicNumber;
+    atom.symbol = elementSymbol(atomicNumber);
+
+    if (hasElementColor(atomicNumber, elementColors))
+    {
+        atom.r = elementColors[atomicNumber].r;
+        atom.g = elementColors[atomicNumber].g;
+        atom.b = elementColors[atomicNumber].b;
+    }
+    else
+    {
+        getDefaultElementColor(atomicNumber, atom.r, atom.g, atom.b);
+    }
+}
+
 const char* crystalSystemLabel(CrystalSystem system)
 {
     for (size_t i = 0; i < sizeof(kSpaceGroupRanges) / sizeof(kSpaceGroupRanges[0]); ++i)
@@ -239,6 +263,75 @@ void applySystemConstraints(CrystalSystem system, LatticeParameters& params)
             break;
         case CrystalSystem::Triclinic:
         default:
+            break;
+    }
+}
+
+void drawLatticeParameterInputs(CrystalSystem system, LatticeParameters& latticeParams)
+{
+    switch (system)
+    {
+        case CrystalSystem::Triclinic:
+            ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("b", &latticeParams.b, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("alpha", &latticeParams.alpha, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("beta", &latticeParams.beta, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("gamma", &latticeParams.gamma, 0.0, 0.0, "%.6f");
+            break;
+        case CrystalSystem::Monoclinic:
+            ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("b", &latticeParams.b, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("beta", &latticeParams.beta, 0.0, 0.0, "%.6f");
+            latticeParams.alpha = 90.0;
+            latticeParams.gamma = 90.0;
+            ImGui::TextDisabled("alpha=gamma=90 deg");
+            break;
+        case CrystalSystem::Orthorhombic:
+            ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("b", &latticeParams.b, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
+            latticeParams.alpha = 90.0;
+            latticeParams.beta = 90.0;
+            latticeParams.gamma = 90.0;
+            ImGui::TextDisabled("alpha=beta=gamma=90 deg");
+            break;
+        case CrystalSystem::Tetragonal:
+            ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
+            latticeParams.b = latticeParams.a;
+            latticeParams.alpha = 90.0;
+            latticeParams.beta = 90.0;
+            latticeParams.gamma = 90.0;
+            ImGui::TextDisabled("b=a, alpha=beta=gamma=90 deg");
+            break;
+        case CrystalSystem::Trigonal:
+            ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
+            latticeParams.b = latticeParams.a;
+            latticeParams.alpha = 90.0;
+            latticeParams.beta = 90.0;
+            latticeParams.gamma = 120.0;
+            ImGui::TextDisabled("hexagonal setting: b=a, alpha=beta=90 deg, gamma=120 deg");
+            break;
+        case CrystalSystem::Hexagonal:
+            ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
+            ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
+            latticeParams.b = latticeParams.a;
+            latticeParams.alpha = 90.0;
+            latticeParams.beta = 90.0;
+            latticeParams.gamma = 120.0;
+            ImGui::TextDisabled("b=a, alpha=beta=90 deg, gamma=120 deg");
+            break;
+        case CrystalSystem::Cubic:
+            ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
+            latticeParams.b = latticeParams.a;
+            latticeParams.c = latticeParams.a;
+            latticeParams.alpha = 90.0;
+            latticeParams.beta = 90.0;
+            latticeParams.gamma = 90.0;
+            ImGui::TextDisabled("b=c=a, alpha=beta=gamma=90 deg");
             break;
     }
 }
@@ -445,21 +538,10 @@ void addDefaultAsymmetricAtom(std::vector<AtomSite>& atoms,
                              const std::vector<glm::vec3>& elementColors)
 {
     AtomSite atom;
-    atom.atomicNumber = 1;
-    atom.symbol = "H";
+    applyElementToAtom(atom, 1, elementColors);
     atom.x = 0.0;
     atom.y = 0.0;
     atom.z = 0.0;
-    if (1 < (int)elementColors.size())
-    {
-        atom.r = elementColors[1].r;
-        atom.g = elementColors[1].g;
-        atom.b = elementColors[1].b;
-    }
-    else
-    {
-        getDefaultElementColor(1, atom.r, atom.g, atom.b);
-    }
     atoms.push_back(atom);
 }
 } // namespace
@@ -541,71 +623,7 @@ void BulkCrystalBuilderDialog::drawDialog(Structure& structure,
 
         ImGui::Separator();
         ImGui::Text("Lattice Parameters");
-        switch ((CrystalSystem)crystalSystemIndex)
-        {
-            case CrystalSystem::Triclinic:
-                ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("b", &latticeParams.b, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("alpha", &latticeParams.alpha, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("beta", &latticeParams.beta, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("gamma", &latticeParams.gamma, 0.0, 0.0, "%.6f");
-                break;
-            case CrystalSystem::Monoclinic:
-                ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("b", &latticeParams.b, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("beta", &latticeParams.beta, 0.0, 0.0, "%.6f");
-                latticeParams.alpha = 90.0;
-                latticeParams.gamma = 90.0;
-                ImGui::TextDisabled("alpha=gamma=90 deg");
-                break;
-            case CrystalSystem::Orthorhombic:
-                ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("b", &latticeParams.b, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
-                latticeParams.alpha = 90.0;
-                latticeParams.beta = 90.0;
-                latticeParams.gamma = 90.0;
-                ImGui::TextDisabled("alpha=beta=gamma=90 deg");
-                break;
-            case CrystalSystem::Tetragonal:
-                ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
-                latticeParams.b = latticeParams.a;
-                latticeParams.alpha = 90.0;
-                latticeParams.beta = 90.0;
-                latticeParams.gamma = 90.0;
-                ImGui::TextDisabled("b=a, alpha=beta=gamma=90 deg");
-                break;
-            case CrystalSystem::Trigonal:
-                ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
-                latticeParams.b = latticeParams.a;
-                latticeParams.alpha = 90.0;
-                latticeParams.beta = 90.0;
-                latticeParams.gamma = 120.0;
-                ImGui::TextDisabled("hexagonal setting: b=a, alpha=beta=90 deg, gamma=120 deg");
-                break;
-            case CrystalSystem::Hexagonal:
-                ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
-                ImGui::InputDouble("c", &latticeParams.c, 0.0, 0.0, "%.6f");
-                latticeParams.b = latticeParams.a;
-                latticeParams.alpha = 90.0;
-                latticeParams.beta = 90.0;
-                latticeParams.gamma = 120.0;
-                ImGui::TextDisabled("b=a, alpha=beta=90 deg, gamma=120 deg");
-                break;
-            case CrystalSystem::Cubic:
-                ImGui::InputDouble("a", &latticeParams.a, 0.0, 0.0, "%.6f");
-                latticeParams.b = latticeParams.a;
-                latticeParams.c = latticeParams.a;
-                latticeParams.alpha = 90.0;
-                latticeParams.beta = 90.0;
-                latticeParams.gamma = 90.0;
-                ImGui::TextDisabled("b=c=a, alpha=beta=gamma=90 deg");
-                break;
-        }
+        drawLatticeParameterInputs((CrystalSystem)crystalSystemIndex, latticeParams);
 
         ImGui::Separator();
         ImGui::Text("Asymmetric Unit Atoms");
@@ -754,18 +772,7 @@ void BulkCrystalBuilderDialog::drawDialog(Structure& structure,
                 AtomSite& atom = asymmetricAtoms[targetAtomIndex];
                 const int oldAtomicNumber = atom.atomicNumber;
                 const std::string oldSymbol = atom.symbol;
-                atom.atomicNumber = selectedEditElement;
-                atom.symbol = elementSymbol(selectedEditElement);
-                if (selectedEditElement >= 0 && selectedEditElement < (int)elementColors.size())
-                {
-                    atom.r = elementColors[selectedEditElement].r;
-                    atom.g = elementColors[selectedEditElement].g;
-                    atom.b = elementColors[selectedEditElement].b;
-                }
-                else
-                {
-                    getDefaultElementColor(selectedEditElement, atom.r, atom.g, atom.b);
-                }
+                applyElementToAtom(atom, selectedEditElement, elementColors);
                 std::cout << "[Operation] Substituted asymmetric atom (bulk builder): "
                           << "row=" << targetAtomIndex << " "
                           << oldSymbol << "(" << oldAtomicNumber << ") -> "

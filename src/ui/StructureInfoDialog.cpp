@@ -33,6 +33,14 @@ struct SymmetryInfo
     std::string error;
 };
 
+std::map<int, int> buildElementCounts(const Structure& structure)
+{
+    std::map<int, int> counts;
+    for (const AtomSite& atom : structure.atoms)
+        counts[atom.atomicNumber]++;
+    return counts;
+}
+
 std::string buildFormula(const std::map<int, int>& counts)
 {
     std::ostringstream out;
@@ -185,6 +193,100 @@ void drawLatticeInfo(const Structure& structure)
     ImGui::Text("Angles alpha,beta,gamma (deg):  %.3f  %.3f  %.3f", alpha, beta, gamma);
     ImGui::Text("Cell volume (A^3):  %.5f", volume);
 }
+
+void drawElementCountsTable(const std::map<int, int>& counts)
+{
+    if (!ImGui::BeginTable("##element-counts", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+        return;
+
+    ImGui::TableSetupColumn("Z", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+    ImGui::TableSetupColumn("Element", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+    ImGui::TableSetupColumn("Count", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+    ImGui::TableHeadersRow();
+
+    for (const auto& item : counts)
+    {
+        const int z = item.first;
+        const int count = item.second;
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("%d", z);
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("%s", elementSymbol(z));
+        ImGui::TableSetColumnIndex(2);
+        ImGui::Text("%d", count);
+    }
+
+    ImGui::EndTable();
+}
+
+void drawSymmetrySection(const Structure& structure)
+{
+    ImGui::Separator();
+    ImGui::Text("Symmetry (spglib)");
+
+    const SymmetryInfo symmetry = analyzeSymmetryWithSpglib(structure);
+    if (!symmetry.success)
+    {
+        ImGui::TextWrapped("Space group: unavailable (%s)", symmetry.error.c_str());
+        return;
+    }
+
+    ImGui::Text("Space group: %d (%s)", symmetry.spaceGroupNumber, symmetry.internationalSymbol.c_str());
+    ImGui::Text("Hall symbol: %s", symmetry.hallSymbol.c_str());
+    ImGui::Text("Point group: %s", symmetry.pointGroup.c_str());
+}
+
+void drawAtomicPositionsTable(const Structure& structure, bool hasValidLattice)
+{
+    if (!ImGui::BeginTable("##position-table", 8,
+                           ImGuiTableFlags_Borders |
+                           ImGuiTableFlags_RowBg |
+                           ImGuiTableFlags_ScrollY))
+    {
+        return;
+    }
+
+    ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 55.0f);
+    ImGui::TableSetupColumn("El", ImGuiTableColumnFlags_WidthFixed, 55.0f);
+    ImGui::TableSetupColumn("X", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+    ImGui::TableSetupColumn("Y", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+    ImGui::TableSetupColumn("Z", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+    ImGui::TableSetupColumn("u", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+    ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+    ImGui::TableSetupColumn("w", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+    ImGui::TableHeadersRow();
+
+    for (int i = 0; i < (int)structure.atoms.size(); ++i)
+    {
+        const AtomSite& atom = structure.atoms[i];
+        const glm::vec3 cart((float)atom.x, (float)atom.y, (float)atom.z);
+        glm::vec3 frac(0.0f);
+        if (hasValidLattice)
+            tryCartesianToFractional(structure, cart, frac);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("%d", i);
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("%s", atom.symbol.c_str());
+        ImGui::TableSetColumnIndex(2);
+        ImGui::Text("%.6f", atom.x);
+        ImGui::TableSetColumnIndex(3);
+        ImGui::Text("%.6f", atom.y);
+        ImGui::TableSetColumnIndex(4);
+        ImGui::Text("%.6f", atom.z);
+        ImGui::TableSetColumnIndex(5);
+        ImGui::Text("%.6f", frac.x);
+        ImGui::TableSetColumnIndex(6);
+        ImGui::Text("%.6f", frac.y);
+        ImGui::TableSetColumnIndex(7);
+        ImGui::Text("%.6f", frac.z);
+    }
+
+    ImGui::EndTable();
+}
 } // namespace
 
 void drawStructureInfoDialog(StructureInfoDialogState& state,
@@ -207,9 +309,7 @@ void drawStructureInfoDialog(StructureInfoDialogState& state,
         ImGui::Text("Structure Summary");
         ImGui::Separator();
 
-        std::map<int, int> counts;
-        for (const AtomSite& atom : structure.atoms)
-            counts[atom.atomicNumber]++;
+        const std::map<int, int> counts = buildElementCounts(structure);
 
         ImGui::Text("Total atoms: %d", (int)structure.atoms.size());
         ImGui::Text("Unique elements: %d", (int)counts.size());
@@ -221,43 +321,8 @@ void drawStructureInfoDialog(StructureInfoDialogState& state,
 
         ImGui::Separator();
         ImGui::Text("Element Counts");
-        if (ImGui::BeginTable("##element-counts", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
-        {
-            ImGui::TableSetupColumn("Z", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-            ImGui::TableSetupColumn("Element", ImGuiTableColumnFlags_WidthFixed, 120.0f);
-            ImGui::TableSetupColumn("Count", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-            ImGui::TableHeadersRow();
-
-            for (const auto& item : counts)
-            {
-                int z = item.first;
-                int count = item.second;
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%d", z);
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", elementSymbol(z));
-                ImGui::TableSetColumnIndex(2);
-                ImGui::Text("%d", count);
-            }
-            ImGui::EndTable();
-        }
-
-        ImGui::Separator();
-        ImGui::Text("Symmetry (spglib)");
-
-        SymmetryInfo symmetry = analyzeSymmetryWithSpglib(structure);
-        if (!symmetry.success)
-        {
-            ImGui::TextWrapped("Space group: unavailable (%s)", symmetry.error.c_str());
-        }
-        else
-        {
-            ImGui::Text("Space group: %d (%s)", symmetry.spaceGroupNumber, symmetry.internationalSymbol.c_str());
-            ImGui::Text("Hall symbol: %s", symmetry.hallSymbol.c_str());
-            ImGui::Text("Point group: %s", symmetry.pointGroup.c_str());
-        }
+        drawElementCountsTable(counts);
+        drawSymmetrySection(structure);
 
         ImGui::Separator();
         ImGui::Text("Atomic Positions");
@@ -267,50 +332,7 @@ void drawStructureInfoDialog(StructureInfoDialogState& state,
         bool hasValidLattice = buildLatticeMatrix(structure, lattice, origin);
 
         ImGui::BeginChild("##positions", ImVec2(940.0f, 250.0f), true);
-        if (ImGui::BeginTable("##position-table", 8,
-                              ImGuiTableFlags_Borders |
-                              ImGuiTableFlags_RowBg |
-                              ImGuiTableFlags_ScrollY))
-        {
-            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 55.0f);
-            ImGui::TableSetupColumn("El", ImGuiTableColumnFlags_WidthFixed, 55.0f);
-            ImGui::TableSetupColumn("X", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableSetupColumn("Y", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableSetupColumn("Z", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableSetupColumn("u", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableSetupColumn("w", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableHeadersRow();
-
-            for (int i = 0; i < (int)structure.atoms.size(); ++i)
-            {
-                const AtomSite& atom = structure.atoms[i];
-                glm::vec3 cart((float)atom.x, (float)atom.y, (float)atom.z);
-                glm::vec3 frac(0.0f);
-                if (hasValidLattice)
-                    tryCartesianToFractional(structure, cart, frac);
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%d", i);
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", atom.symbol.c_str());
-                ImGui::TableSetColumnIndex(2);
-                ImGui::Text("%.6f", atom.x);
-                ImGui::TableSetColumnIndex(3);
-                ImGui::Text("%.6f", atom.y);
-                ImGui::TableSetColumnIndex(4);
-                ImGui::Text("%.6f", atom.z);
-                ImGui::TableSetColumnIndex(5);
-                ImGui::Text("%.6f", frac.x);
-                ImGui::TableSetColumnIndex(6);
-                ImGui::Text("%.6f", frac.y);
-                ImGui::TableSetColumnIndex(7);
-                ImGui::Text("%.6f", frac.z);
-            }
-
-            ImGui::EndTable();
-        }
+        drawAtomicPositionsTable(structure, hasValidLattice);
         ImGui::EndChild();
 
         ImGui::EndPopup();

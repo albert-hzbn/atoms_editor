@@ -11,6 +11,8 @@
 
 namespace
 {
+constexpr float kVerticalFovDeg = 45.0f;
+
 float estimateSceneRadius(const SceneBuffers& sceneBuffers)
 {
     float maxRadius = 0.0f;
@@ -34,6 +36,54 @@ float estimateSceneRadius(const SceneBuffers& sceneBuffers)
     }
 
     return std::max(maxRadius, 1.0f);
+}
+
+glm::mat4 makeOrthographicProjection(float aspect,
+                                     float cameraDistance,
+                                     float sceneRadius,
+                                     float verticalFov,
+                                     float depthPadding)
+{
+    const float halfHeight = std::max(0.1f, cameraDistance * std::tan(verticalFov * 0.5f));
+    const float halfWidth = halfHeight * aspect;
+    const float depthRange = std::max(1000.0f, cameraDistance + sceneRadius + depthPadding);
+    return glm::ortho(
+        -halfWidth,
+        halfWidth,
+        -halfHeight,
+        halfHeight,
+        -depthRange,
+        depthRange);
+}
+
+glm::mat4 makePerspectiveProjection(float aspect,
+                                    float cameraDistance,
+                                    float sceneRadius,
+                                    float verticalFov,
+                                    float depthPadding)
+{
+    const float nearestSurface = cameraDistance - sceneRadius;
+    const float nearClip = (nearestSurface > 0.0f)
+        ? std::max(0.01f, nearestSurface * 0.25f)
+        : 0.01f;
+    const float farClip = std::max(nearClip + 100.0f, cameraDistance + sceneRadius + depthPadding);
+
+    return glm::perspective(verticalFov, aspect, nearClip, farClip);
+}
+
+glm::vec3 computeCameraOffset(float distance, float yawDeg, float pitchDeg)
+{
+    const float yaw = glm::radians(yawDeg);
+    const float pitch = glm::radians(pitchDeg);
+    return glm::vec3(
+        distance * std::cos(pitch) * std::sin(yaw),
+        distance * std::sin(pitch),
+        distance * std::cos(pitch) * std::cos(yaw));
+}
+
+glm::vec3 buildLightPosition(const SceneBuffers& sceneBuffers)
+{
+    return sceneBuffers.orbitCenter + glm::vec3(40.0f, 40.0f, 40.0f);
 }
 }
 
@@ -62,51 +112,36 @@ void buildFrameView(
     FrameView& frame)
 {
     const float aspect = (float)frame.framebufferWidth / (float)frame.framebufferHeight;
-    const float verticalFov = glm::radians(45.0f);
+    const float verticalFov = glm::radians(kVerticalFovDeg);
     const float sceneRadius = estimateSceneRadius(sceneBuffers);
     const float depthPadding = std::max(10.0f, sceneRadius * 0.25f);
 
     if (useOrthographicView)
     {
-        const float halfHeight = std::max(0.1f, camera.distance * std::tan(verticalFov * 0.5f));
-        const float halfWidth = halfHeight * aspect;
-        const float depthRange = std::max(1000.0f, camera.distance + sceneRadius + depthPadding);
-        frame.projection = glm::ortho(
-            -halfWidth,
-            halfWidth,
-            -halfHeight,
-            halfHeight,
-            -depthRange,
-            depthRange);
+        frame.projection = makeOrthographicProjection(
+            aspect,
+            camera.distance,
+            sceneRadius,
+            verticalFov,
+            depthPadding);
     }
     else
     {
-        const float nearestSurface = camera.distance - sceneRadius;
-        const float nearClip = (nearestSurface > 0.0f)
-            ? std::max(0.01f, nearestSurface * 0.25f)
-            : 0.01f;
-        const float farClip = std::max(nearClip + 100.0f, camera.distance + sceneRadius + depthPadding);
-
-        frame.projection = glm::perspective(
-            verticalFov,
+        frame.projection = makePerspectiveProjection(
             aspect,
-            nearClip,
-            farClip);
+            camera.distance,
+            sceneRadius,
+            verticalFov,
+            depthPadding);
     }
 
-    const float yaw = glm::radians(camera.yaw);
-    const float pitch = glm::radians(camera.pitch);
-
-    const glm::vec3 cameraOffset(
-        camera.distance * std::cos(pitch) * std::sin(yaw),
-        camera.distance * std::sin(pitch),
-        camera.distance * std::cos(pitch) * std::cos(yaw));
+    const glm::vec3 cameraOffset = computeCameraOffset(camera.distance, camera.yaw, camera.pitch);
 
     frame.cameraPosition = sceneBuffers.orbitCenter + cameraOffset;
     frame.view = glm::lookAt(frame.cameraPosition, sceneBuffers.orbitCenter, glm::vec3(0, 1, 0));
 
-    const glm::mat4 lightProjection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 1000.0f);
-    frame.lightPosition = sceneBuffers.orbitCenter + glm::vec3(40.0f, 40.0f, 40.0f);
+    const glm::mat4 lightProjection = glm::perspective(glm::radians(kVerticalFovDeg), 1.0f, 0.1f, 1000.0f);
+    frame.lightPosition = buildLightPosition(sceneBuffers);
     frame.lightMVP = lightProjection * glm::lookAt(
         frame.lightPosition,
         sceneBuffers.orbitCenter,

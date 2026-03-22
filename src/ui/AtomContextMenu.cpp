@@ -10,6 +10,162 @@
 #include <map>
 #include <sstream>
 
+namespace
+{
+bool isValidIndex(int idx, std::size_t size)
+{
+    return idx >= 0 && static_cast<std::size_t>(idx) < size;
+}
+
+void setAtomColorFromElement(AtomSite& atom,
+                             int atomicNumber,
+                             const std::vector<glm::vec3>& elementColors)
+{
+    if (isValidIndex(atomicNumber, elementColors.size()))
+    {
+        atom.r = elementColors[atomicNumber].r;
+        atom.g = elementColors[atomicNumber].g;
+        atom.b = elementColors[atomicNumber].b;
+        return;
+    }
+
+    getDefaultElementColor(atomicNumber, atom.r, atom.g, atom.b);
+}
+
+void deselectAtoms(SceneBuffers& sceneBuffers, std::vector<int>& selectedInstanceIndices)
+{
+    for (int idx : selectedInstanceIndices)
+        sceneBuffers.restoreAtomColor(idx);
+    selectedInstanceIndices.clear();
+}
+
+std::string summarizeFromElements(const std::map<int, int>& fromElementCounts)
+{
+    std::ostringstream fromSummary;
+    bool first = true;
+    for (std::map<int, int>::const_iterator it = fromElementCounts.begin(); it != fromElementCounts.end(); ++it)
+    {
+        if (!first)
+            fromSummary << ", ";
+        first = false;
+        fromSummary << elementSymbol(it->first) << "(" << it->first << "):" << it->second;
+    }
+    return fromSummary.str();
+}
+
+void substituteSelectedAtoms(Structure& structure,
+                            SceneBuffers& sceneBuffers,
+                            const std::vector<glm::vec3>& elementColors,
+                            const std::vector<int>& selectedInstanceIndices,
+                            const ElementSelection& selection,
+                            const std::function<void(Structure&)>& updateBuffers)
+{
+    std::map<int, int> fromElementCounts;
+    int replacedCount = 0;
+
+    for (int idx : selectedInstanceIndices)
+    {
+        if (!isValidIndex(idx, sceneBuffers.atomIndices.size()))
+            continue;
+
+        const int baseIdx = sceneBuffers.atomIndices[idx];
+        if (!isValidIndex(baseIdx, structure.atoms.size()))
+            continue;
+
+        AtomSite& atom = structure.atoms[baseIdx];
+        fromElementCounts[atom.atomicNumber]++;
+        replacedCount++;
+
+        atom.symbol = selection.symbol;
+        atom.atomicNumber = selection.atomicNumber;
+        setAtomColorFromElement(atom, selection.atomicNumber, elementColors);
+    }
+
+    std::cout << "[Operation] Substituted atoms (context menu): "
+              << "count=" << replacedCount
+              << ", to=" << selection.symbol << "(" << selection.atomicNumber << ")"
+              << ", from={" << summarizeFromElements(fromElementCounts) << "}"
+              << std::endl;
+    updateBuffers(structure);
+}
+
+void insertMidpointAtom(Structure& structure,
+                        SceneBuffers& sceneBuffers,
+                        const std::vector<glm::vec3>& elementColors,
+                        const std::vector<int>& selectedInstanceIndices,
+                        const ElementSelection& selection,
+                        const std::function<void(Structure&)>& updateBuffers)
+{
+    double sumX = 0.0;
+    double sumY = 0.0;
+    double sumZ = 0.0;
+    int validCount = 0;
+
+    for (int idx : selectedInstanceIndices)
+    {
+        if (!isValidIndex(idx, sceneBuffers.atomPositions.size()))
+            continue;
+
+        // Use rendered world positions so supercell picks keep Cartesian coordinates.
+        sumX += sceneBuffers.atomPositions[idx].x;
+        sumY += sceneBuffers.atomPositions[idx].y;
+        sumZ += sceneBuffers.atomPositions[idx].z;
+        validCount++;
+    }
+
+    if (validCount < 2)
+        return;
+
+    AtomSite newAtom;
+    newAtom.symbol = selection.symbol;
+    newAtom.atomicNumber = selection.atomicNumber;
+    newAtom.x = sumX / static_cast<double>(validCount);
+    newAtom.y = sumY / static_cast<double>(validCount);
+    newAtom.z = sumZ / static_cast<double>(validCount);
+    setAtomColorFromElement(newAtom, selection.atomicNumber, elementColors);
+
+    structure.atoms.push_back(newAtom);
+    std::cout << "[Operation] Inserted atom at midpoint: "
+              << newAtom.symbol << "(" << newAtom.atomicNumber << ")"
+              << " at [" << newAtom.x << ", " << newAtom.y << ", " << newAtom.z << "]"
+              << " from_selected=" << validCount
+              << std::endl;
+    updateBuffers(structure);
+}
+
+void applyPeriodicSelection(PeriodicAction pendingAction,
+                            Structure& structure,
+                            SceneBuffers& sceneBuffers,
+                            const std::vector<glm::vec3>& elementColors,
+                            const std::vector<int>& selectedInstanceIndices,
+                            const ElementSelection& selection,
+                            const std::function<void(Structure&)>& updateBuffers)
+{
+    if (pendingAction == PeriodicAction::Substitute && !selectedInstanceIndices.empty())
+    {
+        substituteSelectedAtoms(
+            structure,
+            sceneBuffers,
+            elementColors,
+            selectedInstanceIndices,
+            selection,
+            updateBuffers);
+        return;
+    }
+
+    if (pendingAction == PeriodicAction::InsertMidpoint && selectedInstanceIndices.size() >= 2)
+    {
+        insertMidpointAtom(
+            structure,
+            sceneBuffers,
+            elementColors,
+            selectedInstanceIndices,
+            selection,
+            updateBuffers);
+    }
+}
+} // namespace
+
 void AtomContextMenu::open()
 {
     m_openRequested = true;
@@ -76,11 +232,7 @@ void AtomContextMenu::draw(Structure& structure,
             requests.doDelete = true;
 
         if (ImGui::MenuItem("Deselect"))
-        {
-            for (int idx : selectedInstanceIndices)
-                sceneBuffers.restoreAtomColor(idx);
-            selectedInstanceIndices.clear();
-        }
+            deselectAtoms(sceneBuffers, selectedInstanceIndices);
 
         ImGui::EndPopup();
     }
@@ -100,102 +252,14 @@ void AtomContextMenu::draw(Structure& structure,
     {
         if (!selections.empty())
         {
-            const auto& sel = selections[0];
-
-            if (m_pendingAction == PeriodicAction::Substitute &&
-                !selectedInstanceIndices.empty())
-            {
-                std::map<int, int> fromElementCounts;
-                int replacedCount = 0;
-                for (int idx : selectedInstanceIndices)
-                {
-                    if (idx < 0 || idx >= (int)sceneBuffers.atomIndices.size())
-                        continue;
-                    int baseIdx = sceneBuffers.atomIndices[idx];
-                    if (baseIdx < 0 || baseIdx >= (int)structure.atoms.size())
-                        continue;
-
-                    fromElementCounts[structure.atoms[baseIdx].atomicNumber]++;
-                    replacedCount++;
-
-                    structure.atoms[baseIdx].symbol      = sel.symbol;
-                    structure.atoms[baseIdx].atomicNumber = sel.atomicNumber;
-                    if (sel.atomicNumber >= 0 &&
-                        sel.atomicNumber < (int)elementColors.size())
-                    {
-                        structure.atoms[baseIdx].r = elementColors[sel.atomicNumber].r;
-                        structure.atoms[baseIdx].g = elementColors[sel.atomicNumber].g;
-                        structure.atoms[baseIdx].b = elementColors[sel.atomicNumber].b;
-                    }
-                }
-
-                std::ostringstream fromSummary;
-                bool first = true;
-                for (std::map<int, int>::const_iterator it = fromElementCounts.begin(); it != fromElementCounts.end(); ++it)
-                {
-                    if (!first)
-                        fromSummary << ", ";
-                    first = false;
-                    fromSummary << elementSymbol(it->first) << "(" << it->first << "):" << it->second;
-                }
-
-                std::cout << "[Operation] Substituted atoms (context menu): "
-                          << "count=" << replacedCount
-                          << ", to=" << sel.symbol << "(" << sel.atomicNumber << ")"
-                          << ", from={" << fromSummary.str() << "}"
-                          << std::endl;
-                updateBuffers(structure);
-            }
-
-            if (m_pendingAction == PeriodicAction::InsertMidpoint &&
-                selectedInstanceIndices.size() >= 2)
-            {
-                double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
-                int validCount = 0;
-
-                for (int idx : selectedInstanceIndices)
-                {
-                        if (idx < 0 || idx >= (int)sceneBuffers.atomPositions.size())
-                        continue;
-                        // Use the actual rendered world position so that picking a
-                        // supercell copy gives the correct Cartesian coordinates.
-                        sumX += sceneBuffers.atomPositions[idx].x;
-                        sumY += sceneBuffers.atomPositions[idx].y;
-                        sumZ += sceneBuffers.atomPositions[idx].z;
-                    ++validCount;
-                }
-
-                if (validCount >= 2)
-                {
-                    AtomSite newAtom;
-                    newAtom.symbol      = sel.symbol;
-                    newAtom.atomicNumber = sel.atomicNumber;
-                    newAtom.x = sumX / (double)validCount;
-                    newAtom.y = sumY / (double)validCount;
-                    newAtom.z = sumZ / (double)validCount;
-
-                    if (sel.atomicNumber >= 0 &&
-                        sel.atomicNumber < (int)elementColors.size())
-                    {
-                        newAtom.r = elementColors[sel.atomicNumber].r;
-                        newAtom.g = elementColors[sel.atomicNumber].g;
-                        newAtom.b = elementColors[sel.atomicNumber].b;
-                    }
-                    else
-                    {
-                        getDefaultElementColor(sel.atomicNumber,
-                                               newAtom.r, newAtom.g, newAtom.b);
-                    }
-
-                    structure.atoms.push_back(newAtom);
-                    std::cout << "[Operation] Inserted atom at midpoint: "
-                              << newAtom.symbol << "(" << newAtom.atomicNumber << ")"
-                              << " at [" << newAtom.x << ", " << newAtom.y << ", " << newAtom.z << "]"
-                              << " from_selected=" << validCount
-                              << std::endl;
-                    updateBuffers(structure);
-                }
-            }
+            applyPeriodicSelection(
+                m_pendingAction,
+                structure,
+                sceneBuffers,
+                elementColors,
+                selectedInstanceIndices,
+                selections[0],
+                updateBuffers);
         }
 
         m_pendingAction = PeriodicAction::None;

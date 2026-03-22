@@ -81,6 +81,49 @@ const char* cubicBasisName(CubicBasisType basis)
     }
 }
 
+CubicBasisType basisFromIndex(int basisIndex)
+{
+    switch (basisIndex)
+    {
+        case 0: return CubicBasisType::SC;
+        case 1: return CubicBasisType::BCC;
+        case 2: return CubicBasisType::FCC;
+        case 3: return CubicBasisType::Diamond;
+        default: return CubicBasisType::FCC;
+    }
+}
+
+void drawBuildResultSummary(const BuildResult& result)
+{
+    if (result.message.empty())
+        return;
+
+    ImGui::TextWrapped("Status: %s", result.message.c_str());
+    if (!result.success)
+        return;
+
+    ImGui::Text("Input atoms: %d", result.inputAtoms);
+    ImGui::Text("Output atoms: %d", result.generatedAtoms);
+    ImGui::Text("Removed overlaps: %d", result.removedOverlap);
+    ImGui::Text("Sigma: %d", result.sigma);
+    ImGui::Text("Misorientation angle: %.4f deg", result.thetaDeg);
+    ImGui::Separator();
+    ImGui::Text("GB Parameters Used");
+    ImGui::Text("Basis: %s", cubicBasisName((CubicBasisType)result.basisIndex));
+    ImGui::Text("Lattice parameter: %.4f A", result.latticeParameter);
+    ImGui::Text("Element: Z=%d (%s)", result.atomicNumber, elementSymbol(result.atomicNumber));
+    ImGui::Text("Axis [u v w]: [%d %d %d]", result.axis[0], result.axis[1], result.axis[2]);
+    ImGui::Text("Sigma / m / n: %d / %d / %d", result.sigma, result.m, result.n);
+    ImGui::Text("GB plane (h k l): (%d %d %d)", result.gbPlane[0], result.gbPlane[1], result.gbPlane[2]);
+    ImGui::Text("Dimensions [l1 l2 l3]: [%d %d %d]", result.dims[0], result.dims[1], result.dims[2]);
+    ImGui::Text("Replications [r1 r2 r3]: [%d %d %d]", result.reps[0], result.reps[1], result.reps[2]);
+    ImGui::Text("Overlap fraction: %.3f", result.overlapFraction);
+    ImGui::Text("Overlap removal target grain: %d", result.removeFromGrain);
+    ImGui::Text("Rigid translation enabled: %s", result.rigidTranslationEnabled ? "yes" : "no");
+    ImGui::Text("Rigid translation (in-plane): [%.4f %.4f]", result.rigidTx, result.rigidTy);
+    ImGui::Text("Vacuum/box padding: %.3f A", result.vacuumPadding);
+}
+
 int gcd3(int a, int b, int c)
 {
     auto gcd2 = [](int p, int q) {
@@ -777,11 +820,7 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
             else
             {
             const SigmaCandidate& selected = sigmaCandidates[sigmaSelection];
-            CubicBasisType basis = CubicBasisType::FCC;
-            if (basisIndex == 0) basis = CubicBasisType::SC;
-            else if (basisIndex == 1) basis = CubicBasisType::BCC;
-            else if (basisIndex == 2) basis = CubicBasisType::FCC;
-            else if (basisIndex == 3) basis = CubicBasisType::Diamond;
+            const CubicBasisType basis = basisFromIndex(basisIndex);
 
             lastResult = buildCslBoundary(structure,
                                           basis,
@@ -826,33 +865,7 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
         }
 
         ImGui::Spacing();
-        if (!lastResult.message.empty())
-        {
-            ImGui::TextWrapped("Status: %s", lastResult.message.c_str());
-            if (lastResult.success)
-            {
-                ImGui::Text("Input atoms: %d", lastResult.inputAtoms);
-                ImGui::Text("Output atoms: %d", lastResult.generatedAtoms);
-                ImGui::Text("Removed overlaps: %d", lastResult.removedOverlap);
-                ImGui::Text("Sigma: %d", lastResult.sigma);
-                ImGui::Text("Misorientation angle: %.4f deg", lastResult.thetaDeg);
-                ImGui::Separator();
-                ImGui::Text("GB Parameters Used");
-                ImGui::Text("Basis: %s", cubicBasisName((CubicBasisType)lastResult.basisIndex));
-                ImGui::Text("Lattice parameter: %.4f A", lastResult.latticeParameter);
-                ImGui::Text("Element: Z=%d (%s)", lastResult.atomicNumber, elementSymbol(lastResult.atomicNumber));
-                ImGui::Text("Axis [u v w]: [%d %d %d]", lastResult.axis[0], lastResult.axis[1], lastResult.axis[2]);
-                ImGui::Text("Sigma / m / n: %d / %d / %d", lastResult.sigma, lastResult.m, lastResult.n);
-                ImGui::Text("GB plane (h k l): (%d %d %d)", lastResult.gbPlane[0], lastResult.gbPlane[1], lastResult.gbPlane[2]);
-                ImGui::Text("Dimensions [l1 l2 l3]: [%d %d %d]", lastResult.dims[0], lastResult.dims[1], lastResult.dims[2]);
-                ImGui::Text("Replications [r1 r2 r3]: [%d %d %d]", lastResult.reps[0], lastResult.reps[1], lastResult.reps[2]);
-                ImGui::Text("Overlap fraction: %.3f", lastResult.overlapFraction);
-                ImGui::Text("Overlap removal target grain: %d", lastResult.removeFromGrain);
-                ImGui::Text("Rigid translation enabled: %s", lastResult.rigidTranslationEnabled ? "yes" : "no");
-                ImGui::Text("Rigid translation (in-plane): [%.4f %.4f]", lastResult.rigidTx, lastResult.rigidTy);
-                ImGui::Text("Vacuum/box padding: %.3f A", lastResult.vacuumPadding);
-            }
-        }
+        drawBuildResultSummary(lastResult);
 
         ImGui::EndPopup();
     }

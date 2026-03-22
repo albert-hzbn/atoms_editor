@@ -13,6 +13,14 @@
 
 namespace
 {
+constexpr int kMinElementZ = 1;
+constexpr int kMaxElementZ = 118;
+
+bool isValidElementNumber(int z)
+{
+    return z >= kMinElementZ && z <= kMaxElementZ;
+}
+
 std::vector<float> makeDefaultElementShininess()
 {
     // Moderate baseline specular exponent for all elements.
@@ -65,7 +73,7 @@ void EditMenuDialogs::drawPopups(Structure& structure,
         ImGui::Separator();
         drawPeriodicTableInlineSelector(m_selectedRadiusElement);
 
-        if (m_selectedRadiusElement >= 1 && m_selectedRadiusElement <= 118)
+        if (isValidElementNumber(m_selectedRadiusElement))
         {
             ImGui::Text("Selected: Z=%d (%s)",
                         m_selectedRadiusElement,
@@ -110,7 +118,7 @@ void EditMenuDialogs::drawPopups(Structure& structure,
 
         drawPeriodicTableInlineSelector(m_selectedColorElement);
 
-        if (m_selectedColorElement >= 1 && m_selectedColorElement <= 118)
+        if (isValidElementNumber(m_selectedColorElement))
         {
             ImGui::Text("Selected: Z=%d (%s)",
                         m_selectedColorElement,
@@ -350,7 +358,7 @@ void EditMenuDialogs::drawPopups(Structure& structure,
                         m_selectedEditAtom = i;
                         m_editStructureElementTargetAtom = i;
                         int z = atom.atomicNumber;
-                        if (z >= 1 && z <= 118)
+                        if (isValidElementNumber(z))
                             m_selectedEditElement = z;
                         m_showEditStructureElementPicker = true;
                         m_restoreEditStructureAfterElementPicker = true;
@@ -399,6 +407,13 @@ void EditMenuDialogs::drawPopups(Structure& structure,
 
     ImGui::SetNextWindowSize(ImVec2(940.0f, 560.0f), ImGuiCond_Appearing);
     bool editAtomElementOpen = true;
+    auto clearEditStructureElementPicker = [&]() {
+        m_editStructureElementTargetAtom = -1;
+        if (m_restoreEditStructureAfterElementPicker)
+            m_openEditStructure = true;
+        m_restoreEditStructureAfterElementPicker = false;
+    };
+
     if (ImGui::BeginPopupModal("Edit Atom Element##edit-structure", &editAtomElementOpen,
                                ImGuiWindowFlags_NoResize))
     {
@@ -437,10 +452,7 @@ void EditMenuDialogs::drawPopups(Structure& structure,
                 updateBuffers(structure);
             }
 
-            m_editStructureElementTargetAtom = -1;
-            if (m_restoreEditStructureAfterElementPicker)
-                m_openEditStructure = true;
-            m_restoreEditStructureAfterElementPicker = false;
+            clearEditStructureElementPicker();
             ImGui::CloseCurrentPopup();
         }
 
@@ -448,10 +460,7 @@ void EditMenuDialogs::drawPopups(Structure& structure,
     }
     if (!editAtomElementOpen)
     {
-        m_editStructureElementTargetAtom = -1;
-        if (m_restoreEditStructureAfterElementPicker)
-            m_openEditStructure = true;
-        m_restoreEditStructureAfterElementPicker = false;
+        clearEditStructureElementPicker();
         ImGui::CloseCurrentPopup();
     }
 }

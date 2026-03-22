@@ -426,6 +426,39 @@ void drawAtomTable(const CnaResult& result)
     }
 }
 
+void drawCnaSummary(const CnaResult& result)
+{
+    ImGui::Separator();
+    ImGui::Text("Status: %s", result.message.c_str());
+    ImGui::Text("Atoms: %d", result.atomCount);
+    ImGui::Text("Bonded pairs analyzed: %d", result.pairCount);
+    ImGui::Text("PBC used in analysis: %s", result.pbcUsed ? "Yes" : "No");
+}
+
+void drawCnaDetails(const CnaResult& result)
+{
+    if (!result.valid)
+        return;
+
+    ImGui::Separator();
+    ImGui::Text("Pair Signature Distribution (Honeycutt-Andersen form: 1-j-k-l)");
+    ImGui::BeginChild("##cna-sig-child", ImVec2(0.0f, 180.0f), true);
+    drawSignatureTable(result);
+    ImGui::EndChild();
+
+    ImGui::Separator();
+    ImGui::Text("Per-Atom Environment Summary");
+    ImGui::BeginChild("##cna-env-child", ImVec2(0.0f, 130.0f), true);
+    drawEnvironmentTable(result);
+    ImGui::EndChild();
+
+    ImGui::Separator();
+    ImGui::Text("Per-Atom CNA Details");
+    ImGui::BeginChild("##cna-atom-child", ImVec2(0.0f, 240.0f), true);
+    drawAtomTable(result);
+    ImGui::EndChild();
+}
+
 } // namespace
 
 void CommonNeighbourAnalysisDialog::drawMenuItem(bool enabled)
@@ -468,32 +501,8 @@ void CommonNeighbourAnalysisDialog::drawDialog(const Structure& structure)
             requestRecompute = false;
         }
 
-        ImGui::Separator();
-        ImGui::Text("Status: %s", result.message.c_str());
-        ImGui::Text("Atoms: %d", result.atomCount);
-        ImGui::Text("Bonded pairs analyzed: %d", result.pairCount);
-        ImGui::Text("PBC used in analysis: %s", result.pbcUsed ? "Yes" : "No");
-
-        if (result.valid)
-        {
-            ImGui::Separator();
-            ImGui::Text("Pair Signature Distribution (Honeycutt-Andersen form: 1-j-k-l)");
-            ImGui::BeginChild("##cna-sig-child", ImVec2(0.0f, 180.0f), true);
-            drawSignatureTable(result);
-            ImGui::EndChild();
-
-            ImGui::Separator();
-            ImGui::Text("Per-Atom Environment Summary");
-            ImGui::BeginChild("##cna-env-child", ImVec2(0.0f, 130.0f), true);
-            drawEnvironmentTable(result);
-            ImGui::EndChild();
-
-            ImGui::Separator();
-            ImGui::Text("Per-Atom CNA Details");
-            ImGui::BeginChild("##cna-atom-child", ImVec2(0.0f, 240.0f), true);
-            drawAtomTable(result);
-            ImGui::EndChild();
-        }
+        drawCnaSummary(result);
+        drawCnaDetails(result);
 
         ImGui::EndPopup();
     }

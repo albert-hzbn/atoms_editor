@@ -27,6 +27,45 @@ namespace
 {
 using DirectoryEntry = std::pair<std::string, bool>;
 
+void pushDirectoryHistory(std::vector<std::string>& history, int& historyIndex, const std::string& dir)
+{
+    if (historyIndex + 1 < (int)history.size())
+        history.erase(history.begin() + historyIndex + 1, history.end());
+
+    history.push_back(dir);
+    historyIndex = (int)history.size() - 1;
+}
+
+bool hasExtension(const std::string& name, const std::string& extension)
+{
+    if (extension.empty())
+        return true;
+    if (name.size() < extension.size())
+        return false;
+    return name.compare(name.size() - extension.size(), extension.size(), extension) == 0;
+}
+
+std::string replaceFileExtension(const std::string& filename,
+                                 const std::string& extension,
+                                 const std::string& fallbackBase)
+{
+    const std::size_t dot = filename.find_last_of('.');
+    std::string base = (dot != std::string::npos) ? filename.substr(0, dot) : filename;
+    if (base.empty())
+        base = fallbackBase;
+    return base + extension;
+}
+
+void updateFilenameWithExtension(char* filenameBuffer,
+                                 std::size_t bufferSize,
+                                 const std::string& extension,
+                                 const std::string& fallbackBase)
+{
+    const std::string currentName(filenameBuffer);
+    const std::string updatedName = replaceFileExtension(currentName, extension, fallbackBase);
+    std::snprintf(filenameBuffer, bufferSize, "%s", updatedName.c_str());
+}
+
 int atomicNumberFromSymbol(const std::string& symbol)
 {
     if (symbol.empty())
@@ -693,10 +732,7 @@ void FileBrowser::draw(Structure& structure,
         // Helper: navigate to a new directory and record it in history.
         auto pushSaveDir = [&](const std::string& dir) {
             saveDir = dir;
-            if (saveHistoryIndex + 1 < (int)saveDirHistory.size())
-                saveDirHistory.erase(saveDirHistory.begin() + saveHistoryIndex + 1, saveDirHistory.end());
-            saveDirHistory.push_back(saveDir);
-            saveHistoryIndex = (int)saveDirHistory.size() - 1;
+            pushDirectoryHistory(saveDirHistory, saveHistoryIndex, saveDir);
         };
 
         ImGui::Text("Current folder: %s", saveDir.c_str());
@@ -736,11 +772,7 @@ void FileBrowser::draw(Structure& structure,
                 true,
                 [&](const std::string& name) {
                     const std::string lowerName = toLower(name);
-                    if (saveExtFilter.empty())
-                        return true;
-                    if (lowerName.size() < saveExtFilter.size())
-                        return false;
-                    return lowerName.compare(lowerName.size() - saveExtFilter.size(), saveExtFilter.size(), saveExtFilter) == 0;
+                    return hasExtension(lowerName, saveExtFilter);
                 },
                 entries);
 
@@ -766,13 +798,11 @@ void FileBrowser::draw(Structure& structure,
                              return static_cast<const SaveFormat*>(d)[i].label;
                          }, (void*)kSaveFormats, kNumSaveFormats))
         {
-            // Auto-update file extension when format changes
-            std::string fn(saveFilename);
-            auto dot = fn.find_last_of('.');
-            std::string base = (dot != std::string::npos) ? fn.substr(0, dot) : fn;
-            if (base.empty()) base = "structure";
-            std::snprintf(saveFilename, sizeof(saveFilename), "%s%s",
-                          base.c_str(), kSaveFormats[selectedSaveFormat].ext);
+            updateFilenameWithExtension(
+                saveFilename,
+                sizeof(saveFilename),
+                kSaveFormats[selectedSaveFormat].ext,
+                "structure");
             saveStatusMsg[0] = '\0';
         }
 
@@ -851,10 +881,7 @@ void FileBrowser::draw(Structure& structure,
     {
         auto pushExportDir = [&](const std::string& dir) {
             exportDir = dir;
-            if (exportHistoryIndex + 1 < (int)exportDirHistory.size())
-                exportDirHistory.erase(exportDirHistory.begin() + exportHistoryIndex + 1, exportDirHistory.end());
-            exportDirHistory.push_back(exportDir);
-            exportHistoryIndex = (int)exportDirHistory.size() - 1;
+            pushDirectoryHistory(exportDirHistory, exportHistoryIndex, exportDir);
         };
 
         ImGui::Text("Current folder: %s", exportDir.c_str());
@@ -893,11 +920,7 @@ void FileBrowser::draw(Structure& structure,
                 true,
                 [&](const std::string& name) {
                     const std::string lowerName = toLower(name);
-                    if (exportExtFilter.empty())
-                        return true;
-                    if (lowerName.size() < exportExtFilter.size())
-                        return false;
-                    return lowerName.compare(lowerName.size() - exportExtFilter.size(), exportExtFilter.size(), exportExtFilter) == 0;
+                    return hasExtension(lowerName, exportExtFilter);
                 },
                 entries);
 
@@ -922,16 +945,11 @@ void FileBrowser::draw(Structure& structure,
                              return static_cast<const ImageExportFormatOption*>(d)[i].label;
                          }, (void*)kImageExportFormats, kNumImageExportFormats))
         {
-            std::string fn(exportFilename);
-            auto dot = fn.find_last_of('.');
-            std::string base = (dot != std::string::npos) ? fn.substr(0, dot) : fn;
-            if (base.empty()) base = "structure";
-
-            std::snprintf(exportFilename,
-                          sizeof(exportFilename),
-                          "%s%s",
-                          base.c_str(),
-                          kImageExportFormats[selectedExportFormat].ext);
+            updateFilenameWithExtension(
+                exportFilename,
+                sizeof(exportFilename),
+                kImageExportFormats[selectedExportFormat].ext,
+                "structure");
             exportStatusMsg[0] = '\0';
         }
 
@@ -966,8 +984,7 @@ void FileBrowser::draw(Structure& structure,
 
                 if (currentExt != selectedExtLower)
                 {
-                    const std::string base = (dot != std::string::npos) ? finalName.substr(0, dot) : finalName;
-                    finalName = base + selectedExt;
+                    finalName = replaceFileExtension(finalName, selectedExt, "structure");
                     std::snprintf(exportFilename, sizeof(exportFilename), "%s", finalName.c_str());
                 }
 
@@ -1254,11 +1271,7 @@ void FileBrowser::showLoadError(const std::string& message)
 
 void FileBrowser::pushHistory(const std::string& dir)
 {
-    if (historyIndex + 1 < (int)dirHistory.size())
-        dirHistory.erase(dirHistory.begin() + historyIndex + 1, dirHistory.end());
-
-    dirHistory.push_back(dir);
-    historyIndex = (int)dirHistory.size() - 1;
+    pushDirectoryHistory(dirHistory, historyIndex, dir);
 }
 
 std::string FileBrowser::toLower(const std::string& s)
