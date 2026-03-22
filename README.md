@@ -1,15 +1,16 @@
 # AtomForge
 
-AtomForge is a desktop atomic structure viewer and editor built with OpenGL, Dear ImGui, and Open Babel. It is aimed at interactive inspection and editing of molecules and crystal structures, with integrated builders for bulk crystals, CSL grain boundaries, and nanocrystals.
+AtomForge is an atomic structure builder for metallurgical simulation and atomistic modeling. It provides interactive tools for constructing, editing, and analyzing periodic crystals, grain boundaries, and nanostructures—all essential for preparing input structures for molecular dynamics and first-principles computational materials science.
 
-## What AtomForge does
+## Core capabilities
 
-- Load common atomic and crystallographic file formats.
-- View structures in real time with atom, bond, and unit-cell rendering.
-- Select, edit, delete, substitute, and transform atoms directly in the UI.
-- Inspect structure metadata, coordination, and measurements.
-- Run common-neighbour analysis and radial distribution analysis.
-- Build periodic crystals, cubic grain boundaries, and carved nanocrystals.
+- **Build structures from scratch** using crystal-system-aware builders for bulk crystals, cubic grain boundaries, and nanocrystals.
+- **Edit and refine** atoms and lattice parameters interactively, with real-time visualization.
+- **Create metallurgical defects** such as grain boundaries with explicit Sigma selection and in-plane replication.
+- **Carve finite nanostructures** from any loaded reference structure using geometric shapes.
+- **Analyze local order** with common-neighbour analysis and radial distribution functions.
+- **Export for simulation** in VASP, LAMMPS, and other popular MD and DFT formats.
+- **Inspect structure quality** through coordination statistics, symmetry detection, and lattice metrics.
 
 ## Platform support
 
@@ -77,34 +78,9 @@ rm -rf build
 
 ## Supported formats
 
-### Open / import
+**Structure files** (open and save): `.xyz`, `.cif`, `.pdb`, `.sdf`, `.mol`, `.vasp`, `.mol2`, `.pwi`, `.gjf`
 
-- `.xyz`
-- `.cif`
-- `.pdb`
-- `.sdf`
-- `.mol`
-- `.vasp`
-- `.mol2`
-- `.pwi`
-- `.gjf`
-
-### Save / export structure
-
-- `.xyz`
-- `.cif`
-- `.vasp`
-- `.pdb`
-- `.sdf`
-- `.mol2`
-- `.pwi`
-- `.gjf`
-
-### Export rendered image
-
-- `.png`
-- `.jpg`
-- `.svg`
+**Rendered images**: `.png`, `.jpg`, `.svg`
 
 ## Core controls
 
@@ -154,38 +130,42 @@ Box selection is available through Edit -> Box Select Mode. When enabled, right-
 - Use Edit -> Atomic Sizes and Edit -> Element Colors to tune radii, colors, and shininess.
 - Use Edit -> Transform Structure to apply a 3x3 matrix to periodic structures.
 
-### Build derived structures
+### Build and construct structures
 
-- Build -> Bulk Crystal generates a periodic cell from crystal system, space group, lattice parameters, and asymmetric-unit atoms.
-- Build -> CSL Grain Boundary generates cubic bicrystals from ideal sc, bcc, fcc, or diamond templates.
-- Build -> Nanocrystal carves a finite particle from a loaded reference structure using sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, or cuboctahedron geometry.
+- **Bulk Crystal**: Generate periodic cells from crystal system, space group, lattice parameters, and asymmetric-unit atoms. Ideal for preparing supercells and commensurate structures.
+- **CSL Grain Boundary**: Construct cubic bicrystals with explicit Sigma selection from sc, bcc, fcc, or diamond source lattices. Control GB plane, in-plane replication, rigid translation, and overlap removal.
+- **Nanocrystal**: Carve finite particles from any loaded reference structure using sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, or cuboctahedron geometry. Apply auto-centering and optional unit-cell padding.
 
-## Builders and analysis
+## Structure builders and analysis
 
-### Nanocrystal builder
-
-- Uses the currently loaded structure as the reference motif.
-- Accepts drag-and-drop of a replacement reference file while the dialog is open.
-- Provides an embedded 3D preview of the reference structure.
-- Preview controls: left-drag to orbit, scroll to zoom.
-- Supports auto-centering, manual carving center, auto-replication for periodic sources, and optional rectangular output cell padding.
+AtomForge's builder system is designed to prepare structures for atomistic simulation—from perfect crystals to defected metallurgical systems.
 
 ### Bulk crystal builder
 
-- Groups space groups by crystal system.
-- Applies system-specific lattice constraints.
-- Builds the full unit cell from asymmetric atoms and symmetry expansion.
+- Organizes space groups by crystal system (triclinic through cubic).
+- Applies system-specific lattice constraints and trigonal settings.
+- Expands asymmetric-unit atoms using symmetry operations to build the full unit cell.
+- Perfect for creating supercells and preparing input for vasp, LAMMPS, and quantum espresso.
 
 ### CSL grain boundary builder
 
-- Limited to cubic source lattices: `sc`, `bcc`, `fcc`, `diamond`.
-- Lets you generate Sigma candidates from an axis, then choose one candidate explicitly.
-- Supports in-plane replication, overlap removal, rigid translation, and padding.
+- Targeted at metallurgical simulation of grain boundaries in cubic systems.
+- Generates sigma-list candidates from a rotation axis; select explicitly by Sigma, m, n, and angle.
+- Controls GB plane, supercell dimensions, in-plane replication, overlap removal, and rigid translation.
+- Outputs bicrystal structures ready for MD or DFT study of interface properties.
 
-### Analysis tools
+### Nanocrystal builder
 
-- Common Neighbour Analysis reports Honeycutt-Andersen-style signatures and per-atom environment labels.
-- Radial Distribution Function provides species filters, normalization, smoothing, tabulated bins, and first-peak / first-minimum summaries.
+- Carves finite particles from any loaded reference structure.
+- Supports geometric shapes: sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, cuboctahedron.
+- Auto-replicates periodic inputs for efficient particle generation and can pad with vacuum.
+- Ideal for preparing nanoparticle input for cluster simulations and nanoscale property calculations.
+
+### Structure analysis
+
+- **Common Neighbour Analysis**: Identifies local crystalline environments (FCC, HCP, BCC, ICO) and reports Honeycutt-Andersen-style pair signatures.
+- **Radial Distribution Function**: Plots RDF with species filters, normalization, smoothing, and first-peak analysis for structure validation.
+- **Coordination and bonding**: Automatic bond detection, PBC-aware coordination counting, and bond-length statistics for quality assurance.
 
 ## Display and measurements
 
