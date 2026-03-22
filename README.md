@@ -1,29 +1,42 @@
 # AtomForge
 
-An OpenGL-based molecular structure viewer and editor using Dear ImGui and Open Babel.
+AtomForge is a desktop molecular structure viewer and editor built with OpenGL, Dear ImGui, and Open Babel. It is aimed at interactive inspection and editing of molecules and crystal structures, with integrated builders for bulk crystals, CSL grain boundaries, and nanocrystals.
+
+## What AtomForge does
+
+- Load common molecular and crystallographic file formats.
+- View structures in real time with atom, bond, and unit-cell rendering.
+- Select, edit, delete, substitute, and transform atoms directly in the UI.
+- Inspect structure metadata, coordination, and measurements.
+- Run common-neighbour analysis and radial distribution analysis.
+- Build periodic crystals, cubic grain boundaries, and carved nanocrystals.
 
 ## Platform support
 
 - Linux
-- Windows (MSYS2 UCRT64 / MinGW-w64)
+- Windows via MSYS2 UCRT64 / MinGW-w64
 
-## Prerequisites
+## Quick start
 
-### Linux (Debian/Ubuntu or derivatives)
+### Linux
 
 ```bash
 sudo apt update
 sudo apt install build-essential cmake pkg-config libglfw3-dev libglew-dev libglm-dev \
                  libopenbabel-dev libopenbabel3 libsymspg-dev
+
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+./build/AtomForge
 ```
 
 ### Windows (MSYS2 UCRT64)
 
-Install MSYS2, open the **UCRT64** shell, then install dependencies:
+Install MSYS2, open the UCRT64 shell, then run:
 
 ```bash
 pacman -Syu
-# close and reopen UCRT64 shell, then run
+# close and reopen the UCRT64 shell, then run
 pacman -Su
 
 pacman -S --needed mingw-w64-ucrt-x86_64-toolchain \
@@ -33,193 +46,224 @@ pacman -S --needed mingw-w64-ucrt-x86_64-toolchain \
                   mingw-w64-ucrt-x86_64-glm \
                   mingw-w64-ucrt-x86_64-openbabel \
                   mingw-w64-ucrt-x86_64-pkgconf
-```
 
-Optional (enables symmetry features via spglib):
-
-```bash
+# optional: enables symmetry features through spglib
 pacman -S --needed mingw-w64-ucrt-x86_64-spglib
-```
 
-> **Note:** This project uses OpenGL 3.0+ (GLSL 130) and GLFW.
-> In Windows PowerShell, `cmake` may be unavailable unless MSYS2 paths are added.
-> Use the MSYS2 **UCRT64** shell for the commands below.
-
-## Build (CMake)
-
-### Linux
-
-From the repository root:
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-./build/AtomForge
-```
-
-### Windows (MSYS2 UCRT64)
-
-From the repository root in the UCRT64 shell:
-
-```bash
 cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ./build/AtomForge.exe
 ```
 
-### Clean build artifacts
+Note: run the Windows build from the MSYS2 UCRT64 shell. PowerShell will often miss the required toolchain and DLL paths.
+
+## Build notes
+
+- The project uses CMake and targets C++11.
+- OpenGL 3.x, GLFW, GLEW, GLM, and Open Babel are required.
+- spglib or symspg is optional; if found, symmetry-related features are enabled automatically.
+
+To clean the current build tree:
 
 ```bash
 cmake --build build --target clean
-# or remove the full build tree
+```
+
+To remove all generated artifacts:
+
+```bash
 rm -rf build
 ```
 
+## Supported formats
+
+### Open / import
+
+- `.xyz`
+- `.cif`
+- `.pdb`
+- `.sdf`
+- `.mol`
+- `.vasp`
+- `.mol2`
+- `.pwi`
+- `.gjf`
+
+### Save / export structure
+
+- `.xyz`
+- `.cif`
+- `.vasp`
+- `.pdb`
+- `.sdf`
+- `.mol2`
+- `.pwi`
+- `.gjf`
+
+### Export rendered image
+
+- `.png`
+- `.jpg`
+- `.svg`
+
+## Core controls
+
+### Scene navigation
+
+| Action | Input |
+| --- | --- |
+| Rotate scene | Left drag |
+| Zoom | Scroll wheel |
+| Reset fitted default view | View -> Reset Default View |
+
+### Selection
+
+| Action | Input |
+| --- | --- |
+| Select one atom | Left click |
+| Add or remove from selection | Ctrl + left click |
+| Select all | Ctrl+A |
+| Clear selection | Ctrl+D or Escape |
+| Delete selection | Delete |
+
+Box selection is available through Edit -> Box Select Mode. When enabled, right-drag draws a selection rectangle. Hold Ctrl to add to the current selection.
+
+### File shortcuts
+
+| Action | Shortcut |
+| --- | --- |
+| Open structure | Ctrl+O |
+| Save structure as | Ctrl+S |
+| Export rendered image | Ctrl+Shift+S |
+| Undo | Ctrl+Z |
+| Redo | Ctrl+Y or Ctrl+Shift+Z |
+
+## Main workflows
+
+### Open and inspect a structure
+
+1. Use File -> Open.
+2. Rotate and zoom the scene.
+3. Toggle View -> Show Bonds and View -> Show Element as needed.
+4. Open View -> Structure Info for composition, lattice, positions, and symmetry.
+
+### Edit atoms and structure data
+
+- Right-click a selection to substitute atoms, insert an atom at a midpoint, measure, or delete.
+- Use Edit -> Edit Structure to modify lattice vectors and atom positions.
+- Use Edit -> Atomic Sizes and Edit -> Element Colors to tune radii, colors, and shininess.
+- Use Edit -> Transform Structure to apply a 3x3 matrix to periodic structures.
+
+### Build derived structures
+
+- Build -> Bulk Crystal generates a periodic cell from crystal system, space group, lattice parameters, and asymmetric-unit atoms.
+- Build -> CSL Grain Boundary generates cubic bicrystals from ideal sc, bcc, fcc, or diamond templates.
+- Build -> Nanocrystal carves a finite particle from a loaded reference structure using sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, or cuboctahedron geometry.
+
+## Builders and analysis
+
+### Nanocrystal builder
+
+- Uses the currently loaded structure as the reference motif.
+- Accepts drag-and-drop of a replacement reference file while the dialog is open.
+- Provides an embedded 3D preview of the reference structure.
+- Preview controls: left-drag to orbit, scroll to zoom.
+- Supports auto-centering, manual carving center, auto-replication for periodic sources, and optional rectangular output cell padding.
+
+### Bulk crystal builder
+
+- Groups space groups by crystal system.
+- Applies system-specific lattice constraints.
+- Builds the full unit cell from asymmetric atoms and symmetry expansion.
+
+### CSL grain boundary builder
+
+- Limited to cubic source lattices: `sc`, `bcc`, `fcc`, `diamond`.
+- Lets you generate Sigma candidates from an axis, then choose one candidate explicitly.
+- Supports in-plane replication, overlap removal, rigid translation, and padding.
+
+### Analysis tools
+
+- Common Neighbour Analysis reports Honeycutt-Andersen-style signatures and per-atom environment labels.
+- Radial Distribution Function provides species filters, normalization, smoothing, tabulated bins, and first-peak / first-minimum summaries.
+
+## Display and measurements
+
+- Bonds are inferred from covalent radii and rendered as split-color cylinders.
+- Periodic image atoms are drawn at cell boundaries for periodic visualization.
+- Distance and angle tools draw helper overlays in the scene.
+- Atom Info reports element data, Cartesian and direct coordinates, and bond statistics.
+
+## Menus at a glance
+
+### File
+
+- Open structures.
+- Save the current structure.
+- Export a rendered image.
+- Close the current structure.
+
+### Edit
+
+- Undo and redo.
+- Box selection mode.
+- Structure editing.
+- Atomic-size and element-color overrides.
+- Supercell transform.
+
+### View
+
+- Element labels and bond visibility.
+- Isometric and orthographic camera modes.
+- Structure information and measurement dialogs.
+- Reset default view.
+
+### Build
+
+- Bulk Crystal.
+- CSL Grain Boundary.
+- Nanocrystal.
+
+### Analysis
+
+- Common Neighbour Analysis.
+- Radial Distribution Function.
+
+### Help
+
+- Manual.
+- About.
+
 ## Windows troubleshooting
 
-- **Open Babel plugin error** (`Unable to find OpenBabel plugins`):
-  set the plugin path before launching.
+### Open Babel plugin path is missing
+
+If AtomForge reports that Open Babel plugins cannot be found, set the plugin path before launch:
 
 ```bash
 export BABEL_LIBDIR=/ucrt64/lib/openbabel/3.1.0/
 ```
 
-- **Application does not start due to missing DLLs**:
-  run from the UCRT64 shell, or add `C:/msys64/ucrt64/bin` to `PATH`.
+### Missing DLLs at startup
 
-- **CMake cannot find dependencies**:
-  ensure `pkg-config` (Linux) / `pkgconf` (MSYS2) and all prerequisite packages are installed.
+Run from the UCRT64 shell, or ensure `C:/msys64/ucrt64/bin` is present in `PATH`.
 
-## Usage
+### CMake cannot find dependencies
 
-### Opening files
-
-Use **File → Open…** (`Ctrl+O`) to browse and load a structure file.  
-Supported formats: `.xyz`, `.cif`, `.pdb`, `.sdf`, `.mol`, `.vasp`, `.mol2`, `.pwi`, `.gjf`.
-
-Use **File → Save As…** (`Ctrl+S`) to export the current structure.
-
-### Camera
-
-| Action | Input |
-|---|---|
-| Rotate | Left drag |
-| Zoom | Scroll wheel |
-
-Default camera behavior:
-- New structures are framed automatically so the full structure is visible.
-- Default orientation is isometric.
-- Use **View → Reset Default View** to re-apply isometric framing at any time.
-
-### Atom selection
-
-| Action | Input |
-|---|---|
-| Select atom | Left click |
-| Add / remove from selection | Ctrl + click |
-| Select all | Ctrl+A |
-| Deselect all | Ctrl+D or Escape |
-| Delete selected | Delete |
-
-Box selection:
-- Enable **Edit → Box Select Mode**, then right-drag to select atoms in a screen rectangle.
-- Hold `Ctrl` while box-selecting to add to the current selection.
-
-### Right-click context menu
-
-- **Substitute Atom…** — replace all selected atoms with a chosen element (periodic table picker)
-- **Insert Atom at Midpoint…** — insert a new atom at the centroid of ≥ 2 selected atoms
-- **Measure Distance** — available when exactly 2 atoms are selected
-- **Measure Angle** — available when exactly 3 atoms are selected (angle at the 2nd selected atom)
-- **Atom Info** — available when exactly 1 atom is selected (element, Cartesian, direct coordinates)
-- **Delete** / **Deselect**
-
-### View menu
-
-- **Show Element** — toggle on-screen element symbol labels
-- **Show Bonds** — display bond cylinders split by atom colours
-- **Structure Info** — show composition, lattice metrics, positions, and symmetry summary
-- **Measure Distance (2 selected)**
-- **Measure Angle (3 selected)**
-- **Atom Info (1 selected)**
-- **Reset Default View** — restore isometric view and fit structure to window
-
-### Edit menu
-
-- **Undo / Redo** — full edit-history snapshots (`Ctrl+Z`, `Ctrl+Y`, `Ctrl+Shift+Z`)
-- **Box Select Mode** — switch right mouse drag to rectangle selection mode
-- **Edit Structure...** — modify lattice vectors and atom list (add/edit/delete)
-- **Atomic Sizes…** — adjust per-element covalent radii (literature defaults: Cordero et al., *Dalton Trans.* 2008)
-- **Element Colors…** — override CPK colours per element and tune material shininess
-- **Transform Structure…** — apply a 3×3 matrix transformation to all atom positions (only available when the structure has a unit cell)
-
-### Help menu
-
-- **Manual** — complete in-app reference for controls and menu actions
-- **About** — project overview, libraries, and references
-
-### Analysis menu
-
-- **Common Neighbour Analysis…** — run CNA from a dedicated dialog.
-- Pair-signature distribution is reported in Honeycutt-Andersen style `1-j-k-l`.
-- Per-atom environment summary is reported (FCC-like/HCP-like/BCC-like/ICO-like/Unknown).
-- Per-atom CNA details are listed (coordination, dominant signature, environment).
-- PBC-aware analysis is used when a unit cell is present (toggle in dialog).
-- **Radial Distribution Function…** — compute and plot RDF from a dedicated dialog.
-- RDF controls include species filters, PBC toggle, normalization, radius range, bin count, smoothing, and plot overlays.
-- RDF results include the plotted curve, per-bin table, density/volume summary, and first-peak / first-minimum estimates.
-
-### Build menu
-
-- **Bulk Crystal…** — build a full periodic unit cell from a selected crystal system, space group, lattice parameters, and asymmetric-unit atoms.
-- Space-group selection is grouped by crystal system (triclinic, monoclinic, orthorhombic, tetragonal, trigonal, hexagonal, cubic).
-- Lattice inputs are constrained by the selected crystal system; trigonal currently uses the hexagonal setting.
-- Asymmetric-unit atoms can be added, edited, deleted, and substituted directly in the dialog before symmetry expansion.
-- Generation applies the selected space-group symmetry operations to fill the full unit cell and replaces the current structure.
-- **CSL Grain Boundary…** — create a bicrystal grain-boundary structure from cubic lattice templates only (`sc`, `bcc`, `fcc`, `diamond`).
-- The builder does not use the loaded structure as the source lattice; it generates from selected basis, lattice parameter, and element.
-- Sigma can be chosen explicitly by generating a Sigma candidate list from the selected axis and choosing one entry (`Sigma`, `m`, `n`, angle).
-- In-plane replication controls (`r2 r3`) are available to expand the generated GB cell without creating multiple GB images along the normal.
-- Builder controls include rotation axis `[u v w]`, `(m, n)` misorientation parameters (Sigma/angle), GB plane `(h k l)`, dimensions, overlap removal, optional rigid translation, and box padding.
-- Generation replaces the current structure and reports atoms in/out, overlap removals, Sigma, and misorientation angle.
-
-### Measurements and overlays
-
-- Distance and angle tools open result dialogs and draw dashed helper lines.
-- **Atom Info** shows element name, atomic number, Cartesian/direct coordinates, and coordination number with average/min/max bond length (bond stats use PBC when a unit cell exists).
-- Dashed helper lines are cleared when selection changes or when the dialog is confirmed.
-- **Show Element** labels are rendered for periodic image atoms as well.
-
-### Periodic and bonding display
-
-- Boundary atoms are duplicated across unit-cell faces/edges/vertices for periodic visualization.
-- Bonds are inferred from covalent radii and rendered as thicker cylinders with half-colour per bonded atom.
-
-### Structure information
-
-- **View → Structure Info** includes:
-  - Total atoms, element counts, and formula
-  - Lattice lengths, angles, and volume
-  - Atomic positions in Cartesian and fractional coordinates
-  - Space group and point group using spglib when available
-
-### Save/export formats
-
-- **File → Save As** supports: `.xyz`, `.cif`, `.vasp`, `.pdb`, `.sdf`, `.mol2`, `.pwi`, `.gjf`
-- When transform mode is active, save uses the expanded supercell representation.
+Verify that `pkgconf` and the required MSYS2 packages are installed in the same UCRT64 environment used for the build.
 
 ## Project layout
 
-```
-CMakeLists.txt              — cross-platform build configuration
+```text
+CMakeLists.txt              cross-platform build configuration
 src/
-  main.cpp                   — application entry point, render loop
-  ElementData.cpp/.h         — element symbols, radii, colours
-  camera/                    — camera orbit controller
-  graphics/                  — OpenGL renderer, scene buffers, picking, shaders
-  math/                      — math utilities
-  ui/                        — Dear ImGui panels and dialogs
-  io/                        — structure loading (Open Babel)
-imgui/                       — bundled Dear ImGui sources
-                             — includes ImGui GLFW / OpenGL backend files
+  main.cpp                  application entry point and frame loop
+  ElementData.cpp/.h        element symbols, colors, radii, metadata
+  app/                      editor coordination, file handling, interaction glue
+  camera/                   orbit camera and callbacks
+  graphics/                 renderer, scene buffers, picking, meshes, shaders
+  io/                       structure loading through Open Babel
+  math/                     structure and geometry helpers
+  ui/                       Dear ImGui windows, dialogs, and builders
+imgui/                      bundled Dear ImGui sources and backend bindings
 ```

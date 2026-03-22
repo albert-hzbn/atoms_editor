@@ -1027,78 +1027,80 @@ void FileBrowser::draw(Structure& structure,
 
         if (ImGui::BeginChild("##manual-scroll", ImVec2(0.0f, 640.0f), false))
         {
-            ImGui::Text("Mouse Controls");
-            ImGui::BulletText("Rotate: left-click drag");
-            ImGui::BulletText("Zoom: scroll wheel");
-            ImGui::BulletText("Select atom: left-click on atom");
-            ImGui::BulletText("Multi-select: Ctrl+left-click to add/remove atoms");
-            ImGui::BulletText("Right-click: open context menu (when atoms are selected)");
-            ImGui::BulletText("Box Select Mode: right-drag rectangle to select atoms");
+            ImGui::Text("Getting Started");
+            ImGui::BulletText("Open a structure from File -> Open or press Ctrl+O.");
+            ImGui::BulletText("Use left-drag to rotate the scene and the scroll wheel to zoom.");
+            ImGui::BulletText("Use View -> Reset Default View to restore the fitted isometric camera.");
+
+            ImGui::Spacing();
+            ImGui::Text("Selection and Editing");
+            ImGui::BulletText("Left-click selects one atom.");
+            ImGui::BulletText("Ctrl+left-click adds or removes atoms from the current selection.");
+            ImGui::BulletText("Ctrl+A selects all atoms. Ctrl+D or Esc clears the selection.");
+            ImGui::BulletText("Delete removes the selected atoms from the structure.");
+            ImGui::BulletText("Right-click opens the context menu when atoms are selected.");
+            ImGui::BulletText("Enable Edit -> Box Select Mode to select with a right-drag screen rectangle.");
 
             ImGui::Spacing();
             ImGui::Text("Keyboard Shortcuts");
-            ImGui::BulletText("Ctrl+A: select all atoms");
-            ImGui::BulletText("Ctrl+D or Esc: clear selection");
-            ImGui::BulletText("Delete: remove selected atoms from structure");
-            ImGui::BulletText("Ctrl+Z: undo last change");
-            ImGui::BulletText("Ctrl+Y or Ctrl+Shift+Z: redo");
-            ImGui::BulletText("Ctrl+O: open structure file");
-            ImGui::BulletText("Ctrl+S: save structure as");
-            ImGui::BulletText("Ctrl+Shift+S: export structure image");
+            ImGui::BulletText("Ctrl+O: open structure file.");
+            ImGui::BulletText("Ctrl+S: save structure as.");
+            ImGui::BulletText("Ctrl+Shift+S: export the current rendered view.");
+            ImGui::BulletText("Ctrl+Z: undo. Ctrl+Y or Ctrl+Shift+Z: redo.");
 
             ImGui::Spacing();
             ImGui::Text("File Menu");
-            ImGui::BulletText("Open...: load from .cif, .mol, .pdb, .xyz, .sdf");
-            ImGui::BulletText("Save As...: export to .xyz, .cif, .vasp, .pdb, .sdf, .mol2, .pwi, .gjf");
-            ImGui::BulletText("Export Image...: export scene to .png, .jpg, or .svg with optional transparent background");
-            ImGui::BulletText("Quit: exit application");
+            ImGui::BulletText("Open loads supported structure formats such as CIF, MOL, PDB, XYZ, SDF, VASP, MOL2, PWI, and GJF.");
+            ImGui::BulletText("Save As exports the current structure to supported chemistry and crystal formats.");
+            ImGui::BulletText("Export Image writes PNG, JPG, or SVG output with optional background.");
+            ImGui::BulletText("Close unloads the current structure.");
 
             ImGui::Spacing();
             ImGui::Text("Edit Menu");
-            ImGui::BulletText("Undo / Redo: history navigation for structure and style edits");
-            ImGui::BulletText("Box Select Mode: enable right-drag rectangular atom selection");
-            ImGui::BulletText("Edit Structure...: modify lattice vectors and atom list");
-            ImGui::BulletText("Atomic Sizes...: adjust per-element covalent radii");
-            ImGui::BulletText("Element Colors...: adjust per-element colors and material shininess");
-            ImGui::BulletText("Transform Structure...: apply a 3x3 integer transformation matrix");
+            ImGui::BulletText("Undo and Redo track structure edits and style changes.");
+            ImGui::BulletText("Edit Structure modifies lattice vectors and the atom list directly.");
+            ImGui::BulletText("Atomic Sizes adjusts per-element radii used for display and some builders.");
+            ImGui::BulletText("Element Colors adjusts per-element color and shininess.");
+            ImGui::BulletText("Transform Structure applies a 3x3 transformation matrix to periodic structures.");
 
             ImGui::Spacing();
             ImGui::Text("Build Menu");
-            ImGui::BulletText("Bulk Crystal...: build a full unit cell from crystal system, space group, lattice parameters, and asymmetric-unit atoms");
-            ImGui::BulletText("CSL Grain Boundary...: cubic GB builder with Sigma-list selection and in-plane supercell replication");
-            ImGui::BulletText("Nanocrystal...: carve a nanoparticle from the loaded structure using sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, or cuboctahedron shapes");
+            ImGui::BulletText("Bulk Crystal builds a full periodic unit cell from crystal system, space group, lattice parameters, and asymmetric-unit atoms.");
+            ImGui::BulletText("CSL Grain Boundary builds cubic bicrystals from ideal sc, bcc, fcc, or diamond source lattices.");
+            ImGui::BulletText("Nanocrystal carves a finite particle from a loaded reference structure using sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, or cuboctahedron shapes.");
+
+            ImGui::Spacing();
+            ImGui::Text("Nanocrystal Builder");
+            ImGui::BulletText("Uses the currently loaded structure as the reference source for carving.");
+            ImGui::BulletText("You can drag and drop a supported structure file into the reference preview area while the dialog is open.");
+            ImGui::BulletText("Preview controls: left-drag orbits the preview, scroll zooms the preview camera.");
+            ImGui::BulletText("Options include auto-centering, manual center coordinates, auto-replication for periodic inputs, and rectangular output-cell padding.");
 
             ImGui::Spacing();
             ImGui::Text("View Menu");
-            ImGui::BulletText("Show Element: toggle element labels");
-            ImGui::BulletText("Show Bonds: toggle bond rendering");
-            ImGui::BulletText("Isometric View: fit and reset to the default angled 3D perspective view");
-            ImGui::BulletText("Orthographic View: switch to orthographic projection while keeping the default fitted viewing angle");
-            ImGui::BulletText("Structure Info: composition, lattice metrics, positions, and symmetry");
-            ImGui::BulletText("Measure Distance (2 selected): open distance dialog and overlay");
-            ImGui::BulletText("Measure Angle (3 selected): open angle dialog and overlay");
-            ImGui::BulletText("Atom Info (1 selected): metadata, coordinates, and PBC-aware coordination/bond-length stats");
-            ImGui::BulletText("Reset Default View: restore fitted isometric camera view");
+            ImGui::BulletText("Show Element toggles element labels.");
+            ImGui::BulletText("Show Bonds toggles bond-cylinder rendering.");
+            ImGui::BulletText("Isometric View and Orthographic View switch the camera projection mode.");
+            ImGui::BulletText("Structure Info shows composition, lattice metrics, positions, and symmetry when available.");
+            ImGui::BulletText("Measure Distance, Measure Angle, and Atom Info open the corresponding dialogs for the current selection.");
 
             ImGui::Spacing();
             ImGui::Text("Analysis Menu");
-            ImGui::BulletText("Common Neighbour Analysis...: run CNA and inspect pair signatures and per-atom environments");
-            ImGui::BulletText("Radial Distribution Function...: plot RDF with configurable species filters, radius range, bins, smoothing, and normalization");
+            ImGui::BulletText("Common Neighbour Analysis reports pair signatures and per-atom structural environments.");
+            ImGui::BulletText("Radial Distribution Function plots RDF with configurable species filters, normalization, radius range, bin count, and smoothing.");
 
             ImGui::Spacing();
-            ImGui::Text("Context Menu (Selection)");
-            ImGui::BulletText("Substitute Atom...: replace selected atoms with a chosen element");
-            ImGui::BulletText("Insert Atom at Midpoint...: add atom at centroid of selected atoms");
-            ImGui::BulletText("Measure Distance / Angle / Atom Info shortcuts for selected atoms");
-            ImGui::BulletText("Delete / Deselect selected atoms");
+            ImGui::Text("Context Menu");
+            ImGui::BulletText("Substitute Atom replaces the selected atoms with a chosen element.");
+            ImGui::BulletText("Insert Atom at Midpoint places a new atom at the centroid of the current selection.");
+            ImGui::BulletText("Measure Distance, Measure Angle, Atom Info, Delete, and Deselect are available when selection rules are satisfied.");
 
             ImGui::Spacing();
-            ImGui::Text("Display Features");
-            ImGui::BulletText("Element labels with periodic-image notation");
-            ImGui::BulletText("Split-color bonds based on bonded element colors");
-            ImGui::BulletText("Yellow highlighting for selected atoms");
-            ImGui::BulletText("Distance/angle helper overlays in the 3D scene");
-            ImGui::BulletText("Periodic boundary visualization and supercell transforms");
+            ImGui::Text("Display and Measurement Features");
+            ImGui::BulletText("Element labels can be shown for periodic-image atoms as well.");
+            ImGui::BulletText("Bonds are inferred from covalent radii and rendered with split element colors.");
+            ImGui::BulletText("Selected atoms are highlighted and helper overlays are drawn for distance and angle tools.");
+            ImGui::BulletText("Periodic boundary visualization includes duplicated boundary atoms and transformed supercell views when applicable.");
 
             ImGui::EndChild();
         }
