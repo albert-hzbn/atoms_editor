@@ -77,6 +77,24 @@ struct FileBrowser
         requestAtomInfo = false;
         return requested;
     }
+    bool consumeViewAxisXRequest()
+    {
+        bool requested = requestViewAxisX;
+        requestViewAxisX = false;
+        return requested;
+    }
+    bool consumeViewAxisYRequest()
+    {
+        bool requested = requestViewAxisY;
+        requestViewAxisY = false;
+        return requested;
+    }
+    bool consumeViewAxisZRequest()
+    {
+        bool requested = requestViewAxisZ;
+        requestViewAxisZ = false;
+        return requested;
+    }
     bool consumeResetDefaultViewRequest()
     {
         bool requested = requestResetDefaultView;
@@ -154,6 +172,9 @@ private:
     bool requestMeasureDistance;
     bool requestMeasureAngle;
     bool requestAtomInfo;
+    bool requestViewAxisX;
+    bool requestViewAxisY;
+    bool requestViewAxisZ;
     bool requestResetDefaultView;
     bool requestStructureInfo;
     bool requestUndo;

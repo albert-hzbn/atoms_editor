@@ -779,7 +779,7 @@ void NanoCrystalBuilderDialog::renderPreviewToFBO(int w, int h)
     FrameView frame;
     frame.framebufferWidth  = w;
     frame.framebufferHeight = h;
-    buildFrameView(cam, m_previewBuffers, false, frame);
+    buildFrameView(cam, m_previewBuffers, true, frame);
 
     // Draw into preview FBO
     glBindFramebuffer(GL_FRAMEBUFFER, m_previewFBO);
@@ -844,10 +844,9 @@ void NanoCrystalBuilderDialog::drawDialog(
 
     m_isOpen = ImGui::IsPopupOpen("Build Nanocrystal");
 
-    ImGui::SetNextWindowSize(ImVec2(960.0f, 820.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(950.0f, 840.0f), ImGuiCond_FirstUseEver);
     bool dialogOpen = true;
-    if (!ImGui::BeginPopupModal("Build Nanocrystal", &dialogOpen,
-                                ImGuiWindowFlags_NoResize)) {
+    if (!ImGui::BeginPopupModal("Build Nanocrystal", &dialogOpen, 0)) {
         m_isOpen = false;
         return;
     }
@@ -863,8 +862,8 @@ void NanoCrystalBuilderDialog::drawDialog(
     // =========================================================================
 
     constexpr float kPrevW   = 420.0f;
-    constexpr float kPrevH   = 350.0f;
-    constexpr float kSideH   = 400.0f;
+    constexpr float kPrevH   = 360.0f;
+    constexpr float kSideH   = 500.0f;
 
     // ---- LEFT: Structure view with drag-and-drop ----
     ImGui::BeginChild("##nanoStructureView", ImVec2(kPrevW, kSideH), true);
@@ -996,7 +995,7 @@ void NanoCrystalBuilderDialog::drawDialog(
     ImGui::Separator();
 
     // Use a child for scrollable parameters
-    ImGui::BeginChild("##nanoParamsScroll", ImVec2(-1, -70), true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("##nanoParamsScroll", ImVec2(-1, -50), true, ImGuiWindowFlags_HorizontalScrollbar);
     
     drawShapeParameters(params);
 
@@ -1051,7 +1050,6 @@ void NanoCrystalBuilderDialog::drawDialog(
 
     ImGui::EndChild(); // ##nanoParamsScroll
 
-    ImGui::Spacing();
     ImGui::Separator();
     ImGui::Text("Result");
     drawNanoBuildResult(lastResult);
@@ -1061,8 +1059,6 @@ void NanoCrystalBuilderDialog::drawDialog(
     // =========================================================================
     // Action bar
     // =========================================================================
-
-    ImGui::Separator();
 
     const bool canBuild = !m_reference.atoms.empty();
     if (!canBuild) ImGui::BeginDisabled();

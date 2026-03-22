@@ -16,6 +16,9 @@ struct FrameActionRequests
     bool requestStructureInfo = false;
     bool requestUndo = false;
     bool requestRedo = false;
+    bool requestViewAxisX = false;
+    bool requestViewAxisY = false;
+    bool requestViewAxisZ = false;
 };
 
 FrameActionRequests beginFrameActionRequests(EditorState& state);

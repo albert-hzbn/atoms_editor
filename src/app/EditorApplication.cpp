@@ -48,6 +48,11 @@ void mergeFileBrowserRequests(EditorState& state,
     requests.requestUndo = requests.requestUndo || state.fileBrowser.consumeUndoRequest();
     requests.requestRedo = requests.requestRedo || state.fileBrowser.consumeRedoRequest();
     requests.requestStructureInfo = requests.requestStructureInfo || state.fileBrowser.consumeStructureInfoRequest();
+    requests.requestMeasureDistance = requests.requestMeasureDistance || state.fileBrowser.consumeMeasureDistanceRequest();
+    requests.requestMeasureAngle = requests.requestMeasureAngle || state.fileBrowser.consumeMeasureAngleRequest();
+    requests.requestViewAxisX = requests.requestViewAxisX || state.fileBrowser.consumeViewAxisXRequest();
+    requests.requestViewAxisY = requests.requestViewAxisY || state.fileBrowser.consumeViewAxisYRequest();
+    requests.requestViewAxisZ = requests.requestViewAxisZ || state.fileBrowser.consumeViewAxisZRequest();
 }
 
 void handleStructureResetRequests(EditorState& state)
@@ -79,6 +84,28 @@ void handleUndoRedoRequest(EditorState& state, const FrameActionRequests& reques
     {
         applySnapshot(state, state.undoRedo.redo());
         std::cout << "[Operation] Redo" << std::endl;
+    }
+}
+
+void handleAxisViewRequest(Camera& camera, const FrameActionRequests& requests)
+{
+    if (requests.requestViewAxisX)
+    {
+        camera.yaw = 90.0f;
+        camera.pitch = 0.0f;
+        std::cout << "[Operation] View along X axis" << std::endl;
+    }
+    else if (requests.requestViewAxisY)
+    {
+        camera.yaw = 0.0f;
+        camera.pitch = 90.0f;
+        std::cout << "[Operation] View along Y axis" << std::endl;
+    }
+    else if (requests.requestViewAxisZ)
+    {
+        camera.yaw = 0.0f;
+        camera.pitch = 0.0f;
+        std::cout << "[Operation] View along Z axis" << std::endl;
     }
 }
 
@@ -258,6 +285,7 @@ int runAtomsEditor()
         mergeFileBrowserRequests(state, requests, imageExportRequest, hasImageExportRequest);
         handleStructureResetRequests(state);
         handleUndoRedoRequest(state, requests);
+        handleAxisViewRequest(camera, requests);
 
         ImDrawList* drawList = ImGui::GetForegroundDrawList();
         handleBoxSelection(

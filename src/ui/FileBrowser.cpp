@@ -303,11 +303,14 @@ FileBrowser::FileBrowser()
             showElementLabels(false),
             showBonds(false),
             bondElementFilterEnabled(false),
-            viewMode(ViewMode::Isometric),
+            viewMode(ViewMode::Orthographic),
             boxSelectMode(false),
             requestMeasureDistance(false),
             requestMeasureAngle(false),
             requestAtomInfo(false),
+            requestViewAxisX(false),
+            requestViewAxisY(false),
+            requestViewAxisZ(false),
             requestResetDefaultView(false),
             requestStructureInfo(false),
             requestUndo(false),
@@ -562,6 +565,48 @@ void FileBrowser::draw(Structure& structure,
         }
 
         ImGui::EndMainMenuBar();
+    }
+
+    // Draw toolbar below menu bar with axis view and measurement options
+    {
+        ImGui::SetNextWindowPos(ImVec2(0.0f, ImGui::GetFrameHeight()), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x, 0.0f), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("##ViewToolbar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(12.0f, 4.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 4.0f));
+            
+            // View Axis section
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("View Axis:");
+            ImGui::SameLine(0.0f, 8.0f);
+            if (ImGui::Button("X##axis", ImVec2(40.0f, 0.0f)))
+                requestViewAxisX = true;
+            ImGui::SameLine(0.0f, 4.0f);
+            if (ImGui::Button("Y##axis", ImVec2(40.0f, 0.0f)))
+                requestViewAxisY = true;
+            ImGui::SameLine(0.0f, 4.0f);
+            if (ImGui::Button("Z##axis", ImVec2(40.0f, 0.0f)))
+                requestViewAxisZ = true;
+            
+            // Vertical separator with spacing
+            ImGui::SameLine(0.0f, 16.0f);
+            ImGui::Text("|");
+            ImGui::SameLine(0.0f, 16.0f);
+            
+            // Measure section
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Measure:");
+            ImGui::SameLine(0.0f, 8.0f);
+            if (ImGui::Button("Distance##measure", ImVec2(80.0f, 0.0f)))
+                requestMeasureDistance = true;
+            ImGui::SameLine(0.0f, 4.0f);
+            if (ImGui::Button("Angle##measure", ImVec2(80.0f, 0.0f)))
+                requestMeasureAngle = true;
+            
+            ImGui::PopStyleVar(2);
+            ImGui::End();
+        }
     }
 
     editMenuDialogs.drawPopups(structure, updateBuffers);
