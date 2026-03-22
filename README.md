@@ -1,10 +1,10 @@
 # AtomForge
 
-AtomForge is a desktop molecular structure viewer and editor built with OpenGL, Dear ImGui, and Open Babel. It is aimed at interactive inspection and editing of molecules and crystal structures, with integrated builders for bulk crystals, CSL grain boundaries, and nanocrystals.
+AtomForge is a desktop atomic structure viewer and editor built with OpenGL, Dear ImGui, and Open Babel. It is aimed at interactive inspection and editing of molecules and crystal structures, with integrated builders for bulk crystals, CSL grain boundaries, and nanocrystals.
 
 ## What AtomForge does
 
-- Load common molecular and crystallographic file formats.
+- Load common atomic and crystallographic file formats.
 - View structures in real time with atom, bond, and unit-cell rendering.
 - Select, edit, delete, substitute, and transform atoms directly in the UI.
 - Inspect structure metadata, coordination, and measurements.
