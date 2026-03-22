@@ -36,7 +36,7 @@ void TransformAtomsDialog::clearTransform()
 
 void TransformAtomsDialog::drawMenuItem(bool hasUnitCell)
 {
-    if (ImGui::MenuItem("Transform Structure...", NULL, false, hasUnitCell))
+    if (ImGui::MenuItem("Transform Structure", NULL, false, hasUnitCell))
         showDialog = true;
 }
 

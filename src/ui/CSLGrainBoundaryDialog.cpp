@@ -683,7 +683,7 @@ BuildResult buildCslBoundary(Structure& structure,
 
 void CSLGrainBoundaryDialog::drawMenuItem(bool enabled)
 {
-    if (ImGui::MenuItem("CSL Grain Boundary...", NULL, false, enabled))
+    if (ImGui::MenuItem("CSL Grain Boundary", NULL, false, enabled))
         m_openRequested = true;
 }
 

@@ -195,7 +195,7 @@ void AtomContextMenu::draw(Structure& structure,
 
     if (ImGui::BeginPopup("##atomCtx"))
     {
-        if (ImGui::MenuItem("Substitute Atom..."))
+        if (ImGui::MenuItem("Substitute Atom"))
         {
             m_pendingAction  = PeriodicAction::Substitute;
             doOpenPeriodicTable = true;
@@ -203,7 +203,7 @@ void AtomContextMenu::draw(Structure& structure,
 
         bool canInsert = selectedInstanceIndices.size() >= 2;
         if (!canInsert) ImGui::BeginDisabled();
-        if (ImGui::MenuItem("Insert Atom at Midpoint..."))
+        if (ImGui::MenuItem("Insert Atom at Midpoint"))
         {
             m_pendingAction  = PeriodicAction::InsertMidpoint;
             doOpenPeriodicTable = true;

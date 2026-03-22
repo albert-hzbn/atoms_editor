@@ -812,7 +812,7 @@ void NanoCrystalBuilderDialog::renderPreviewToFBO(int w, int h)
 
 void NanoCrystalBuilderDialog::drawMenuItem(bool enabled)
 {
-    if (ImGui::MenuItem("Nanocrystal...", NULL, false, enabled))
+    if (ImGui::MenuItem("Nanocrystal", NULL, false, enabled))
         m_openRequested = true;
 }
 

@@ -463,7 +463,7 @@ void drawCnaDetails(const CnaResult& result)
 
 void CommonNeighbourAnalysisDialog::drawMenuItem(bool enabled)
 {
-    if (ImGui::MenuItem("Common Neighbour Analysis...", NULL, false, enabled))
+    if (ImGui::MenuItem("Common Neighbour Analysis", NULL, false, enabled))
         m_openRequested = true;
 }
 

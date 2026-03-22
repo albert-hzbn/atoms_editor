@@ -8,6 +8,7 @@
 #include <openbabel3/openbabel/math/vector3.h>
 #include <openbabel3/openbabel/dlhandler.h>
 #include <openbabel3/openbabel/plugin.h>
+#include <openbabel3/openbabel/oberror.h>
 
 #include <iostream>
 #include <array>
@@ -146,6 +147,26 @@ void ensureOpenBabelPlugins()
 
     OpenBabel::OBPlugin::LoadAllPlugins();
 }
+
+class ScopedObWarningSilencer
+{
+public:
+    ScopedObWarningSilencer()
+        : m_previousLevel(OpenBabel::obErrorLog.GetOutputLevel())
+    {
+        // Keep Open Babel errors visible, hide warnings/info that are often
+        // emitted for partially-defined space groups in valid CIF files.
+        OpenBabel::obErrorLog.SetOutputLevel(OpenBabel::obError);
+    }
+
+    ~ScopedObWarningSilencer()
+    {
+        OpenBabel::obErrorLog.SetOutputLevel(m_previousLevel);
+    }
+
+private:
+    OpenBabel::obMessageLevel m_previousLevel;
+};
 
 std::string toLowerCopy(const std::string& value)
 {
@@ -403,6 +424,8 @@ bool loadStructureFromFile(const std::string& filename, Structure& structure, st
     }
 
     ensureOpenBabelPlugins();
+
+    ScopedObWarningSilencer silenceWarnings;
 
     OpenBabel::OBMol mol;
     OpenBabel::OBConversion conv;

@@ -36,13 +36,13 @@ EditMenuDialogs::EditMenuDialogs()
 
 void EditMenuDialogs::drawMenuItems()
 {
-    if (ImGui::MenuItem("Atomic Sizes..."))
+    if (ImGui::MenuItem("Atomic Sizes"))
         m_openAtomicSize = true;
 
-    if (ImGui::MenuItem("Element Colors..."))
+    if (ImGui::MenuItem("Element Colors"))
         m_openElementColor = true;
 
-    if (ImGui::MenuItem("Edit Structure..."))
+    if (ImGui::MenuItem("Edit Structure"))
         m_openEditStructure = true;
 }
 

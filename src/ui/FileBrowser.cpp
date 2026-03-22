@@ -434,7 +434,7 @@ void FileBrowser::draw(Structure& structure,
     {
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("Open...",  "Ctrl+O"))
+            if (ImGui::MenuItem("Open",  "Ctrl+O"))
                 openStructurePopup = true;
 
             if (ImGui::MenuItem("Close", "Ctrl+W", false, !structure.atoms.empty()))
@@ -443,7 +443,7 @@ void FileBrowser::draw(Structure& structure,
                 std::cout << "[Operation] Close structure requested" << std::endl;
             }
 
-            if (ImGui::MenuItem("Save As...", "Ctrl+S"))
+            if (ImGui::MenuItem("Save As", "Ctrl+S"))
             {
                 saveStructurePopup = true;
                 saveDir = openDir;
@@ -452,7 +452,7 @@ void FileBrowser::draw(Structure& structure,
                 saveStatusMsg[0] = '\0';
             }
 
-            if (ImGui::MenuItem("Export Image...", "Ctrl+Shift+S", false, !structure.atoms.empty()))
+            if (ImGui::MenuItem("Export Image", "Ctrl+Shift+S", false, !structure.atoms.empty()))
             {
                 exportImagePopup = true;
                 exportDir = openDir;
@@ -535,11 +535,11 @@ void FileBrowser::draw(Structure& structure,
             ImGui::Separator();
             if (ImGui::MenuItem("Structure Info"))
                 requestStructureInfo = true;
-            if (ImGui::MenuItem("Measure Distance (2 selected)"))
+            if (ImGui::MenuItem("Measure Distance"))
                 requestMeasureDistance = true;
-            if (ImGui::MenuItem("Measure Angle (3 selected)"))
+            if (ImGui::MenuItem("Measure Angle"))
                 requestMeasureAngle = true;
-            if (ImGui::MenuItem("Atom Info (1 selected)"))
+            if (ImGui::MenuItem("Atom Info"))
                 requestAtomInfo = true;
             if (ImGui::MenuItem("Reset Default View"))
                 requestResetDefaultView = true;

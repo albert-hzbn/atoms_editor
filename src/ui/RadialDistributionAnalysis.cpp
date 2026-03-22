@@ -456,7 +456,7 @@ void drawRdfTable(const RdfResult& result, bool normalize)
 
 void RadialDistributionAnalysisDialog::drawMenuItem(bool enabled)
 {
-    if (ImGui::MenuItem("Radial Distribution Function...", NULL, false, enabled))
+    if (ImGui::MenuItem("Radial Distribution Function", NULL, false, enabled))
         m_openRequested = true;
 }
 

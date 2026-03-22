@@ -550,7 +550,7 @@ BulkCrystalBuilderDialog::BulkCrystalBuilderDialog() = default;
 
 void BulkCrystalBuilderDialog::drawMenuItem(bool enabled)
 {
-    if (ImGui::MenuItem("Bulk Crystal...", NULL, false, enabled))
+    if (ImGui::MenuItem("Bulk Crystal", NULL, false, enabled))
         m_openRequested = true;
 }
 
