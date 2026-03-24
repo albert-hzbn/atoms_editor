@@ -1,3 +1,5 @@
 #pragma once
 
-int runAtomsEditor();
+#include <string>
+
+int runAtomsEditor(const std::string& startupStructurePath = "");

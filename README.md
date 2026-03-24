@@ -29,6 +29,7 @@ sudo apt install build-essential cmake pkg-config libglfw3-dev libglew-dev libgl
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ./build/AtomForge
+./build/AtomForge structure.cif
 ```
 
 ### Windows (MSYS2 UCRT64)
@@ -54,6 +55,7 @@ pacman -S --needed mingw-w64-ucrt-x86_64-spglib
 cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ./build/AtomForge.exe
+./build/AtomForge.exe structure.cif
 ```
 
 Note: run the Windows build from the MSYS2 UCRT64 shell. PowerShell will often miss the required toolchain and DLL paths.
@@ -81,6 +83,8 @@ rm -rf build
 **Structure files** (open and save): `.xyz`, `.cif`, `.pdb`, `.sdf`, `.mol`, `.vasp`, `.mol2`, `.pwi`, `.gjf`
 
 **Rendered images**: `.png`, `.jpg`, `.svg`
+
+You can also open a structure directly at launch by passing the file path as the first argument, for example `AtomForge structure.cif`.
 
 ## Core controls
 

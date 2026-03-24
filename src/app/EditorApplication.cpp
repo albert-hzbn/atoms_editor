@@ -6,6 +6,7 @@
 #include "app/EditorState.h"
 #include "app/ImageExport.h"
 #include "app/InteractionHandlers.h"
+#include "app/StructureFileService.h"
 #include "app/WindowSetup.h"
 
 #include <GL/glew.h>
@@ -207,9 +208,37 @@ void handleImageExportIfRequested(bool hasImageExportRequest,
     std::cout << "[Operation] Image export failed: " << imageExportRequest.outputPath
               << " (" << (exportError.empty() ? "Unknown error" : exportError) << ")" << std::endl;
 }
+
+void loadStartupStructureIfRequested(EditorState& state, const std::string& startupStructurePath)
+{
+    if (startupStructurePath.empty())
+    {
+        state.fileBrowser.initFromPath("");
+        return;
+    }
+
+    Structure loadedStructure;
+    std::string loadError;
+    if (!loadStructureFromPath(startupStructurePath, loadedStructure, loadError))
+    {
+        state.fileBrowser.initFromPath(startupStructurePath);
+        state.fileBrowser.showLoadError(loadError);
+        std::cout << "[Operation] Startup load failed: " << startupStructurePath
+                  << " (" << loadError << ")" << std::endl;
+        return;
+    }
+
+    state.structure = std::move(loadedStructure);
+    state.fileBrowser.initFromPath(startupStructurePath);
+    state.fileBrowser.applyElementColorOverrides(state.structure);
+    state.pendingDefaultViewReset = true;
+
+    std::cout << "[Operation] Startup-loaded structure: " << startupStructurePath
+              << " (atoms=" << state.structure.atoms.size() << ")" << std::endl;
+}
 } // namespace
 
-int runAtomsEditor()
+int runAtomsEditor(const std::string& startupStructurePath)
 {
     GLFWwindow* window = createMainWindow();
     if (!window)
@@ -223,10 +252,8 @@ int runAtomsEditor()
     SphereMesh sphere(40, 40);
     CylinderMesh cylinder(32);
 
-    std::string filename;
     EditorState state;
-    state.structure = loadStructure(filename);
-    state.fileBrowser.initFromPath(filename);
+    loadStartupStructureIfRequested(state, startupStructurePath);
     installDropFileCallback(window, state);
 
     state.sceneBuffers.init(sphere.vao, cylinder.vao);

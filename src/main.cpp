@@ -1,7 +1,14 @@
 #include "app/EditorApplication.h"
 
-int main()
+#include <iostream>
+#include <string>
+
+int main(int argc, char* argv[])
 {
-    return runAtomsEditor();
+    if (argc > 2)
+        std::cout << "[Startup] Ignoring extra command-line arguments after the first structure path." << std::endl;
+
+    const std::string startupStructurePath = (argc > 1) ? argv[1] : std::string();
+    return runAtomsEditor(startupStructurePath);
 }
 
