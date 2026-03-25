@@ -322,6 +322,26 @@ If AtomForge reports that Open Babel plugins cannot be found, set the plugin pat
 export BABEL_LIBDIR=/ucrt64/lib/openbabel/3.1.0/
 ```
 
+If you moved/cloned the project and loading any structure fails, this is usually the reason.
+Use the actual installed plugin directory for your Open Babel version, for example:
+
+```bash
+# Linux examples
+export BABEL_LIBDIR=/usr/lib/x86_64-linux-gnu/openbabel/3.1.1/
+export BABEL_LIBDIR=/usr/local/lib/openbabel/3.1.1/
+
+# MSYS2 UCRT64 examples
+export BABEL_LIBDIR=/ucrt64/lib/openbabel/3.1.1/
+export BABEL_LIBDIR=/ucrt64/lib/openbabel/3.1.0/
+```
+
+Quick check:
+
+```bash
+echo $BABEL_LIBDIR
+ls "$BABEL_LIBDIR"
+```
+
 ### Missing DLLs at startup
 
 Run from the UCRT64 shell, or ensure `C:/msys64/ucrt64/bin` is present in `PATH`.

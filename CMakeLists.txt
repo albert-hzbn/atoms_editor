@@ -17,6 +17,16 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLFW3 REQUIRED IMPORTED_TARGET glfw3)
 pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
 pkg_check_modules(OPENBABEL REQUIRED IMPORTED_TARGET openbabel-3)
+pkg_get_variable(OPENBABEL_PLUGINDIR openbabel-3 plugindir)
+if(NOT OPENBABEL_PLUGINDIR)
+    pkg_get_variable(OPENBABEL_PLUGINDIR openbabel-3 pkglibdir)
+endif()
+if(NOT OPENBABEL_PLUGINDIR)
+    pkg_get_variable(OPENBABEL_LIBDIR openbabel-3 libdir)
+    if(OPENBABEL_LIBDIR)
+        set(OPENBABEL_PLUGINDIR "${OPENBABEL_LIBDIR}/openbabel")
+    endif()
+endif()
 
 set(ATOMFORGE_SOURCES
     src/main.cpp
@@ -82,6 +92,16 @@ target_link_libraries(AtomForge PRIVATE
     PkgConfig::GLEW
     PkgConfig::OPENBABEL
 )
+
+if(OPENBABEL_PLUGINDIR)
+    file(TO_CMAKE_PATH "${OPENBABEL_PLUGINDIR}" OPENBABEL_PLUGINDIR_NORMALIZED)
+    target_compile_definitions(AtomForge PRIVATE
+        ATOMFORGE_OPENBABEL_PLUGIN_DIR="${OPENBABEL_PLUGINDIR_NORMALIZED}"
+    )
+    message(STATUS "Open Babel plugin hint: ${OPENBABEL_PLUGINDIR_NORMALIZED}")
+else()
+    message(STATUS "Open Babel plugin hint not found from pkg-config; runtime auto-discovery will be used")
+endif()
 
 if(WIN32)
     target_link_libraries(AtomForge PRIVATE

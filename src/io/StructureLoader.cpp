@@ -6,7 +6,6 @@
 #include <openbabel3/openbabel/elements.h>
 #include <openbabel3/openbabel/generic.h>
 #include <openbabel3/openbabel/math/vector3.h>
-#include <openbabel3/openbabel/dlhandler.h>
 #include <openbabel3/openbabel/plugin.h>
 #include <openbabel3/openbabel/oberror.h>
 
@@ -15,6 +14,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 #include <sys/stat.h>
 
@@ -26,6 +26,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#else
+#include <dirent.h>
 #endif
 
 namespace
@@ -84,6 +86,156 @@ bool directoryExists(const std::string& path)
 #endif
 }
 
+bool fileExists(const std::string& path)
+{
+    struct stat st;
+    if (stat(path.c_str(), &st) != 0)
+        return false;
+#ifdef _WIN32
+    return (st.st_mode & _S_IFREG) != 0;
+#else
+    return S_ISREG(st.st_mode);
+#endif
+}
+
+bool hasSuffixCaseInsensitive(const std::string& value, const char* suffix)
+{
+    const std::size_t valueLen = value.size();
+    const std::size_t suffixLen = std::strlen(suffix);
+    if (valueLen < suffixLen)
+        return false;
+
+    const std::size_t offset = valueLen - suffixLen;
+    for (std::size_t i = 0; i < suffixLen; ++i)
+    {
+        const char a = (char)std::tolower((unsigned char)value[offset + i]);
+        const char b = (char)std::tolower((unsigned char)suffix[i]);
+        if (a != b)
+            return false;
+    }
+    return true;
+}
+
+bool directoryLooksLikeOpenBabelPluginDir(const std::string& path)
+{
+    // Fast path for older/known plugin names.
+    if (fileExists(joinPath(path, "formats.obf")))
+        return true;
+
+#ifdef _WIN32
+    WIN32_FIND_DATAA findData;
+    HANDLE hFind = FindFirstFileA(joinPath(path, "*").c_str(), &findData);
+    if (hFind == INVALID_HANDLE_VALUE)
+        return false;
+
+    bool foundPlugin = false;
+    do
+    {
+        const char* name = findData.cFileName;
+        if (!name || std::strcmp(name, ".") == 0 || std::strcmp(name, "..") == 0)
+            continue;
+        if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            continue;
+
+        const std::string filename(name);
+        if (hasSuffixCaseInsensitive(filename, ".obf") || hasSuffixCaseInsensitive(filename, ".dll"))
+        {
+            foundPlugin = true;
+            break;
+        }
+    } while (FindNextFileA(hFind, &findData) != 0);
+
+    FindClose(hFind);
+    return foundPlugin;
+#else
+    DIR* dir = opendir(path.c_str());
+    if (!dir)
+        return false;
+
+    bool foundPlugin = false;
+    struct dirent* entry = nullptr;
+    while ((entry = readdir(dir)) != nullptr)
+    {
+        const char* name = entry->d_name;
+        if (!name || std::strcmp(name, ".") == 0 || std::strcmp(name, "..") == 0)
+            continue;
+
+        const std::string filename(name);
+        if (hasSuffixCaseInsensitive(filename, ".obf") ||
+            hasSuffixCaseInsensitive(filename, ".so") ||
+            hasSuffixCaseInsensitive(filename, ".dylib"))
+        {
+            foundPlugin = true;
+            break;
+        }
+    }
+
+    closedir(dir);
+    return foundPlugin;
+#endif
+}
+
+void appendUnique(std::vector<std::string>& values, const std::string& value)
+{
+    if (value.empty())
+        return;
+    const std::string normalized = normalizeSeparators(value);
+    if (std::find(values.begin(), values.end(), normalized) == values.end())
+        values.push_back(normalized);
+}
+
+void appendVersionedPluginCandidates(const std::string& openBabelRoot, std::vector<std::string>& candidates)
+{
+    if (openBabelRoot.empty() || !directoryExists(openBabelRoot))
+        return;
+
+    // Allow direct plugin dir input as well.
+    appendUnique(candidates, openBabelRoot);
+
+#ifdef _WIN32
+    WIN32_FIND_DATAA findData;
+    HANDLE hFind = FindFirstFileA(joinPath(openBabelRoot, "*").c_str(), &findData);
+    if (hFind == INVALID_HANDLE_VALUE)
+        return;
+
+    do
+    {
+        if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+            continue;
+
+        const char* name = findData.cFileName;
+        if (!name || std::strcmp(name, ".") == 0 || std::strcmp(name, "..") == 0)
+            continue;
+
+        if (!std::isdigit((unsigned char)name[0]))
+            continue;
+
+        appendUnique(candidates, joinPath(openBabelRoot, name));
+    } while (FindNextFileA(hFind, &findData) != 0);
+
+    FindClose(hFind);
+#else
+    DIR* dir = opendir(openBabelRoot.c_str());
+    if (!dir)
+        return;
+
+    struct dirent* entry = nullptr;
+    while ((entry = readdir(dir)) != nullptr)
+    {
+        const char* name = entry->d_name;
+        if (!name || std::strcmp(name, ".") == 0 || std::strcmp(name, "..") == 0)
+            continue;
+
+        if (!std::isdigit((unsigned char)name[0]))
+            continue;
+
+        appendUnique(candidates, joinPath(openBabelRoot, name));
+    }
+
+    closedir(dir);
+#endif
+}
+
 void setBabelLibDir(const std::string& path)
 {
     const std::string normalized = ensureTrailingSlash(normalizeSeparators(path));
@@ -104,15 +256,16 @@ void ensureOpenBabelPlugins()
     const char* currentLibDir = std::getenv("BABEL_LIBDIR");
     if (currentLibDir && *currentLibDir)
     {
+        // Respect user-provided plugin path first.
         OpenBabel::OBPlugin::LoadAllPlugins();
         return;
     }
 
     std::vector<std::string> candidates;
 
-    std::string convPath;
-    if (DLHandler::getConvDirectory(convPath) && !convPath.empty())
-        candidates.push_back(convPath);
+#ifdef ATOMFORGE_OPENBABEL_PLUGIN_DIR
+    appendUnique(candidates, ATOMFORGE_OPENBABEL_PLUGIN_DIR);
+#endif
 
 #ifdef _WIN32
     HMODULE obModule = nullptr;
@@ -128,17 +281,25 @@ void ensureOpenBabelPlugins()
             const std::string binDir = parentDirectory(modulePath);
             const std::string prefixDir = parentDirectory(binDir);
             if (!prefixDir.empty())
-                candidates.push_back(joinPath(joinPath(prefixDir, "lib"), "openbabel/3.1.0"));
+                appendVersionedPluginCandidates(joinPath(joinPath(prefixDir, "lib"), "openbabel"), candidates);
         }
     }
 
-    candidates.push_back("C:/msys64/ucrt64/lib/openbabel/3.1.0");
-    candidates.push_back("C:/msys64/mingw64/lib/openbabel/3.1.0");
+    appendVersionedPluginCandidates("C:/msys64/ucrt64/lib/openbabel", candidates);
+    appendVersionedPluginCandidates("C:/msys64/mingw64/lib/openbabel", candidates);
+    appendVersionedPluginCandidates("C:/msys2/ucrt64/lib/openbabel", candidates);
+    appendVersionedPluginCandidates("C:/msys2/mingw64/lib/openbabel", candidates);
+#else
+    appendVersionedPluginCandidates("/usr/lib/openbabel", candidates);
+    appendVersionedPluginCandidates("/usr/lib64/openbabel", candidates);
+    appendVersionedPluginCandidates("/usr/local/lib/openbabel", candidates);
+    appendVersionedPluginCandidates("/usr/local/lib64/openbabel", candidates);
+    appendVersionedPluginCandidates("/usr/lib/x86_64-linux-gnu/openbabel", candidates);
 #endif
 
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
-        if (directoryExists(candidates[i]))
+        if (directoryExists(candidates[i]) && directoryLooksLikeOpenBabelPluginDir(candidates[i]))
         {
             setBabelLibDir(candidates[i]);
             break;
@@ -433,7 +594,10 @@ bool loadStructureFromFile(const std::string& filename, Structure& structure, st
     OpenBabel::OBFormat* inFmt = conv.FormatFromExt(filename.c_str());
     if (!inFmt || !conv.SetInFormat(inFmt))
     {
+        const char* babelLibDir = std::getenv("BABEL_LIBDIR");
         errorMessage = "Unsupported file format '" + ext + "'. Supported formats: " + supportedExtensionsSummary();
+        if (!babelLibDir || !*babelLibDir)
+            errorMessage += " (Open Babel plugins not found; set BABEL_LIBDIR to your openbabel/<version> plugin directory).";
         return false;
     }
 
