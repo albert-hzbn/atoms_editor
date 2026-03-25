@@ -58,6 +58,7 @@ std::string nanoDetectHome()
 #endif
 }
 
+#ifndef _WIN32
 std::string nanoJoin(const std::string& base, const std::string& name)
 {
     if (base.empty() || base == ".")
@@ -67,6 +68,7 @@ std::string nanoJoin(const std::string& base, const std::string& name)
         return base + name;
     return base + "/" + name;
 }
+#endif
 
 bool nanoIsSupportedFile(const std::string& name)
 {
