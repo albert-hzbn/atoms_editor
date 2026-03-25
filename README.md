@@ -88,31 +88,34 @@ Build a portable ZIP package:
 
 ```bash
 # In MSYS2 UCRT64 shell:
-cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_PORTABLE=ON
-cmake --build build -j
+cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_PORTABLE=ON
+cmake --build build-mingw -- -j1
 
-# Create a portable ZIP package:
-cd build
-cpack -G ZIP
+# Create package artifact in build-mingw/package:
+cpack --config build-mingw/CPackConfig.cmake -B build-mingw/package
 ```
 
 This generates a portable archive containing:
 - `AtomForge.exe`
 - required runtime DLLs
-- Open Babel plugins under `openbabel/`
+- Open Babel plugins under `openbabel/<version>/`
 - `README.md`
 
+Archive output path:
+- `build-mingw/package/AtomForge-1.0.0-win64.zip`
+
 Extract and run `AtomForge.exe` directly.
+
+Note: do not reuse a build folder configured with another generator (for example NMake). Use a dedicated folder like `build-mingw` for MinGW.
 
 ### Linux Portable (Tarball)
 
 Build a portable tarball:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_PORTABLE=ON
-cmake --build build -j
-cd build
-cpack -G TGZ
+cmake -S . -B build-portable -DCMAKE_BUILD_TYPE=Release -DBUILD_PORTABLE=ON
+cmake --build build-portable -j
+cpack --config build-portable/CPackConfig.cmake -B build-portable/package
 ```
 
 This generates a portable archive containing:
@@ -123,7 +126,7 @@ This generates a portable archive containing:
 
 To run the portable Linux package:
 ```bash
-tar xzf AtomForge-*.tar.gz
+tar xzf build-portable/package/AtomForge-*.tar.gz
 cd AtomForge/bin
 ./AtomForge
 ```
