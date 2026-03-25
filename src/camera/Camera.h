@@ -18,6 +18,7 @@ public:
     float zoomSpeed   = 0.5f;
 
     bool mouseDown = false;
+    bool middleMouseDown = false;
 
     double lastX = 0;
     double lastY = 0;

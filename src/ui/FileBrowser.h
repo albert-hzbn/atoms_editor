@@ -35,6 +35,17 @@ struct ImageExportRequest
     bool includeBackground = true;
 };
 
+struct LatticePlane
+{
+    int h = 1;
+    int k = 0;
+    int l = 0;
+    float offset = 1.0f;
+    float opacity = 0.20f;
+    std::array<float, 3> color = {0.95f, 0.62f, 0.20f};
+    bool visible = true;
+};
+
 struct FileBrowser
 {
     FileBrowser();
@@ -59,6 +70,9 @@ struct FileBrowser
     const std::array<bool, 119>& getBondElementFilterMask() const { return bondElementFilterMask; }
     bool isOrthographicViewEnabled() const { return viewMode == ViewMode::Orthographic; }
     bool isBoxSelectModeEnabled() const { return boxSelectMode; }
+    bool isShowLatticePlanesEnabled() const { return showLatticePlanes; }
+    const std::vector<LatticePlane>& getLatticePlanes() const { return latticePlanes; }
+    void clearLatticePlanes() { latticePlanes.clear(); }
     bool consumeMeasureDistanceRequest()
     {
         bool requested = requestMeasureDistance;
@@ -166,6 +180,8 @@ private:
     bool showEditColors;
     bool showElementLabels;
     bool showBonds;
+    bool showLatticePlanes;
+    bool showLatticePlanesDialog;
     bool bondElementFilterEnabled;
     ViewMode viewMode;
     bool boxSelectMode;
@@ -222,6 +238,13 @@ private:
     char openFilename[1024];
     char bondElementFilterInput[256];
     std::array<bool, 119> bondElementFilterMask;
+    int latticePlaneInputH;
+    int latticePlaneInputK;
+    int latticePlaneInputL;
+    float latticePlaneInputOffset;
+    float latticePlaneInputOpacity;
+    float latticePlaneInputColor[3];
+    std::vector<LatticePlane> latticePlanes;
 
     BulkCrystalBuilderDialog bulkCrystalDialog;
     CSLGrainBoundaryDialog cslDialog;

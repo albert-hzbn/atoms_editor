@@ -21,6 +21,7 @@
 #include "ShadowMap.h"
 #include "SphereMesh.h"
 #include "ui/ImGuiSetup.h"
+#include "ui/LatticePlaneOverlay.h"
 
 #include <glm/glm.hpp>
 
@@ -62,6 +63,7 @@ void handleStructureResetRequests(EditorState& state)
     {
         clearSelection(state);
         state.structure = Structure();
+        state.fileBrowser.clearLatticePlanes();
         updateBuffers(state);
         state.pendingDefaultViewReset = true;
 
@@ -359,6 +361,16 @@ int runAtomsEditor(const std::string& startupStructurePath)
             frame.framebufferWidth,
             frame.framebufferHeight,
             state.sceneBuffers);
+
+        drawLatticePlanesOverlay(
+            drawList,
+            frame.projection,
+            frame.view,
+            frame.framebufferWidth,
+            frame.framebufferHeight,
+            state.structure,
+            state.fileBrowser.getLatticePlanes(),
+            state.fileBrowser.isShowLatticePlanesEnabled());
 
         if (state.fileBrowser.isShowElementEnabled())
         {

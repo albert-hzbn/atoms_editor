@@ -302,6 +302,8 @@ FileBrowser::FileBrowser()
             showEditColors(false),
             showElementLabels(false),
             showBonds(false),
+            showLatticePlanes(false),
+            showLatticePlanesDialog(false),
             bondElementFilterEnabled(false),
             viewMode(ViewMode::Orthographic),
             boxSelectMode(false),
@@ -330,7 +332,12 @@ FileBrowser::FileBrowser()
         exportHistoryIndex(-1),
         selectedExportFormat(0),
         exportIncludeBackground(true),
-      selectedAtomicNumber(1)
+            selectedAtomicNumber(1),
+            latticePlaneInputH(1),
+            latticePlaneInputK(0),
+            latticePlaneInputL(0),
+            latticePlaneInputOffset(1.0f),
+            latticePlaneInputOpacity(0.20f)
 {
     allowedExtensions = {".cif", ".mol", ".pdb", ".xyz", ".sdf", ".vasp", ".mol2", ".pwi", ".gjf"};
 
@@ -373,6 +380,9 @@ FileBrowser::FileBrowser()
     std::snprintf(exportFilename, sizeof(exportFilename), "%s", "structure.png");
     exportStatusMsg[0] = '\0';
     std::snprintf(bondElementFilterInput, sizeof(bondElementFilterInput), "%s", "O,F");
+    latticePlaneInputColor[0] = 0.95f;
+    latticePlaneInputColor[1] = 0.62f;
+    latticePlaneInputColor[2] = 0.20f;
     bondElementFilterMask.fill(false);
     updateBondElementFilterMask();
 }
@@ -516,6 +526,12 @@ void FileBrowser::draw(Structure& structure,
             }
             if (bondFilterChanged)
                 updateBuffers(structure);
+            ImGui::Separator();
+
+            ImGui::MenuItem("Show Lattice Planes", nullptr, &showLatticePlanes, structure.hasUnitCell);
+            if (ImGui::MenuItem("Lattice Planes", nullptr, false, structure.hasUnitCell))
+                showLatticePlanesDialog = true;
+
             ImGui::Separator();
 
             const bool isIsometricView = (viewMode == ViewMode::Isometric);
@@ -742,6 +758,8 @@ void FileBrowser::draw(Structure& structure,
             if (loadStructureFromPath(fullPath, newStructure, loadError))
             {
                 structure = std::move(newStructure);
+                latticePlanes.clear();
+                showLatticePlanes = false;
                 applyElementColorOverrides(structure);
 
                 updateBuffers(structure);
@@ -1055,6 +1073,138 @@ void FileBrowser::draw(Structure& structure,
     if (!exportImageOpen)
         ImGui::CloseCurrentPopup();
     // ---- end Export Image dialog ---------------------------------------
+
+    if (showLatticePlanesDialog)
+    {
+        ImGui::OpenPopup("Lattice Planes");
+        showLatticePlanesDialog = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(780.0f, 520.0f), ImGuiCond_FirstUseEver);
+    bool latticePlanesOpen = true;
+    if (ImGui::BeginPopupModal("Lattice Planes", &latticePlanesOpen, ImGuiWindowFlags_NoResize))
+    {
+        if (!structure.hasUnitCell)
+        {
+            ImGui::TextDisabled("Current structure has no unit cell. Lattice planes are unavailable.");
+            if (ImGui::Button("Close", ImVec2(120, 0)))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        else
+        {
+            ImGui::Checkbox("Show lattice planes", &showLatticePlanes);
+            ImGui::TextDisabled("Live edit enabled: HKL and offset updates are shown immediately.");
+            ImGui::Separator();
+
+            ImGui::Text("New plane:");
+            ImGui::SetNextItemWidth(85.0f);
+            ImGui::DragInt("H##plane", &latticePlaneInputH, 0.2f, -50, 50);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(85.0f);
+            ImGui::DragInt("K##plane", &latticePlaneInputK, 0.2f, -50, 50);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(85.0f);
+            ImGui::DragInt("L##plane", &latticePlaneInputL, 0.2f, -50, 50);
+
+            ImGui::SetNextItemWidth(210.0f);
+            ImGui::DragFloat("Offset n##plane", &latticePlaneInputOffset, 0.01f, -50.0f, 50.0f, "%.3f");
+            ImGui::SetNextItemWidth(210.0f);
+            ImGui::SliderFloat("Opacity##plane", &latticePlaneInputOpacity, 0.0f, 1.0f, "%.2f");
+            ImGui::SameLine();
+            ImGui::ColorEdit3("Color##plane", latticePlaneInputColor, ImGuiColorEditFlags_NoInputs);
+
+            const bool invalidMiller =
+                (latticePlaneInputH == 0 && latticePlaneInputK == 0 && latticePlaneInputL == 0);
+            if (invalidMiller)
+                ImGui::TextDisabled("(h, k, l) cannot all be zero.");
+
+            if (ImGui::Button("Add Plane", ImVec2(140.0f, 0.0f)) && !invalidMiller)
+            {
+                LatticePlane plane;
+                plane.h = latticePlaneInputH;
+                plane.k = latticePlaneInputK;
+                plane.l = latticePlaneInputL;
+                plane.offset = latticePlaneInputOffset;
+                plane.opacity = latticePlaneInputOpacity;
+                plane.color = {
+                    latticePlaneInputColor[0],
+                    latticePlaneInputColor[1],
+                    latticePlaneInputColor[2]
+                };
+                plane.visible = true;
+                latticePlanes.push_back(plane);
+                showLatticePlanes = true;
+            }
+
+            ImGui::Separator();
+            ImGui::Text("Saved planes:");
+
+            if (latticePlanes.empty())
+            {
+                ImGui::TextDisabled("No lattice planes added.");
+            }
+            else if (ImGui::BeginChild("##lattice-plane-list", ImVec2(0.0f, 220.0f), true))
+            {
+                int deleteIndex = -1;
+                for (size_t i = 0; i < latticePlanes.size(); ++i)
+                {
+                    ImGui::PushID((int)i + 30000);
+                    LatticePlane& plane = latticePlanes[i];
+
+                    ImGui::Checkbox("##visible", &plane.visible);
+                    ImGui::SameLine();
+                    ImGui::Text("Plane %d", (int)i + 1);
+
+                    ImGui::SetNextItemWidth(80.0f);
+                    ImGui::DragInt("H##plane-h", &plane.h, 0.2f, -50, 50);
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(80.0f);
+                    ImGui::DragInt("K##plane-k", &plane.k, 0.2f, -50, 50);
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(80.0f);
+                    ImGui::DragInt("L##plane-l", &plane.l, 0.2f, -50, 50);
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(120.0f);
+                    ImGui::DragFloat("n##plane-offset", &plane.offset, 0.01f, -50.0f, 50.0f, "%.3f");
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(95.0f);
+                    ImGui::SliderFloat("a##plane-opacity", &plane.opacity, 0.0f, 1.0f, "%.2f");
+
+                    if (plane.h == 0 && plane.k == 0 && plane.l == 0)
+                        plane.h = 1;
+
+                    float color[3] = {plane.color[0], plane.color[1], plane.color[2]};
+                    if (ImGui::ColorEdit3("##plane-color", color, ImGuiColorEditFlags_NoInputs))
+                    {
+                        plane.color[0] = color[0];
+                        plane.color[1] = color[1];
+                        plane.color[2] = color[2];
+                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Delete"))
+                        deleteIndex = (int)i;
+
+                    ImGui::Separator();
+
+                    ImGui::PopID();
+                }
+
+                if (deleteIndex >= 0)
+                    latticePlanes.erase(latticePlanes.begin() + deleteIndex);
+
+                ImGui::EndChild();
+            }
+
+            ImGui::Spacing();
+            if (ImGui::Button("Close", ImVec2(120, 0)))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+    }
+    if (!latticePlanesOpen)
+        ImGui::CloseCurrentPopup();
 
     if (showManual)
     {

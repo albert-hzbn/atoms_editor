@@ -3,6 +3,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
 #include <cmath>
 
 Camera* Camera::instance = nullptr;
@@ -37,6 +38,14 @@ void Camera::mouseButton(GLFWwindow*,int button,int action,int)
         instance->rightClickX      = instance->lastX;
         instance->rightClickY      = instance->lastY;
     }
+
+    if (button == GLFW_MOUSE_BUTTON_MIDDLE)
+    {
+        if (action == GLFW_PRESS)
+            instance->middleMouseDown = true;
+        else if (action == GLFW_RELEASE)
+            instance->middleMouseDown = false;
+    }
 }
 
 void Camera::cursor(GLFWwindow*,double x,double y)
@@ -57,6 +66,14 @@ void Camera::cursor(GLFWwindow*,double x,double y)
 
         instance->yaw   -= dx * instance->sensitivity;
         instance->pitch += dy * instance->sensitivity;
+    }
+
+    if (instance->middleMouseDown)
+    {
+        const float dy = (float)(y - instance->lastY);
+        // Middle-button drag zoom: move mouse up to zoom in, down to zoom out.
+        instance->distance += dy * instance->zoomSpeed * 0.06f;
+        instance->distance = std::max(Camera::kMinDistance, std::min(Camera::kMaxDistance, instance->distance));
     }
 
     instance->lastX = x;
