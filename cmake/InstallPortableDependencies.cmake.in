@@ -1,0 +1,35 @@
+set(_atomforge_bin_dir "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@ATOMFORGE_PORTABLE_BIN_DIR@")
+set(_atomforge_exe "${_atomforge_bin_dir}/@ATOMFORGE_PORTABLE_EXE_NAME@")
+
+if(POLICY CMP0207)
+    cmake_policy(SET CMP0207 NEW)
+endif()
+
+if(NOT EXISTS "${_atomforge_exe}")
+    message(WARNING "Portable dependency bundling skipped: executable not found at ${_atomforge_exe}")
+    return()
+endif()
+
+file(GET_RUNTIME_DEPENDENCIES
+    EXECUTABLES "${_atomforge_exe}"
+    RESOLVED_DEPENDENCIES_VAR _atomforge_resolved
+    UNRESOLVED_DEPENDENCIES_VAR _atomforge_unresolved
+    PRE_EXCLUDE_REGEXES
+        "api-ms-win-.*"
+        "ext-ms-.*"
+    POST_EXCLUDE_REGEXES
+        ".*/[Ww]indows/[Ss]ystem32/.*"
+        ".*/System/Library/.*"
+)
+
+foreach(_dep IN LISTS _atomforge_resolved)
+    get_filename_component(_dep_name "${_dep}" NAME)
+    set(_dep_out "${_atomforge_bin_dir}/${_dep_name}")
+    if(NOT EXISTS "${_dep_out}")
+        file(INSTALL DESTINATION "${_atomforge_bin_dir}" TYPE SHARED_LIBRARY FILES "${_dep}")
+    endif()
+endforeach()
+
+if(_atomforge_unresolved)
+    message(WARNING "Portable packaging unresolved runtime dependencies: ${_atomforge_unresolved}")
+endif()

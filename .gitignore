@@ -1,4 +1,5 @@
 build/
+build-*/
 
 src/**/*.o
 src/**/*.d

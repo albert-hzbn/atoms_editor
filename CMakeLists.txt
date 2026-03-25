@@ -140,60 +140,18 @@ endif()
 # ============================================================================
 option(BUILD_PORTABLE "Build portable package with bundled dependencies" OFF)
 
+set(ATOMFORGE_PORTABLE_ROOT "AtomForge")
+if(WIN32)
+    set(ATOMFORGE_PORTABLE_BIN_DIR "${ATOMFORGE_PORTABLE_ROOT}")
+else()
+    set(ATOMFORGE_PORTABLE_BIN_DIR "${ATOMFORGE_PORTABLE_ROOT}/bin")
+endif()
+
 if(BUILD_PORTABLE)
-    message(STATUS "Building portable package: dependencies will be bundled")
-    
-    if(WIN32)
-        # Windows portable: copy required DLLs to build directory
-        message(STATUS "Portable Windows build: DLLs will be copied to output directory")
-        
-        # Get the directory where DLLs are located
-        get_target_property(GLFW3_LIB_DIRS PkgConfig::GLFW3 INTERFACE_LINK_DIRECTORIES)
-        get_target_property(GLEW_LIB_DIRS PkgConfig::GLEW INTERFACE_LINK_DIRECTORIES)
-        get_target_property(OPENBABEL_LIB_DIRS PkgConfig::OPENBABEL INTERFACE_LINK_DIRECTORIES)
-        
-        # Find common DLL paths (MSYS2 UCRT64)
-        find_file(GLFW3_DLL glfw3.dll PATHS
-            ${GLFW3_LIB_DIRS}
-            ${CMAKE_PREFIX_PATH}/bin
-            C:/msys2/ucrt64/bin
-        )
-        find_file(GLEW_DLL glew32.dll PATHS
-            ${GLEW_LIB_DIRS}
-            ${CMAKE_PREFIX_PATH}/bin
-            C:/msys2/ucrt64/bin
-        )
-        find_file(OPENBABEL_DLL openbabel3.dll PATHS
-            ${OPENBABEL_LIB_DIRS}
-            ${CMAKE_PREFIX_PATH}/bin
-            C:/msys2/ucrt64/bin
-        )
-        
-        # Copy DLLs to build folder
-        if(GLFW3_DLL)
-            add_custom_command(TARGET AtomForge POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy "${GLFW3_DLL}" "$<TARGET_FILE_DIR:AtomForge>/"
-                COMMENT "Copying GLFW3 DLL to output directory"
-            )
-        endif()
-        if(GLEW_DLL)
-            add_custom_command(TARGET AtomForge POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy "${GLEW_DLL}" "$<TARGET_FILE_DIR:AtomForge>/"
-                COMMENT "Copying GLEW DLL to output directory"
-            )
-        endif()
-        if(OPENBABEL_DLL)
-            add_custom_command(TARGET AtomForge POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy "${OPENBABEL_DLL}" "$<TARGET_FILE_DIR:AtomForge>/"
-                COMMENT "Copying OpenBabel DLL to output directory"
-            )
-        endif()
-        
-    elseif(UNIX AND NOT APPLE)
-        # Linux portable: prepare for AppImage or tarball with bundled libs
-        message(STATUS "Portable Linux build: prepare for AppImage or bundled tarball")
-        
-        # Set RPATH to load libraries from the same directory as executable
+    message(STATUS "Building portable package: runtime dependencies and Open Babel plugins will be bundled")
+
+    if(UNIX AND NOT APPLE)
+        # Linux portable build loads copied .so files from executable folder.
         set_target_properties(AtomForge PROPERTIES
             BUILD_RPATH "\$ORIGIN"
             INSTALL_RPATH "\$ORIGIN"
@@ -205,17 +163,24 @@ endif()
 # Installation Rules
 # ============================================================================
 if(BUILD_PORTABLE)
-    if(WIN32)
-        # Windows portable: output to a versioned folder
-        install(TARGETS AtomForge DESTINATION "AtomForge")
-        install(FILES README.md DESTINATION "AtomForge")
-        # DLLs already copied by POST_BUILD commands above
-        
+    install(TARGETS AtomForge DESTINATION "${ATOMFORGE_PORTABLE_BIN_DIR}")
+    install(FILES README.md DESTINATION "${ATOMFORGE_PORTABLE_ROOT}")
+
+    # Bundle Open Babel plugin files (.obf), including versioned subdirectories.
+    if(OPENBABEL_PLUGINDIR AND EXISTS "${OPENBABEL_PLUGINDIR}")
+        install(DIRECTORY "${OPENBABEL_PLUGINDIR}/"
+                DESTINATION "${ATOMFORGE_PORTABLE_BIN_DIR}/openbabel")
     else()
-        # Linux portable: create AppDir-like structure for easy redistribution
-        install(TARGETS AtomForge DESTINATION "AtomForge/bin")
-        install(FILES README.md DESTINATION "AtomForge")
+        message(WARNING "OPENBABEL_PLUGINDIR not found; portable package may miss Open Babel plugins")
     endif()
+
+    set(ATOMFORGE_PORTABLE_EXE_NAME "AtomForge${CMAKE_EXECUTABLE_SUFFIX}")
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/InstallPortableDependencies.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/InstallPortableDependencies.cmake"
+        @ONLY
+    )
+    install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallPortableDependencies.cmake")
 else()
     # Standard installation (system-wide)
     if(WIN32)

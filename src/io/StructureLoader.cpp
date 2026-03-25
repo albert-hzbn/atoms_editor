@@ -28,6 +28,7 @@
 #include <windows.h>
 #else
 #include <dirent.h>
+#include <unistd.h>
 #endif
 
 namespace
@@ -184,6 +185,78 @@ void appendUnique(std::vector<std::string>& values, const std::string& value)
         values.push_back(normalized);
 }
 
+void appendVersionedPluginCandidates(const std::string& openBabelRoot, std::vector<std::string>& candidates);
+
+std::string executableDirectory()
+{
+#ifdef _WIN32
+    char exePath[MAX_PATH] = {0};
+    DWORD len = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+    if (len > 0 && len < MAX_PATH)
+        return parentDirectory(exePath);
+#else
+    char exePath[4096] = {0};
+    const ssize_t len = readlink("/proc/self/exe", exePath, sizeof(exePath) - 1);
+    if (len > 0)
+    {
+        exePath[len] = '\0';
+        return parentDirectory(exePath);
+    }
+#endif
+    return std::string();
+}
+
+#ifdef _WIN32
+void appendWindowsPathVariants(const std::string& path, std::vector<std::string>& values)
+{
+    if (path.empty())
+        return;
+
+    const std::string normalized = normalizeSeparators(path);
+    appendUnique(values, normalized);
+
+    // Convert MSYS-style absolute paths to native Windows candidates.
+    if (normalized.size() > 1 && normalized[0] == '/')
+    {
+        appendUnique(values, "C:/msys64" + normalized);
+        appendUnique(values, "C:/msys2" + normalized);
+    }
+}
+
+void appendCandidatesFromPathEnvironment(std::vector<std::string>& candidates)
+{
+    const char* pathEnv = std::getenv("PATH");
+    if (!pathEnv || !*pathEnv)
+        return;
+
+    const std::string pathList(pathEnv);
+    std::size_t start = 0;
+    while (start <= pathList.size())
+    {
+        const std::size_t end = pathList.find(';', start);
+        const std::string entry = normalizeSeparators(pathList.substr(start, end - start));
+
+        if (!entry.empty())
+        {
+            // Typical Open Babel runtime path is .../<prefix>/bin.
+            if (hasSuffixCaseInsensitive(entry, "/bin"))
+            {
+                const std::string prefix = parentDirectory(entry);
+                if (!prefix.empty())
+                    appendVersionedPluginCandidates(joinPath(joinPath(prefix, "lib"), "openbabel"), candidates);
+            }
+
+            // Sometimes plugin dir itself is directly on PATH.
+            appendVersionedPluginCandidates(entry, candidates);
+        }
+
+        if (end == std::string::npos)
+            break;
+        start = end + 1;
+    }
+}
+#endif
+
 void appendVersionedPluginCandidates(const std::string& openBabelRoot, std::vector<std::string>& candidates)
 {
     if (openBabelRoot.empty() || !directoryExists(openBabelRoot))
@@ -256,16 +329,41 @@ void ensureOpenBabelPlugins()
     const char* currentLibDir = std::getenv("BABEL_LIBDIR");
     if (currentLibDir && *currentLibDir)
     {
-        // Respect user-provided plugin path first.
-        OpenBabel::OBPlugin::LoadAllPlugins();
-        return;
+        const std::string envPath = normalizeSeparators(currentLibDir);
+        if (directoryExists(envPath) && directoryLooksLikeOpenBabelPluginDir(envPath))
+        {
+            // Respect valid user-provided plugin path first.
+            setBabelLibDir(envPath);
+            OpenBabel::OBPlugin::LoadAllPlugins();
+
+            OpenBabel::OBConversion probe;
+            if (probe.SetInFormat("cif") || probe.SetInFormat("vasp"))
+                return;
+        }
     }
 
     std::vector<std::string> candidates;
 
 #ifdef ATOMFORGE_OPENBABEL_PLUGIN_DIR
+#ifdef _WIN32
+    appendWindowsPathVariants(ATOMFORGE_OPENBABEL_PLUGIN_DIR, candidates);
+#else
     appendUnique(candidates, ATOMFORGE_OPENBABEL_PLUGIN_DIR);
 #endif
+#endif
+
+    // Portable layout support: bundled plugins live next to the executable
+    // under an "openbabel" directory.
+    const std::string exeDir = executableDirectory();
+    if (!exeDir.empty())
+    {
+        appendVersionedPluginCandidates(joinPath(exeDir, "openbabel"), candidates);
+
+        // Typical system layout fallback when executable is in <prefix>/bin.
+        const std::string prefixDir = parentDirectory(exeDir);
+        if (!prefixDir.empty())
+            appendVersionedPluginCandidates(joinPath(joinPath(prefixDir, "lib"), "openbabel"), candidates);
+    }
 
 #ifdef _WIN32
     HMODULE obModule = nullptr;
@@ -285,10 +383,16 @@ void ensureOpenBabelPlugins()
         }
     }
 
+    appendCandidatesFromPathEnvironment(candidates);
+
     appendVersionedPluginCandidates("C:/msys64/ucrt64/lib/openbabel", candidates);
     appendVersionedPluginCandidates("C:/msys64/mingw64/lib/openbabel", candidates);
     appendVersionedPluginCandidates("C:/msys2/ucrt64/lib/openbabel", candidates);
     appendVersionedPluginCandidates("C:/msys2/mingw64/lib/openbabel", candidates);
+
+    // Also try MSYS-style paths in case the process can resolve them.
+    appendVersionedPluginCandidates("/ucrt64/lib/openbabel", candidates);
+    appendVersionedPluginCandidates("/mingw64/lib/openbabel", candidates);
 #else
     appendVersionedPluginCandidates("/usr/lib/openbabel", candidates);
     appendVersionedPluginCandidates("/usr/lib64/openbabel", candidates);
@@ -297,16 +401,25 @@ void ensureOpenBabelPlugins()
     appendVersionedPluginCandidates("/usr/lib/x86_64-linux-gnu/openbabel", candidates);
 #endif
 
+    bool pluginsReady = false;
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
         if (directoryExists(candidates[i]) && directoryLooksLikeOpenBabelPluginDir(candidates[i]))
         {
             setBabelLibDir(candidates[i]);
-            break;
+            OpenBabel::OBPlugin::LoadAllPlugins();
+
+            OpenBabel::OBConversion probe;
+            if (probe.SetInFormat("cif") || probe.SetInFormat("vasp"))
+            {
+                pluginsReady = true;
+                break;
+            }
         }
     }
 
-    OpenBabel::OBPlugin::LoadAllPlugins();
+    if (!pluginsReady)
+        OpenBabel::OBPlugin::LoadAllPlugins();
 }
 
 class ScopedObWarningSilencer
@@ -592,7 +705,22 @@ bool loadStructureFromFile(const std::string& filename, Structure& structure, st
     OpenBabel::OBConversion conv;
 
     OpenBabel::OBFormat* inFmt = conv.FormatFromExt(filename.c_str());
-    if (!inFmt || !conv.SetInFormat(inFmt))
+
+    bool inFormatSet = false;
+    if (inFmt)
+        inFormatSet = conv.SetInFormat(inFmt);
+
+    if (!inFormatSet)
+    {
+        const std::string extNoDot = (extLower.size() > 1) ? extLower.substr(1) : std::string();
+        if (!extNoDot.empty())
+            inFormatSet = conv.SetInFormat(extNoDot.c_str());
+
+        if (!inFormatSet && extLower == ".vasp")
+            inFormatSet = conv.SetInFormat("vasp");
+    }
+
+    if (!inFormatSet)
     {
         const char* babelLibDir = std::getenv("BABEL_LIBDIR");
         errorMessage = "Unsupported file format '" + ext + "'. Supported formats: " + supportedExtensionsSummary();

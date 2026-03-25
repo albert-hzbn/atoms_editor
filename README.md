@@ -80,11 +80,11 @@ rm -rf build
 
 ## Portable Builds
 
-Build portable packages that bundle all dependencies (no system library dependencies required at runtime).
+Portable builds now bundle required runtime libraries and Open Babel plugins into the package folder automatically.
 
 ### Windows Portable
 
-Build a portable ZIP package with bundled DLLs:
+Build a portable ZIP package:
 
 ```bash
 # In MSYS2 UCRT64 shell:
@@ -96,28 +96,17 @@ cd build
 cpack -G ZIP
 ```
 
-This generates `AtomForge-1.0.0-win64.zip` containing the executable and all required DLLs. Extract it anywhere and run `AtomForge.exe` without any further installation.
+This generates a portable archive containing:
+- `AtomForge.exe`
+- required runtime DLLs
+- Open Babel plugins under `openbabel/`
+- `README.md`
 
-**Manual portable package:**
-```bash
-mkdir AtomForge-portable
-cd AtomForge-portable
-cp ../build/Release/AtomForge.exe .
-cp ../README.md .
-# Copy required DLLs from C:\msys2\ucrt64\bin:
-cp C:/msys2/ucrt64/bin/glfw3.dll .
-cp C:/msys2/ucrt64/bin/glew32.dll .
-cp C:/msys2/ucrt64/bin/openbabel3.dll .
-# For spglib support (if available):
-cp C:/msys2/ucrt64/bin/spglib.dll .
-cp C:/msys2/ucrt64/bin/symspg.dll .
-cd ..
-7z a AtomForge-portable.zip AtomForge-portable/
-```
+Extract and run `AtomForge.exe` directly.
 
-### Linux Portable (Tarball + Bundled Libraries)
+### Linux Portable (Tarball)
 
-Build a portable tarball for easy distribution:
+Build a portable tarball:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_PORTABLE=ON
@@ -126,38 +115,16 @@ cd build
 cpack -G TGZ
 ```
 
-This generates `AtomForge-1.0.0-Linux.tar.gz` with the executable ready to run.
-
-**Manual portable tarball with bundled libs:**
-```bash
-mkdir -p AtomForge-portable/lib
-cd AtomForge-portable
-
-# Copy executable
-cp ../build/AtomForge .
-cp ../README.md .
-
-# Copy runtime libraries (adjust paths as needed for your system)
-# Find library locations:
-# ldd ../build/AtomForge  # to see which libraries to copy
-ldd ../build/AtomForge | grep "=> /" | awk '{print $3}' | sort -u > libs.txt
-
-# Copy essential libraries (GLFW, GLEW, OpenBabel, OpenGL, etc.):
-cp /usr/lib/x86_64-linux-gnu/libglfw.so.3 lib/
-cp /usr/lib/x86_64-linux-gnu/libGLEW.so.2.2 lib/
-cp /usr/lib/x86_64-linux-gnu/libopenbabel.so.3 lib/
-cp /usr/lib/x86_64-linux-gnu/libGL.so.1 lib/
-cp /usr/lib/x86_64-linux-gnu/libGLX.so.0 lib/
-
-cd ..
-tar czf AtomForge-portable.tar.gz AtomForge-portable/
-```
+This generates a portable archive containing:
+- `AtomForge/bin/AtomForge`
+- required `.so` runtime libraries copied next to the executable
+- Open Babel plugins under `AtomForge/bin/openbabel/`
+- `AtomForge/README.md`
 
 To run the portable Linux package:
 ```bash
-tar xzf AtomForge-portable.tar.gz
-cd AtomForge-portable
-export LD_LIBRARY_PATH=$(pwd)/lib:$LD_LIBRARY_PATH
+tar xzf AtomForge-*.tar.gz
+cd AtomForge/bin
 ./AtomForge
 ```
 
