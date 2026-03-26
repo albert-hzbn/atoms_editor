@@ -49,6 +49,12 @@ void processDroppedFiles(EditorState& state)
         return;
     }
 
+    if (state.fileBrowser.isInterfaceBuilderDialogOpen())
+    {
+        state.fileBrowser.feedDropToInterfaceBuilderDialog(droppedFile);
+        return;
+    }
+
     Structure loadedStructure;
     std::string loadError;
     if (!loadStructureFromFile(droppedFile, loadedStructure, loadError))

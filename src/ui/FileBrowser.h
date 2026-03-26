@@ -4,6 +4,7 @@
 #include "ui/BulkCrystalBuilderDialog.h"
 #include "ui/CSLGrainBoundaryDialog.h"
 #include "ui/NanoCrystalBuilderDialog.h"
+#include "ui/InterfaceBuilderDialog.h"
 #include "ui/CommonNeighbourAnalysis.h"
 #include "ui/RadialDistributionAnalysis.h"
 #include "ui/TransformAtomsDialog.h"
@@ -166,6 +167,11 @@ struct FileBrowser
     bool isNanoCrystalDialogOpen() const;
     void feedDropToNanoCrystalDialog(const std::string& path);
 
+    // Interface builder dialog GL resources and drop routing.
+    void initInterfaceBuilderRenderResources(Renderer& renderer);
+    bool isInterfaceBuilderDialogOpen() const;
+    void feedDropToInterfaceBuilderDialog(const std::string& path);
+
     // Show a modal error popup for file-load failures.
     void showLoadError(const std::string& message);
 
@@ -249,6 +255,7 @@ private:
     BulkCrystalBuilderDialog bulkCrystalDialog;
     CSLGrainBoundaryDialog cslDialog;
     NanoCrystalBuilderDialog nanoCrystalDialog;
+    InterfaceBuilderDialog interfaceBuilderDialog;
     CommonNeighbourAnalysisDialog cnaDialog;
     RadialDistributionAnalysisDialog rdfDialog;
     TransformAtomsDialog transformDialog;

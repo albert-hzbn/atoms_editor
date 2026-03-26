@@ -52,6 +52,7 @@ set(ATOMFORGE_SOURCES
     src/ui/BulkCrystalBuilderDialog.cpp
     src/ui/CSLGrainBoundaryDialog.cpp
     src/ui/NanoCrystalBuilderDialog.cpp
+    src/ui/InterfaceBuilderDialog.cpp
     src/ui/CommonNeighbourAnalysis.cpp
     src/ui/EditMenuDialogs.cpp
     src/ui/FileBrowser.cpp

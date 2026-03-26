@@ -504,6 +504,7 @@ void FileBrowser::draw(Structure& structure,
             bulkCrystalDialog.drawMenuItem(true);
             cslDialog.drawMenuItem(true);
             nanoCrystalDialog.drawMenuItem(true);
+            interfaceBuilderDialog.drawMenuItem(true);
             ImGui::EndMenu();
         }
 
@@ -633,6 +634,9 @@ void FileBrowser::draw(Structure& structure,
     nanoCrystalDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                  editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
                                  updateBuffers);
+    interfaceBuilderDialog.drawDialog(structure, editMenuDialogs.elementColors,
+                                      editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
+                                      updateBuffers);
     cnaDialog.drawDialog(structure);
     rdfDialog.drawDialog(structure);
 
@@ -1474,6 +1478,21 @@ bool FileBrowser::isNanoCrystalDialogOpen() const
 void FileBrowser::feedDropToNanoCrystalDialog(const std::string& path)
 {
     nanoCrystalDialog.feedDroppedFile(path);
+}
+
+void FileBrowser::initInterfaceBuilderRenderResources(Renderer& renderer)
+{
+    interfaceBuilderDialog.initRenderResources(renderer);
+}
+
+bool FileBrowser::isInterfaceBuilderDialogOpen() const
+{
+    return interfaceBuilderDialog.isOpen();
+}
+
+void FileBrowser::feedDropToInterfaceBuilderDialog(const std::string& path)
+{
+    interfaceBuilderDialog.feedDroppedFile(path);
 }
 
 void FileBrowser::showLoadError(const std::string& message)
