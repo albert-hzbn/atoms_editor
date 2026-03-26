@@ -79,6 +79,10 @@ void initImGui(GLFWwindow* window)
 
     applyAtomsEditorTheme();
 
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.DisplayWindowPadding = ImVec2(0.0f, 0.0f);
+    style.DisplaySafeAreaPadding = ImVec2(0.0f, 0.0f);
+
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 }

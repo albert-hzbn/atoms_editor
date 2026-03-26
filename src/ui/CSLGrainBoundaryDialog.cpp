@@ -7,7 +7,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <limits>
 #include <map>
@@ -98,30 +100,66 @@ void drawBuildResultSummary(const BuildResult& result)
     if (result.message.empty())
         return;
 
-    ImGui::TextWrapped("Status: %s", result.message.c_str());
-    if (!result.success)
+    if (result.success)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 1.0f, 0.5f, 1.0f));
+        ImGui::TextWrapped("OK: %s", result.message.c_str());
+        ImGui::PopStyleColor();
+    }
+    else
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.45f, 0.35f, 1.0f));
+        ImGui::TextWrapped("Error: %s", result.message.c_str());
+        ImGui::PopStyleColor();
         return;
+    }
 
-    ImGui::Text("Input atoms: %d", result.inputAtoms);
-    ImGui::Text("Output atoms: %d", result.generatedAtoms);
-    ImGui::Text("Removed overlaps: %d", result.removedOverlap);
-    ImGui::Text("Sigma: %d", result.sigma);
-    ImGui::Text("Misorientation angle: %.4f deg", result.thetaDeg);
-    ImGui::Separator();
-    ImGui::Text("GB Parameters Used");
-    ImGui::Text("Basis: %s", cubicBasisName((CubicBasisType)result.basisIndex));
-    ImGui::Text("Lattice parameter: %.4f A", result.latticeParameter);
-    ImGui::Text("Element: Z=%d (%s)", result.atomicNumber, elementSymbol(result.atomicNumber));
-    ImGui::Text("Axis [u v w]: [%d %d %d]", result.axis[0], result.axis[1], result.axis[2]);
-    ImGui::Text("Sigma / m / n: %d / %d / %d", result.sigma, result.m, result.n);
-    ImGui::Text("GB plane (h k l): (%d %d %d)", result.gbPlane[0], result.gbPlane[1], result.gbPlane[2]);
-    ImGui::Text("Dimensions [l1 l2 l3]: [%d %d %d]", result.dims[0], result.dims[1], result.dims[2]);
-    ImGui::Text("Replications [r1 r2 r3]: [%d %d %d]", result.reps[0], result.reps[1], result.reps[2]);
-    ImGui::Text("Overlap fraction: %.3f", result.overlapFraction);
-    ImGui::Text("Overlap removal target grain: %d", result.removeFromGrain);
-    ImGui::Text("Rigid translation enabled: %s", result.rigidTranslationEnabled ? "yes" : "no");
-    ImGui::Text("Rigid translation (in-plane): [%.4f %.4f]", result.rigidTx, result.rigidTy);
-    ImGui::Text("Vacuum/box padding: %.3f A", result.vacuumPadding);
+    ImGui::Spacing();
+
+    if (ImGui::BeginTable("##ResultSummary", 2, ImGuiTableFlags_SizingStretchProp))
+    {
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 220.0f);
+        ImGui::TableSetupColumn("Value");
+
+        auto row = [](const char* label, const char* fmt, ...) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextDisabled("%s", label);
+            ImGui::TableNextColumn();
+            va_list args;
+            va_start(args, fmt);
+            ImGui::TextV(fmt, args);
+            va_end(args);
+        };
+
+        row("Input atoms", "%d", result.inputAtoms);
+        row("Output atoms", "%d", result.generatedAtoms);
+        row("Removed overlaps", "%d", result.removedOverlap);
+        row("Sigma", "%d", result.sigma);
+        row("Misorientation angle", "%.4f deg", result.thetaDeg);
+
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::Separator();
+        ImGui::TableNextColumn();
+        ImGui::Separator();
+
+        row("Basis", "%s", cubicBasisName((CubicBasisType)result.basisIndex));
+        row("Lattice parameter", "%.4f A", result.latticeParameter);
+        row("Element", "Z=%d (%s)", result.atomicNumber, elementSymbol(result.atomicNumber));
+        row("Axis [u v w]", "[%d %d %d]", result.axis[0], result.axis[1], result.axis[2]);
+        row("Sigma / m / n", "%d / %d / %d", result.sigma, result.m, result.n);
+        row("GB plane (h k l)", "(%d %d %d)", result.gbPlane[0], result.gbPlane[1], result.gbPlane[2]);
+        row("Dimensions [l1 l2 l3]", "[%d %d %d]", result.dims[0], result.dims[1], result.dims[2]);
+        row("Replications [r1 r2 r3]", "[%d %d %d]", result.reps[0], result.reps[1], result.reps[2]);
+        row("Overlap fraction", "%.3f", result.overlapFraction);
+        row("Overlap removal grain", "%d", result.removeFromGrain);
+        row("Rigid translation", "%s", result.rigidTranslationEnabled ? "yes" : "no");
+        row("Rigid shift (in-plane)", "[%.4f  %.4f]", result.rigidTx, result.rigidTy);
+        row("Vacuum/box padding", "%.3f A", result.vacuumPadding);
+
+        ImGui::EndTable();
+    }
 }
 
 int gcd3(int a, int b, int c)
@@ -715,100 +753,139 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
         m_openRequested = false;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(860.0f, 760.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(780.0f, 580.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(620.0f, 400.0f), ImVec2(FLT_MAX, FLT_MAX));
     bool dialogOpen = true;
-    if (ImGui::BeginPopupModal("CSL Grain Boundary Builder", &dialogOpen, ImGuiWindowFlags_NoResize))
+    if (ImGui::BeginPopupModal("CSL Grain Boundary Builder", &dialogOpen, ImGuiWindowFlags_None))
     {
-        ImGui::TextWrapped("Inspired by CSL grain-boundary workflows for cubic systems. "
-                           "This in-app builder creates a bicrystal from an ideal cubic lattice (sc/bcc/fcc/diamond) and applies "
-                           "misorientation, optional rigid translation, and overlap removal.");
-
-        ImGui::Separator();
-        ImGui::Text("Cubic Lattice Source");
-        const char* basisItems[] = { "sc", "bcc", "fcc", "diamond" };
-        ImGui::Combo("Basis", &basisIndex, basisItems, 4);
-        ImGui::DragFloat("Lattice parameter (A)", &latticeParameter, 0.01f, 0.1f, 20.0f, "%.4f");
-        ImGui::InputInt("Atomic number (Z)", &atomicNumber);
-        if (atomicNumber < 1) atomicNumber = 1;
-        if (atomicNumber > 118) atomicNumber = 118;
-        ImGui::Text("Element: %s (%s)", elementName(atomicNumber), elementSymbol(atomicNumber));
-
-        ImGui::Separator();
-        ImGui::Text("Misorientation Parameters");
-        ImGui::InputInt3("Axis [u v w]", axis);
-        ImGui::InputInt("Sigma search max", &sigmaMax);
-        if (sigmaMax < 3) sigmaMax = 3;
-
-        if (axis[0] != lastAxisForSigma[0] || axis[1] != lastAxisForSigma[1] || axis[2] != lastAxisForSigma[2] ||
-            sigmaMax != lastSigmaMaxForSigma)
+        // ── Cubic Lattice Source ────────────────────────────────────────
+        ImGui::SeparatorText("Cubic Lattice Source");
         {
-            sigmaCandidates.clear();
-            sigmaSelection = 0;
-            lastAxisForSigma[0] = axis[0];
-            lastAxisForSigma[1] = axis[1];
-            lastAxisForSigma[2] = axis[2];
-            lastSigmaMaxForSigma = sigmaMax;
+            const char* basisItems[] = { "sc", "bcc", "fcc", "diamond" };
+            ImGui::SetNextItemWidth(140.0f);
+            ImGui::Combo("Basis", &basisIndex, basisItems, 4);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(160.0f);
+            ImGui::DragFloat("a (A)", &latticeParameter, 0.01f, 0.1f, 20.0f, "%.4f");
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Lattice constant of the cubic unit cell in Angstroms.");
+
+            ImGui::SetNextItemWidth(140.0f);
+            ImGui::InputInt("Z", &atomicNumber);
+            if (atomicNumber < 1) atomicNumber = 1;
+            if (atomicNumber > 118) atomicNumber = 118;
+            ImGui::SameLine();
+            float cr = 0.5f, cg = 0.5f, cb = 0.5f;
+            getDefaultElementColor(atomicNumber, cr, cg, cb);
+            ImGui::ColorButton("##elemcolor", ImVec4(cr, cg, cb, 1.0f), ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoPicker, ImVec2(14, 14));
+            ImGui::SameLine();
+            ImGui::Text("%s (%s)", elementName(atomicNumber), elementSymbol(atomicNumber));
         }
 
-        ImGui::SameLine();
-        if (ImGui::Button("Generate Sigma List"))
+        // ── Misorientation ─────────────────────────────────────────────
+        ImGui::SeparatorText("Misorientation");
         {
-            sigmaCandidates = buildSigmaCandidates(axis[0], axis[1], axis[2], sigmaMax);
-            sigmaSelection = 0;
-        }
-
-        if (!sigmaCandidates.empty())
-        {
-            auto sigmaGetter = [](void* data, int idx) -> const char* {
-                static char label[96];
-                std::vector<SigmaCandidate>* vec = static_cast<std::vector<SigmaCandidate>*>(data);
-                if (idx < 0 || idx >= (int)vec->size()) return "";
-                const SigmaCandidate& c = (*vec)[idx];
-                std::snprintf(label, sizeof(label), "Sigma %d  |  m=%d n=%d  |  theta=%.4f deg", c.sigma, c.m, c.n, c.thetaDeg);
-                return label;
-            };
-            if (sigmaSelection >= (int)sigmaCandidates.size())
+            ImGui::SetNextItemWidth(220.0f);
+            ImGui::InputInt3("Axis [u v w]", axis);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Crystallographic rotation axis in Miller indices.");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(110.0f);
+            ImGui::InputInt("Max sigma", &sigmaMax);
+            if (sigmaMax < 3) sigmaMax = 3;
+            ImGui::SameLine();
+            if (ImGui::Button("Find"))
+            {
+                sigmaCandidates = buildSigmaCandidates(axis[0], axis[1], axis[2], sigmaMax);
                 sigmaSelection = 0;
-            ImGui::Combo("Sigma candidate", &sigmaSelection, sigmaGetter, &sigmaCandidates, (int)sigmaCandidates.size());
+            }
 
-            const SigmaCandidate& selected = sigmaCandidates[sigmaSelection];
-            ImGui::Text("Selected Sigma: %d", selected.sigma);
-            ImGui::Text("Selected m,n: %d, %d", selected.m, selected.n);
-            ImGui::Text("Misorientation angle: %.4f deg", selected.thetaDeg);
+            if (axis[0] != lastAxisForSigma[0] || axis[1] != lastAxisForSigma[1] || axis[2] != lastAxisForSigma[2] ||
+                sigmaMax != lastSigmaMaxForSigma)
+            {
+                sigmaCandidates.clear();
+                sigmaSelection = 0;
+                lastAxisForSigma[0] = axis[0];
+                lastAxisForSigma[1] = axis[1];
+                lastAxisForSigma[2] = axis[2];
+                lastSigmaMaxForSigma = sigmaMax;
+            }
+
+            if (!sigmaCandidates.empty())
+            {
+                auto sigmaGetter = [](void* data, int idx) -> const char* {
+                    static char label[96];
+                    std::vector<SigmaCandidate>* vec = static_cast<std::vector<SigmaCandidate>*>(data);
+                    if (idx < 0 || idx >= (int)vec->size()) return "";
+                    const SigmaCandidate& c = (*vec)[idx];
+                    std::snprintf(label, sizeof(label), "S%d  m=%d n=%d  %.2f deg", c.sigma, c.m, c.n, c.thetaDeg);
+                    return label;
+                };
+                if (sigmaSelection >= (int)sigmaCandidates.size())
+                    sigmaSelection = 0;
+                ImGui::SetNextItemWidth(-1.0f);
+                ImGui::Combo("##sigma", &sigmaSelection, sigmaGetter, &sigmaCandidates, (int)sigmaCandidates.size());
+            }
+            else
+            {
+                ImGui::TextDisabled("Set axis and press Find.");
+            }
         }
-        else
+
+        // ── Boundary Geometry ──────────────────────────────────────────
+        ImGui::SeparatorText("Boundary Geometry");
         {
-            ImGui::TextDisabled("No Sigma candidates generated yet.");
-            ImGui::TextDisabled("Use 'Generate Sigma List' after setting axis and search max.");
+            ImGui::SetNextItemWidth(220.0f);
+            ImGui::InputInt3("GB plane (h k l)", gbPlane);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Miller indices of the grain-boundary plane.");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(150.0f);
+            ImGui::DragFloat("Vacuum (A)", &vacuumPadding, 0.05f, 0.0f, 20.0f, "%.2f");
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Extra vacuum or padding added around the bicrystal box.");
+
+            ImGui::SetNextItemWidth(220.0f);
+            ImGui::InputInt3("Dims [l1 l2 l3]", dims);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("l1 = repeats along GB normal (per grain),\nl2/l3 = in-plane repeats.");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(150.0f);
+            ImGui::InputInt2("Reps [r2 r3]", replicationsInPlane);
+            if (replicationsInPlane[0] < 1) replicationsInPlane[0] = 1;
+            if (replicationsInPlane[1] < 1) replicationsInPlane[1] = 1;
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Supercell replication parallel to GB plane.\nNormal replication is fixed to 1.");
         }
 
-        ImGui::Separator();
-        ImGui::Text("Boundary / Cell Parameters");
-        ImGui::InputInt3("GB Plane (h k l)", gbPlane);
-        ImGui::InputInt3("Dimensions [l1 l2 l3]", dims);
-        ImGui::TextDisabled("l1=normal replication per grain, l2/l3=in-plane replication.");
-        ImGui::Text("Replication along normal is fixed to 1 (to avoid multiple GB images).");
-        ImGui::InputInt2("In-plane replications [r2 r3]", replicationsInPlane);
-        if (replicationsInPlane[0] < 1) replicationsInPlane[0] = 1;
-        if (replicationsInPlane[1] < 1) replicationsInPlane[1] = 1;
-        ImGui::TextDisabled("Replicate only parallel to GB plane.");
+        // ── Overlap & Translation ──────────────────────────────────────
+        ImGui::SeparatorText("Overlap & Translation");
+        {
+            ImGui::SetNextItemWidth(140.0f);
+            ImGui::DragFloat("Overlap frac.", &overlapFraction, 0.01f, 0.0f, 2.0f, "%.3f");
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Atoms closer than (fraction * a) are removed\nfrom the selected grain.");
+            ImGui::SameLine();
+            int removeChoice = (removeFromGrain == 1) ? 0 : 1;
+            const char* removeItems[] = { "Remove from grain 1", "Remove from grain 2" };
+            ImGui::SetNextItemWidth(220.0f);
+            if (ImGui::Combo("##removegrain", &removeChoice, removeItems, 2))
+                removeFromGrain = (removeChoice == 0) ? 1 : 2;
 
-        ImGui::DragFloat("Overlap distance fraction", &overlapFraction, 0.01f, 0.0f, 2.0f, "%.3f");
-        ImGui::TextDisabled("Atoms closer than fraction*lattice_scale are removed from selected grain.");
+            ImGui::Checkbox("Rigid shift grain 2", &rigidTrans);
+            if (rigidTrans)
+            {
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(200.0f);
+                ImGui::InputFloat2("##rigidT", rigidT);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("In-plane translation applied to grain 2 (Angstroms).");
+            }
+        }
 
-        int removeChoice = (removeFromGrain == 1) ? 0 : 1;
-        const char* removeItems[] = { "Remove from grain 1", "Remove from grain 2" };
-        if (ImGui::Combo("Overlap removal", &removeChoice, removeItems, 2))
-            removeFromGrain = (removeChoice == 0) ? 1 : 2;
-
-        ImGui::Checkbox("Enable rigid translation of grain 2", &rigidTrans);
-        if (rigidTrans)
-            ImGui::InputFloat2("Rigid translation (in-plane)", rigidT);
-
-        ImGui::DragFloat("Vacuum/box padding (A)", &vacuumPadding, 0.05f, 0.0f, 20.0f, "%.2f");
-
-        ImGui::Separator();
-        if (ImGui::Button("Generate Grain Boundary (Replace Structure)", ImVec2(-1.0f, 0.0f)))
+        // ── Generate ───────────────────────────────────────────────────
+        ImGui::Spacing();
+        if (ImGui::Button("Generate Grain Boundary", ImVec2(-1.0f, 0.0f)))
         {
             if (sigmaCandidates.empty())
             {
@@ -865,7 +942,13 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
         }
 
         ImGui::Spacing();
-        drawBuildResultSummary(lastResult);
+        if (!lastResult.message.empty())
+        {
+            ImGui::SeparatorText("Result");
+            ImGui::BeginChild("##ResultScroll", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
+            drawBuildResultSummary(lastResult);
+            ImGui::EndChild();
+        }
 
         ImGui::EndPopup();
     }
