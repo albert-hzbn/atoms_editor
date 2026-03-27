@@ -1555,6 +1555,7 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
     // ── Static dialog state ────────────────────────────────────
     static Structure inputStructure;
     static char statusMsg[256] = "(no structure loaded)";
+    static char loadedFileName[256] = "(none)";
     static int axis[3] = {0, 0, 1};
     static int sigmaMax = 200;
     static std::vector<SigmaCandidate> sigmaCandidates;
@@ -1580,12 +1581,19 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
             if (!loaded.hasUnitCell)
             {
                 std::snprintf(statusMsg, sizeof(statusMsg), "Error: structure has no unit cell");
+                std::snprintf(loadedFileName, sizeof(loadedFileName), "(none)");
                 std::cout << "[CSL] Dropped file has no unit cell: " << m_pendingDropPath << std::endl;
             }
             else
             {
+                std::string fileName = m_pendingDropPath;
+                const size_t slashPos = fileName.find_last_of("/\\");
+                if (slashPos != std::string::npos)
+                    fileName = fileName.substr(slashPos + 1);
+
                 inputStructure = loaded;
                 std::snprintf(statusMsg, sizeof(statusMsg), "Loaded: %d atoms", (int)inputStructure.atoms.size());
+                std::snprintf(loadedFileName, sizeof(loadedFileName), "%s", fileName.c_str());
                 std::cout << "[CSL] Loaded input structure: " << m_pendingDropPath
                           << " (" << inputStructure.atoms.size() << " atoms)" << std::endl;
                 m_previewBufDirty = true;
@@ -1598,6 +1606,7 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
         else
         {
             std::snprintf(statusMsg, sizeof(statusMsg), "Error: %s", err.c_str());
+            std::snprintf(loadedFileName, sizeof(loadedFileName), "(none)");
             std::cout << "[CSL] Drop-load failed: " << m_pendingDropPath
                       << " (" << err << ")" << std::endl;
         }
@@ -1612,17 +1621,25 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
         m_isOpen = true;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(780.0f, 580.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(620.0f, 400.0f), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::SetNextWindowSize(ImVec2(1060.0f, 460.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(1060.0f, 340.0f), ImVec2(FLT_MAX, FLT_MAX));
     bool dialogOpen = true;
     if (ImGui::BeginPopupModal("CSL Grain Boundary Builder", &dialogOpen, ImGuiWindowFlags_None))
     {
-        // ── Input Structure ────────────────────────────────────
-        ImGui::SeparatorText("Input Structure");
-        {
-            constexpr float kPrevH = 260.0f;
+        constexpr float kLeftW  = 380.0f;
+        const float kContentH = ImGui::GetContentRegionAvail().y;
 
-            ImGui::InvisibleButton("##cslDropZone", ImVec2(-1.0f, kPrevH));
+        // ════════════════ LEFT: Structure preview ════════════════
+        ImGui::BeginChild("##cslLeft", ImVec2(kLeftW, kContentH), true);
+        ImGui::Text("Input Structure");
+        ImGui::Separator();
+        ImGui::Text("Status: %s", statusMsg);
+        ImGui::TextDisabled("File: %s", loadedFileName);
+        ImGui::Spacing();
+
+        {
+            const float prevH = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 2.0f;
+            ImGui::InvisibleButton("##cslDropZone", ImVec2(-1.0f, std::max(prevH, 80.0f)));
             ImDrawList* dl = ImGui::GetWindowDrawList();
             ImVec2 dropMin = ImGui::GetItemRectMin();
             ImVec2 dropMax = ImGui::GetItemRectMax();
@@ -1632,7 +1649,6 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
 
             if (inputStructure.hasUnitCell && !inputStructure.atoms.empty())
             {
-                // ── 3D preview ──
                 if (m_glReady) {
                     if (m_previewBufDirty)
                         rebuildPreviewBuffers(inputStructure, elementRadii, elementShininess);
@@ -1651,14 +1667,11 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
                                  prevMin, prevMax,
                                  ImVec2(0, 1), ImVec2(1, 0));
 
-                    // Orbit with left-drag
                     if (dropZoneActive && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)) {
                         ImVec2 delta = ImGui::GetIO().MouseDelta;
                         m_camYaw   -= delta.x * 0.5f;
                         m_camPitch += delta.y * 0.5f;
                     }
-
-                    // Zoom with scroll
                     if (dropZoneHovered) {
                         float wheel = ImGui::GetIO().MouseWheel;
                         if (wheel != 0.0f) {
@@ -1668,27 +1681,34 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
                         }
                     }
                 }
-
-                // Info line below preview
-                const auto& cv = inputStructure.cellVectors;
-                double la = std::sqrt(cv[0][0]*cv[0][0] + cv[0][1]*cv[0][1] + cv[0][2]*cv[0][2]);
-                double lb = std::sqrt(cv[1][0]*cv[1][0] + cv[1][1]*cv[1][1] + cv[1][2]*cv[1][2]);
-                double lc = std::sqrt(cv[2][0]*cv[2][0] + cv[2][1]*cv[2][1] + cv[2][2]*cv[2][2]);
-                ImGui::TextDisabled("a=%.3f  b=%.3f  c=%.3f A    %d atoms    Left-drag=orbit  Scroll=zoom",
-                                    la, lb, lc, (int)inputStructure.atoms.size());
             }
             else
             {
-                // Show drop hint
                 ImVec2 mid((dropMin.x + dropMax.x) * 0.5f, (dropMin.y + dropMax.y) * 0.5f);
                 dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
                             ImVec2(mid.x - 100.0f, mid.y - 10.0f),
                             ImGui::GetColorU32(ImGuiCol_TextDisabled),
-                            "Drop a crystal structure file here");
+                            "Drop a structure file here");
             }
         }
 
-        // ── Misorientation ─────────────────────────────────────
+        if (inputStructure.hasUnitCell && !inputStructure.atoms.empty())
+        {
+            const auto& cv = inputStructure.cellVectors;
+            double la = std::sqrt(cv[0][0]*cv[0][0] + cv[0][1]*cv[0][1] + cv[0][2]*cv[0][2]);
+            double lb = std::sqrt(cv[1][0]*cv[1][0] + cv[1][1]*cv[1][1] + cv[1][2]*cv[1][2]);
+            double lc = std::sqrt(cv[2][0]*cv[2][0] + cv[2][1]*cv[2][1] + cv[2][2]*cv[2][2]);
+            ImGui::TextDisabled("%d atoms  a=%.2f b=%.2f c=%.2f",
+                                (int)inputStructure.atoms.size(), la, lb, lc);
+            ImGui::TextDisabled("Drag=orbit  Scroll=zoom");
+        }
+
+        ImGui::EndChild(); // ##cslLeft
+
+        ImGui::SameLine();
+
+        // ════════════════ RIGHT: Options ════════════════════════
+        ImGui::BeginChild("##cslRight", ImVec2(0, kContentH), true);
         ImGui::SeparatorText("Misorientation");
         {
             ImGui::SetNextItemWidth(220.0f);
@@ -1822,9 +1842,12 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
                 ImGui::SetTooltip("If unchecked (default), reduce to the primitive cell.\nIf checked, keep the conventional (unreduced) cell.");
         }
 
-        // ── Generate ───────────────────────────────────────────
+        // ── Build ──────────────────────────────────────────────
         ImGui::Spacing();
-        if (ImGui::Button("Generate Grain Boundary", ImVec2(-1.0f, 0.0f)))
+        const float closeW = 110.0f;
+        const float buildW = 110.0f;
+
+        if (ImGui::Button("Build", ImVec2(buildW, 0.0f)))
         {
             if (!inputStructure.hasUnitCell || inputStructure.atoms.empty())
             {
@@ -1922,15 +1945,22 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
             }
         }
 
+        ImGui::SameLine();
+        if (ImGui::Button("Close", ImVec2(closeW, 0.0f)))
+        {
+            dialogOpen = false;
+            ImGui::CloseCurrentPopup();
+        }
+
         // ── Result ─────────────────────────────────────────────
         ImGui::Spacing();
         if (!lastResult.message.empty())
         {
             ImGui::SeparatorText("Result");
-            ImGui::BeginChild("##ResultScroll", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
             drawBuildResultSummary(lastResult);
-            ImGui::EndChild();
         }
+
+        ImGui::EndChild(); // ##cslRight
 
         ImGui::EndPopup();
     }
