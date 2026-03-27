@@ -63,6 +63,11 @@ set(ATOMFORGE_SOURCES
     src/ui/RadialDistributionAnalysis.cpp
     src/ui/StructureInfoDialog.cpp
     src/ui/TransformAtomsDialog.cpp
+    src/util/PathUtils.cpp
+    src/algorithms/CSLComputation.cpp
+    src/algorithms/NanoCrystalBuilder.cpp
+    src/algorithms/BulkCrystalBuilder.cpp
+    src/algorithms/InterfaceBuilder.cpp
     src/io/StructureLoader.cpp
     imgui/imgui.cpp
     imgui/imgui_draw.cpp
@@ -81,6 +86,8 @@ target_include_directories(AtomForge PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/math
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/src/io
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/util
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/algorithms
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui
 )
 
