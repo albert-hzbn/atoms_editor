@@ -110,6 +110,24 @@ struct FileBrowser
         requestViewAxisZ = false;
         return requested;
     }
+    bool consumeViewLatticeARequest()
+    {
+        bool requested = requestViewLatticeA;
+        requestViewLatticeA = false;
+        return requested;
+    }
+    bool consumeViewLatticeBRequest()
+    {
+        bool requested = requestViewLatticeB;
+        requestViewLatticeB = false;
+        return requested;
+    }
+    bool consumeViewLatticeCRequest()
+    {
+        bool requested = requestViewLatticeC;
+        requestViewLatticeC = false;
+        return requested;
+    }
     bool consumeResetDefaultViewRequest()
     {
         bool requested = requestResetDefaultView;
@@ -202,6 +220,9 @@ private:
     bool requestViewAxisX;
     bool requestViewAxisY;
     bool requestViewAxisZ;
+    bool requestViewLatticeA;
+    bool requestViewLatticeB;
+    bool requestViewLatticeC;
     bool requestResetDefaultView;
     bool requestStructureInfo;
     bool requestUndo;

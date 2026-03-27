@@ -19,6 +19,9 @@ struct FrameActionRequests
     bool requestViewAxisX = false;
     bool requestViewAxisY = false;
     bool requestViewAxisZ = false;
+    bool requestViewLatticeA = false;
+    bool requestViewLatticeB = false;
+    bool requestViewLatticeC = false;
 };
 
 FrameActionRequests beginFrameActionRequests(EditorState& state);

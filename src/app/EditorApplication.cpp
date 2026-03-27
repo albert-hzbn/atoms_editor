@@ -25,6 +25,7 @@
 
 #include <glm/glm.hpp>
 
+#include <cmath>
 #include <iostream>
 #include <string>
 
@@ -55,6 +56,9 @@ void mergeFileBrowserRequests(EditorState& state,
     requests.requestViewAxisX = requests.requestViewAxisX || state.fileBrowser.consumeViewAxisXRequest();
     requests.requestViewAxisY = requests.requestViewAxisY || state.fileBrowser.consumeViewAxisYRequest();
     requests.requestViewAxisZ = requests.requestViewAxisZ || state.fileBrowser.consumeViewAxisZRequest();
+    requests.requestViewLatticeA = requests.requestViewLatticeA || state.fileBrowser.consumeViewLatticeARequest();
+    requests.requestViewLatticeB = requests.requestViewLatticeB || state.fileBrowser.consumeViewLatticeBRequest();
+    requests.requestViewLatticeC = requests.requestViewLatticeC || state.fileBrowser.consumeViewLatticeCRequest();
 }
 
 void handleStructureResetRequests(EditorState& state)
@@ -90,8 +94,34 @@ void handleUndoRedoRequest(EditorState& state, const FrameActionRequests& reques
     }
 }
 
-void handleAxisViewRequest(Camera& camera, const FrameActionRequests& requests)
+void handleAxisViewRequest(Camera& camera,
+                           const FrameActionRequests& requests,
+                           const Structure& structure)
 {
+    auto setViewAlongVector = [&](int vectorIndex, const char* label) {
+        if (!structure.hasUnitCell || structure.atoms.empty())
+            return;
+
+        const float vx = (float)structure.cellVectors[vectorIndex][0];
+        const float vy = (float)structure.cellVectors[vectorIndex][1];
+        const float vz = (float)structure.cellVectors[vectorIndex][2];
+        const float len = std::sqrt(vx * vx + vy * vy + vz * vz);
+        if (len < 1e-6f)
+            return;
+
+        const float nx = vx / len;
+        const float ny = vy / len;
+        const float nz = vz / len;
+
+        float yClamped = ny;
+        if (yClamped > 1.0f) yClamped = 1.0f;
+        if (yClamped < -1.0f) yClamped = -1.0f;
+
+        camera.pitch = std::asin(yClamped) * 57.2957795f;
+        camera.yaw = std::atan2(nx, nz) * 57.2957795f;
+        std::cout << "[Operation] View perpendicular to lattice vector " << label << std::endl;
+    };
+
     if (requests.requestViewAxisX)
     {
         camera.yaw = 90.0f;
@@ -109,6 +139,18 @@ void handleAxisViewRequest(Camera& camera, const FrameActionRequests& requests)
         camera.yaw = 0.0f;
         camera.pitch = 0.0f;
         std::cout << "[Operation] View along Z axis" << std::endl;
+    }
+    else if (requests.requestViewLatticeA)
+    {
+        setViewAlongVector(0, "a");
+    }
+    else if (requests.requestViewLatticeB)
+    {
+        setViewAlongVector(1, "b");
+    }
+    else if (requests.requestViewLatticeC)
+    {
+        setViewAlongVector(2, "c");
     }
 }
 
@@ -316,7 +358,7 @@ int runAtomsEditor(const std::string& startupStructurePath)
         mergeFileBrowserRequests(state, requests, imageExportRequest, hasImageExportRequest);
         handleStructureResetRequests(state);
         handleUndoRedoRequest(state, requests);
-        handleAxisViewRequest(camera, requests);
+        handleAxisViewRequest(camera, requests, state.structure);
 
         // Keep scene overlays visible over the viewport but underneath UI popups/dialogs.
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();

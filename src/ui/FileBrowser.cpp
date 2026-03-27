@@ -313,6 +313,9 @@ FileBrowser::FileBrowser()
             requestViewAxisX(false),
             requestViewAxisY(false),
             requestViewAxisZ(false),
+            requestViewLatticeA(false),
+            requestViewLatticeB(false),
+            requestViewLatticeC(false),
             requestResetDefaultView(false),
             requestStructureInfo(false),
             requestUndo(false),
@@ -605,10 +608,21 @@ void FileBrowser::draw(Structure& structure,
             ImGui::SameLine(0.0f, 4.0f);
             if (ImGui::Button("Z##axis", ImVec2(40.0f, 0.0f)))
                 requestViewAxisZ = true;
-            
-            // Vertical separator with spacing
+
             ImGui::SameLine(0.0f, 16.0f);
-            ImGui::Text("|");
+
+            const bool hasInputCell = structure.hasUnitCell && !structure.atoms.empty();
+            if (!hasInputCell) ImGui::BeginDisabled();
+            if (ImGui::Button("a##latview", ImVec2(34.0f, 0.0f)))
+                requestViewLatticeA = true;
+            ImGui::SameLine(0.0f, 4.0f);
+            if (ImGui::Button("b##latview", ImVec2(34.0f, 0.0f)))
+                requestViewLatticeB = true;
+            ImGui::SameLine(0.0f, 4.0f);
+            if (ImGui::Button("c##latview", ImVec2(34.0f, 0.0f)))
+                requestViewLatticeC = true;
+            if (!hasInputCell) ImGui::EndDisabled();
+
             ImGui::SameLine(0.0f, 16.0f);
             
             // Measure section
