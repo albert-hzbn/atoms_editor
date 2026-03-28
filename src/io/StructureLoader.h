@@ -27,6 +27,12 @@ struct Structure
     bool hasUnitCell = false;
     std::array<std::array<double, 3>, 3> cellVectors;
     std::array<double, 3> cellOffset = {0.0, 0.0, 0.0};
+
+    // When > 0, appendPbcBoundaryImages uses this instead of the
+    // default tight tolerance so that atoms slightly off a cell face
+    // still get periodic-boundary copies.  Set by CSL grain-boundary
+    // builder to half the minimum layer spacing.
+    float pbcBoundaryTol = 0.0f;
 };
 
 void getDefaultElementColor(int atomicNumber, float& r, float& g, float& b);

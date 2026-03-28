@@ -84,9 +84,12 @@ void appendPbcBoundaryImages(const Structure& structure,
         // Mirror atoms on the low boundary to the high boundary.
         // After load-time wrapping, this handles face/edge/vertex continuity
         // without creating periodic images outside the displayed cell.
-        if (std::abs(frac.x) <= kPbcBoundaryTol) shiftsX.push_back(1);
-        if (std::abs(frac.y) <= kPbcBoundaryTol) shiftsY.push_back(1);
-        if (std::abs(frac.z) <= kPbcBoundaryTol) shiftsZ.push_back(1);
+        const float tol = structure.pbcBoundaryTol > 0.0f
+                        ? structure.pbcBoundaryTol
+                        : kPbcBoundaryTol;
+        if (std::abs(frac.x) <= tol) shiftsX.push_back(1);
+        if (std::abs(frac.y) <= tol) shiftsY.push_back(1);
+        if (std::abs(frac.z) <= tol) shiftsZ.push_back(1);
 
         for (int sx : shiftsX)
         {

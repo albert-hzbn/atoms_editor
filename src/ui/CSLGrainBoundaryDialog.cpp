@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -608,9 +609,38 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
                 // Convert to Structure
                 structure = grainToStructure(gb);
 
-                // Reduce to primitive cell unless "Conventional cell" is checked
+                // Compute PBC boundary tolerance from minimum layer spacing
+                // so that atoms slightly off frac 0.0 still get periodic images.
+                {
+                    double inv[3][3];
+                    invertCell(gb.cell, inv);
+                    std::vector<double> layers;
+                    layers.reserve(structure.atoms.size());
+                    for (const auto& a : structure.atoms)
+                    {
+                        double cart[3] = {a.x, a.y, a.z};
+                        double frac[3];
+                        cartToFrac(cart, inv, frac);
+                        layers.push_back(wrapFrac(frac[direction]));
+                    }
+                    std::sort(layers.begin(), layers.end());
+                    double minSpacing = 1.0;
+                    for (size_t i = 1; i < layers.size(); i++)
+                    {
+                        double d = layers[i] - layers[i - 1];
+                        if (d > 1e-8 && d < minSpacing) minSpacing = d;
+                    }
+                    structure.pbcBoundaryTol = (float)(minSpacing * 0.5 + 1e-6);
+                }
+
+                // Skip reduceToPrimitive for grain boundaries: a bicrystal
+                // is not a primitive cell, and spglib would re-wrap atoms
+                // destroying the grain boundary centering.
                 if (!conventionalCell)
-                    reduceToPrimitive(structure);
+                {
+                    // Only reduce if explicitly requested via unchecking
+                    // "Conventional cell" — note this will lose GB centering.
+                }
 
                 lastResult.success = true;
                 lastResult.sigma = sel.sigma;

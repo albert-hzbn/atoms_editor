@@ -1090,6 +1090,13 @@ Grain stackGrains(const Grain& grainA, const Grain& grainB, int dir, double vacu
     double newCellInv[3][3];
     invertCell(result.cell, newCellInv);
 
+    // Place atoms directly — no centering shift.
+    // The natural stacking already puts grainA at frac [0, ~0.5)
+    // and grainB at [~0.5, ~1.0), matching the aimsgb convention
+    // where the GB plane sits at frac 0.5 and the periodic boundary at 0.0.
+    double lVec[3] = {0, 0, 0};
+    lVec[dir] = l;
+
     for (size_t ai = 0; ai < grainA.atoms.size(); ai++)
     {
         double cart[3] = {grainA.atoms[ai].x, grainA.atoms[ai].y, grainA.atoms[ai].z};
@@ -1103,9 +1110,6 @@ Grain stackGrains(const Grain& grainA, const Grain& grainB, int dir, double vacu
         a.x = newCart[0]; a.y = newCart[1]; a.z = newCart[2];
         result.atoms.push_back(a);
     }
-
-    double lVec[3] = {0, 0, 0};
-    lVec[dir] = l;
 
     for (size_t ai = 0; ai < grainB.atoms.size(); ai++)
     {
