@@ -5,7 +5,3 @@ src/**/*.o
 src/**/*.d
 imgui/*.o
 imgui/*.d
-
-src/AtomForge
-src/AtomForge.exe
-src/dist/

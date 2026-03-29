@@ -377,6 +377,7 @@ StructureInstanceData buildStructureInstanceData(
         Structure result;
         result.hasUnitCell = true;
         result.cellOffset  = structure.cellOffset;
+        const bool hasGrainColors = structure.grainColors.size() == structure.atoms.size();
 
         glm::vec3 aT = (float)transformMatrix[0][0]*a + (float)transformMatrix[0][1]*b + (float)transformMatrix[0][2]*c;
         glm::vec3 bT = (float)transformMatrix[1][0]*a + (float)transformMatrix[1][1]*b + (float)transformMatrix[1][2]*c;
@@ -385,8 +386,9 @@ StructureInstanceData buildStructureInstanceData(
         result.cellVectors[1] = { (double)bT.x, (double)bT.y, (double)bT.z };
         result.cellVectors[2] = { (double)cT.x, (double)cT.y, (double)cT.z };
 
-        for (const auto& atom : structure.atoms)
+        for (size_t atomIndex = 0; atomIndex < structure.atoms.size(); ++atomIndex)
         {
+            const auto& atom = structure.atoms[atomIndex];
             glm::vec3 worldPos((float)atom.x, (float)atom.y, (float)atom.z);
             glm::vec3 frac = invCellMat * (worldPos - origin);
             frac.x -= std::floor(frac.x);
@@ -411,6 +413,8 @@ StructureInstanceData buildStructureInstanceData(
                 site.y = (double)newWorld.y;
                 site.z = (double)newWorld.z;
                 result.atoms.push_back(site);
+                if (hasGrainColors)
+                    result.grainColors.push_back(structure.grainColors[atomIndex]);
             }
         }
 

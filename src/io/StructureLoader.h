@@ -33,6 +33,11 @@ struct Structure
     // still get periodic-boundary copies.  Set by CSL grain-boundary
     // builder to half the minimum layer spacing.
     float pbcBoundaryTol = 0.0f;
+
+    // Per-atom grain orientation colors (IPF-Z). Populated by the polycrystal
+    // builder. When non-empty (same size as atoms), "Crystal Orientation"
+    // coloring mode is available.
+    std::vector<std::array<float, 3>> grainColors;
 };
 
 void getDefaultElementColor(int atomicNumber, float& r, float& g, float& b);

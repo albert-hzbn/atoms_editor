@@ -72,6 +72,30 @@ void updateBuffers(EditorState& state)
         }
     }
 
+    // Override with grain orientation colors when Crystal Orientation mode is active
+    if (state.fileBrowser.getAtomColorMode() == AtomColorMode::CrystalOrientation)
+    {
+        if (state.structure.grainColors.size() == state.structure.atoms.size())
+        {
+            for (size_t i = 0; i < state.structure.atoms.size(); ++i)
+            {
+                state.structure.atoms[i].r = state.structure.grainColors[i][0];
+                state.structure.atoms[i].g = state.structure.grainColors[i][1];
+                state.structure.atoms[i].b = state.structure.grainColors[i][2];
+            }
+        }
+        else
+        {
+            // No per-atom grain colors: assume identity orientation (IPF-Z [001] = red)
+            for (size_t i = 0; i < state.structure.atoms.size(); ++i)
+            {
+                state.structure.atoms[i].r = 1.0f;
+                state.structure.atoms[i].g = 0.0f;
+                state.structure.atoms[i].b = 0.0f;
+            }
+        }
+    }
+
     StructureInstanceData data = buildStructureInstanceData(
         state.structure,
         state.fileBrowser.isTransformMatrixEnabled(),

@@ -61,3 +61,9 @@ void drawOrientationAxesOverlay(ImDrawList* drawList,
                                 const glm::mat4& view,
                                 int viewportWidth,
                                 int viewportHeight);
+
+// Draw the IPF (Inverse Pole Figure) standard triangle legend for cubic
+// crystal orientation coloring.  Placed in the bottom-right corner.
+void drawIPFTriangleLegend(ImDrawList* drawList,
+                           int viewportWidth,
+                           int viewportHeight);

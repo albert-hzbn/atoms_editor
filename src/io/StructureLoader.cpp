@@ -13,8 +13,13 @@
 #include <array>
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+#include <unordered_map>
 #include <vector>
 #include <sys/stat.h>
 
@@ -33,6 +38,189 @@
 
 namespace
 {
+constexpr const char* kIpfSidecarSuffix = ".atomforge-ipf";
+
+struct IpfKey
+{
+    int atomicNumber = 0;
+    long long qx = 0;
+    long long qy = 0;
+    long long qz = 0;
+
+    bool operator==(const IpfKey& other) const
+    {
+        return atomicNumber == other.atomicNumber
+            && qx == other.qx
+            && qy == other.qy
+            && qz == other.qz;
+    }
+};
+
+struct IpfKeyHash
+{
+    size_t operator()(const IpfKey& key) const
+    {
+        size_t h = (size_t)key.atomicNumber;
+        h ^= (size_t)(key.qx * 73856093ll);
+        h ^= (size_t)(key.qy * 19349663ll);
+        h ^= (size_t)(key.qz * 83492791ll);
+        return h;
+    }
+};
+
+struct IpfRecord
+{
+    IpfKey key;
+    std::array<float, 3> color = {{0.0f, 0.0f, 0.0f}};
+};
+
+long long quantizeIpfCoord(double value)
+{
+    return (long long)std::llround(value * 10000.0);
+}
+
+IpfKey makeIpfKey(int atomicNumber, double x, double y, double z)
+{
+    IpfKey key;
+    key.atomicNumber = atomicNumber;
+    key.qx = quantizeIpfCoord(x);
+    key.qy = quantizeIpfCoord(y);
+    key.qz = quantizeIpfCoord(z);
+    return key;
+}
+
+std::string ipfSidecarPath(const std::string& filename)
+{
+    return filename + kIpfSidecarSuffix;
+}
+
+void removeIpfSidecar(const std::string& filename)
+{
+    const std::string path = ipfSidecarPath(filename);
+    std::remove(path.c_str());
+}
+
+bool saveIpfSidecar(const Structure& structure, const std::string& filename)
+{
+    if (structure.grainColors.size() != structure.atoms.size() || structure.atoms.empty())
+    {
+        removeIpfSidecar(filename);
+        return true;
+    }
+
+    const std::string path = ipfSidecarPath(filename);
+    std::ofstream out(path.c_str(), std::ios::out | std::ios::trunc);
+    if (!out)
+        return false;
+
+    out << "ATOMFORGE_IPF_V1\n";
+    out << structure.atoms.size() << "\n";
+    out << std::setprecision(17);
+    for (size_t i = 0; i < structure.atoms.size(); ++i)
+    {
+        const AtomSite& atom = structure.atoms[i];
+        const std::array<float, 3>& color = structure.grainColors[i];
+        out << atom.atomicNumber << ' '
+            << atom.x << ' ' << atom.y << ' ' << atom.z << ' '
+            << color[0] << ' ' << color[1] << ' ' << color[2] << '\n';
+    }
+
+    return out.good();
+}
+
+bool loadIpfSidecarRecords(const std::string& filename,
+                          std::vector<IpfRecord>& records)
+{
+    records.clear();
+
+    const std::string path = ipfSidecarPath(filename);
+    std::ifstream in(path.c_str());
+    if (!in)
+        return false;
+
+    std::string header;
+    std::getline(in, header);
+    if (header != "ATOMFORGE_IPF_V1")
+        return false;
+
+    size_t count = 0;
+    in >> count;
+    if (!in)
+        return false;
+
+    records.reserve(count);
+    for (size_t i = 0; i < count; ++i)
+    {
+        int atomicNumber = 0;
+        double x = 0.0, y = 0.0, z = 0.0;
+        float r = 0.0f, g = 0.0f, b = 0.0f;
+        in >> atomicNumber >> x >> y >> z >> r >> g >> b;
+        if (!in)
+            return false;
+
+        IpfRecord record;
+        record.key = makeIpfKey(atomicNumber, x, y, z);
+        record.color = {{r, g, b}};
+        records.push_back(record);
+    }
+
+    return true;
+}
+
+bool restoreIpfSidecar(const std::string& filename, Structure& structure)
+{
+    if (structure.atoms.empty())
+        return false;
+
+    std::vector<IpfRecord> records;
+    if (!loadIpfSidecarRecords(filename, records))
+        return false;
+    if (records.size() != structure.atoms.size())
+        return false;
+
+    std::unordered_multimap<IpfKey, size_t, IpfKeyHash> byKey;
+    byKey.reserve(structure.atoms.size());
+    for (size_t i = 0; i < structure.atoms.size(); ++i)
+    {
+        const AtomSite& atom = structure.atoms[i];
+        byKey.insert(std::make_pair(makeIpfKey(atom.atomicNumber, atom.x, atom.y, atom.z), i));
+    }
+
+    std::vector<std::array<float, 3>> restored(structure.atoms.size(), {{0.0f, 0.0f, 0.0f}});
+    std::vector<bool> assigned(structure.atoms.size(), false);
+    size_t matched = 0;
+
+    for (size_t i = 0; i < records.size(); ++i)
+    {
+        auto range = byKey.equal_range(records[i].key);
+        size_t chosen = structure.atoms.size();
+        for (auto it = range.first; it != range.second; ++it)
+        {
+            if (!assigned[it->second])
+            {
+                chosen = it->second;
+                break;
+            }
+        }
+        if (chosen == structure.atoms.size())
+            break;
+
+        restored[chosen] = records[i].color;
+        assigned[chosen] = true;
+        ++matched;
+    }
+
+    if (matched != structure.atoms.size())
+    {
+        // Fallback for formats that preserve atom order but perturb coordinates.
+        for (size_t i = 0; i < structure.atoms.size(); ++i)
+            restored[i] = records[i].color;
+    }
+
+    structure.grainColors.swap(restored);
+    return true;
+}
+
 std::string normalizeSeparators(const std::string& path)
 {
     std::string out = path;
@@ -807,6 +995,8 @@ bool loadStructureFromFile(const std::string& filename, Structure& structure, st
     if (structure.hasUnitCell)
         wrapAtomsIntoPrimaryCell(structure);
 
+    restoreIpfSidecar(filename, structure);
+
     if (structure.atoms.empty())
     {
         errorMessage = "File loaded but no atoms were found.";
@@ -870,5 +1060,8 @@ bool saveStructure(const Structure& structure, const std::string& filename, cons
         return false;
 
     conv.SetOutFormat(outFmt);
-    return conv.WriteFile(&mol, filename);
+    if (!conv.WriteFile(&mol, filename))
+        return false;
+
+    return saveIpfSidecar(structure, filename);
 }

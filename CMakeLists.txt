@@ -54,6 +54,7 @@ set(ATOMFORGE_SOURCES
     src/ui/BulkCrystalBuilderDialog.cpp
     src/ui/CSLGrainBoundaryDialog.cpp
     src/ui/NanoCrystalBuilderDialog.cpp
+    src/ui/PolyCrystalBuilderDialog.cpp
     src/ui/InterfaceBuilderDialog.cpp
     src/ui/CommonNeighbourAnalysis.cpp
     src/ui/EditMenuDialogs.cpp
@@ -68,6 +69,7 @@ set(ATOMFORGE_SOURCES
     src/util/PathUtils.cpp
     src/algorithms/CSLComputation.cpp
     src/algorithms/NanoCrystalBuilder.cpp
+    src/algorithms/PolyCrystalBuilder.cpp
     src/algorithms/BulkCrystalBuilder.cpp
     src/algorithms/InterfaceBuilder.cpp
     src/io/StructureLoader.cpp

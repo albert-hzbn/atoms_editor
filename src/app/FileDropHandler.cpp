@@ -61,6 +61,12 @@ void processDroppedFiles(EditorState& state)
         return;
     }
 
+    if (state.fileBrowser.isPolyCrystalDialogOpen())
+    {
+        state.fileBrowser.feedDropToPolyCrystalDialog(droppedFile);
+        return;
+    }
+
     Structure loadedStructure;
     std::string loadError;
     if (!loadStructureFromFile(droppedFile, loadedStructure, loadError))

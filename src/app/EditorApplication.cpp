@@ -464,6 +464,7 @@ int runAtomsEditor(const std::string& startupStructurePath)
     state.fileBrowser.initNanoCrystalRenderResources(renderer);
     state.fileBrowser.initInterfaceBuilderRenderResources(renderer);
     state.fileBrowser.initCSLGrainBoundaryRenderResources(renderer);
+    state.fileBrowser.initPolyCrystalRenderResources(renderer);
 
     ShadowMap shadow = createShadowMap(1024, 1024);
 
@@ -592,6 +593,15 @@ int runAtomsEditor(const std::string& startupStructurePath)
             frame.view,
             frame.framebufferWidth,
             frame.framebufferHeight);
+
+        // Draw IPF triangle legend when Crystal Orientation coloring is active
+        if (state.fileBrowser.getAtomColorMode() == AtomColorMode::CrystalOrientation)
+        {
+            drawIPFTriangleLegend(
+                drawList,
+                frame.framebufferWidth,
+                frame.framebufferHeight);
+        }
 
         ImGui::Render();
 

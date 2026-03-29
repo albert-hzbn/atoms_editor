@@ -5,6 +5,7 @@
 #include "ui/CSLGrainBoundaryDialog.h"
 #include "ui/NanoCrystalBuilderDialog.h"
 #include "ui/InterfaceBuilderDialog.h"
+#include "ui/PolyCrystalBuilderDialog.h"
 #include "ui/CommonNeighbourAnalysis.h"
 #include "ui/RadialDistributionAnalysis.h"
 #include "ui/TransformAtomsDialog.h"
@@ -20,6 +21,12 @@ enum class ViewMode
 {
     Isometric,
     Orthographic,
+};
+
+enum class AtomColorMode
+{
+    ElementType = 0,
+    CrystalOrientation,
 };
 
 enum class ImageExportFormat
@@ -71,6 +78,9 @@ struct FileBrowser
     const std::array<bool, 119>& getBondElementFilterMask() const { return bondElementFilterMask; }
     bool isOrthographicViewEnabled() const { return viewMode == ViewMode::Orthographic; }
     bool isBoxSelectModeEnabled() const { return boxSelectMode; }
+    AtomColorMode getAtomColorMode() const { return atomColorMode; }
+    bool atomColorModeChanged();
+    void setAtomColorMode(AtomColorMode mode) { atomColorMode = mode; atomColorModeJustChanged = true; }
     bool isShowLatticePlanesEnabled() const { return showLatticePlanes; }
     const std::vector<LatticePlane>& getLatticePlanes() const { return latticePlanes; }
     void clearLatticePlanes() { latticePlanes.clear(); }
@@ -195,6 +205,11 @@ struct FileBrowser
     bool isInterfaceBuilderDialogOpen() const;
     void feedDropToInterfaceBuilderDialog(const std::string& path);
 
+    // Polycrystal builder dialog GL resources and drop routing.
+    void initPolyCrystalRenderResources(Renderer& renderer);
+    bool isPolyCrystalDialogOpen() const;
+    void feedDropToPolyCrystalDialog(const std::string& path);
+
     // Show a modal error popup for file-load failures.
     void showLoadError(const std::string& message);
 
@@ -213,6 +228,8 @@ private:
     bool showLatticePlanesDialog;
     bool bondElementFilterEnabled;
     ViewMode viewMode;
+    AtomColorMode atomColorMode;
+    bool atomColorModeJustChanged;
     bool boxSelectMode;
     bool requestMeasureDistance;
     bool requestMeasureAngle;
@@ -282,6 +299,7 @@ private:
     CSLGrainBoundaryDialog cslDialog;
     NanoCrystalBuilderDialog nanoCrystalDialog;
     InterfaceBuilderDialog interfaceBuilderDialog;
+    PolyCrystalBuilderDialog polyCrystalDialog;
     CommonNeighbourAnalysisDialog cnaDialog;
     RadialDistributionAnalysisDialog rdfDialog;
     TransformAtomsDialog transformDialog;

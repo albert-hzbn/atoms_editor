@@ -55,6 +55,8 @@ FileBrowser::FileBrowser()
             showLatticePlanesDialog(false),
             bondElementFilterEnabled(false),
             viewMode(ViewMode::Orthographic),
+            atomColorMode(AtomColorMode::ElementType),
+            atomColorModeJustChanged(false),
             boxSelectMode(false),
             requestMeasureDistance(false),
             requestMeasureAngle(false),
@@ -257,6 +259,7 @@ void FileBrowser::draw(Structure& structure,
             cslDialog.drawMenuItem(true);
             nanoCrystalDialog.drawMenuItem(true);
             interfaceBuilderDialog.drawMenuItem(true);
+            polyCrystalDialog.drawMenuItem(true);
             ImGui::EndMenu();
         }
 
@@ -279,6 +282,33 @@ void FileBrowser::draw(Structure& structure,
             }
             if (bondFilterChanged)
                 updateBuffers(structure);
+            ImGui::Separator();
+
+            if (ImGui::BeginMenu("Color Structure By"))
+            {
+                if (ImGui::MenuItem("Element Type", nullptr,
+                                    atomColorMode == AtomColorMode::ElementType))
+                {
+                    if (atomColorMode != AtomColorMode::ElementType)
+                    {
+                        atomColorMode = AtomColorMode::ElementType;
+                        atomColorModeJustChanged = true;
+                        updateBuffers(structure);
+                    }
+                }
+                if (ImGui::MenuItem("Crystal Orientation", nullptr,
+                                    atomColorMode == AtomColorMode::CrystalOrientation))
+                {
+                    if (atomColorMode != AtomColorMode::CrystalOrientation)
+                    {
+                        atomColorMode = AtomColorMode::CrystalOrientation;
+                        atomColorModeJustChanged = true;
+                        updateBuffers(structure);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+
             ImGui::Separator();
 
             ImGui::MenuItem("Show Lattice Planes", nullptr, &showLatticePlanes, structure.hasUnitCell);
@@ -402,6 +432,9 @@ void FileBrowser::draw(Structure& structure,
     interfaceBuilderDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                       editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
                                       updateBuffers);
+    polyCrystalDialog.drawDialog(structure, editMenuDialogs.elementColors,
+                                 editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
+                                 updateBuffers);
     cnaDialog.drawDialog(structure);
     rdfDialog.drawDialog(structure);
 
@@ -1275,6 +1308,21 @@ void FileBrowser::feedDropToInterfaceBuilderDialog(const std::string& path)
     interfaceBuilderDialog.feedDroppedFile(path);
 }
 
+void FileBrowser::initPolyCrystalRenderResources(Renderer& renderer)
+{
+    polyCrystalDialog.initRenderResources(renderer);
+}
+
+bool FileBrowser::isPolyCrystalDialogOpen() const
+{
+    return polyCrystalDialog.isOpen();
+}
+
+void FileBrowser::feedDropToPolyCrystalDialog(const std::string& path)
+{
+    polyCrystalDialog.feedDroppedFile(path);
+}
+
 void FileBrowser::showLoadError(const std::string& message)
 {
     std::snprintf(
@@ -1283,6 +1331,13 @@ void FileBrowser::showLoadError(const std::string& message)
         "%s",
         message.empty() ? "Failed to load file." : message.c_str());
     loadErrorPopupRequested = true;
+}
+
+bool FileBrowser::atomColorModeChanged()
+{
+    bool changed = atomColorModeJustChanged;
+    atomColorModeJustChanged = false;
+    return changed;
 }
 
 void FileBrowser::pushHistory(const std::string& dir)

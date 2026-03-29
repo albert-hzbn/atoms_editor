@@ -809,3 +809,194 @@ void drawOrientationAxesOverlay(ImDrawList* drawList,
 
     drawOrientationAxesGizmo(drawList, view, viewportHeight);
 }
+
+// ---------------------------------------------------------------------------
+// IPF triangle legend (cubic symmetry, Z-direction)
+// ---------------------------------------------------------------------------
+
+namespace
+{
+// Compute IPF color from a crystal direction in the standard triangle.
+// h >= k >= l >= 0, normalized.
+static ImU32 ipfDirToColor(float h, float k, float l)
+{
+    float r = h - k;
+    float g = k - l;
+    float b = l * 1.7320508f;
+    float maxC = std::max({r, g, b, 1e-6f});
+    r /= maxC; g /= maxC; b /= maxC;
+    return IM_COL32((int)(r * 255), (int)(g * 255), (int)(b * 255), 255);
+}
+} // namespace
+
+void drawIPFTriangleLegend(ImDrawList* drawList,
+                           int viewportWidth,
+                           int viewportHeight)
+{
+    if (!drawList || viewportWidth < 200 || viewportHeight < 200)
+        return;
+
+    // Triangle size and position (bottom-right corner)
+    const float triSize = 140.0f;
+    const float margin  = 20.0f;
+    const float labelGap = 6.0f;
+    const float boxPadX = 3.0f;
+    const float boxPadY = 1.0f;
+
+    ImFont* font = ImGui::GetFont();
+    const float fontSize = ImGui::GetFontSize();
+
+    const char* title = "IPF-Z (cubic)";
+    const char* lbl001 = "[001]";
+    const char* lbl011 = "[011]";
+    const char* lbl111 = "[111]";
+
+    ImVec2 titleSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, title);
+    ImVec2 sz001 = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, lbl001);
+    ImVec2 sz011 = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, lbl011);
+    ImVec2 sz111 = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, lbl111);
+
+    // Reserve enough room for the right-side label and centered title so nothing clips.
+    const float titleOverhang = std::max(0.0f, (titleSize.x - triSize) * 0.5f);
+    const float rightReserve = std::max(sz011.x + boxPadX * 2.0f, titleOverhang + 4.0f);
+
+    // The standard triangle vertices in a 2D layout:
+    //   [001] at bottom-left   -> Red
+    //   [011] at bottom-right  -> Green
+    //   [111] at top           -> Blue
+    //
+    // Stereographic projection positions (approximate):
+    //   [001] = (0, 0)
+    //   [011] = (1, 0)    (on equator, 45° from [001])
+    //   [111] = (0.5, ~0.61)  (above midpoint)
+    //
+    // We'll use a simplified right triangle layout for clarity:
+    //   [001] bottom-left, [011] bottom-right, [111] top-right area
+
+    const float ox = (float)viewportWidth  - margin - rightReserve - triSize;
+    const float oy = (float)viewportHeight - margin;
+
+    // Triangle corners in screen space:
+    // V0 = [001] bottom-left
+    // V1 = [011] bottom-right
+    // V2 = [111] top (we offset it right and up for the standard triangle shape)
+    const ImVec2 v0(ox,              oy);                    // [001]
+    const ImVec2 v1(ox + triSize,    oy);                    // [011]
+    const ImVec2 v2(ox + triSize * 0.58f, oy - triSize * 0.82f); // [111]
+
+    // Draw filled triangle with colored sub-triangles for smooth gradient
+    // We sample the triangle on a grid and draw small colored triangles.
+    const int kSteps = 30;
+    for (int i = 0; i < kSteps; ++i)
+    {
+        for (int j = 0; j <= i; ++j)
+        {
+            // Barycentric coordinates for grid point
+            float u0 = 1.0f - (float)i / kSteps;
+            float u1 = (float)j / kSteps;
+            float u2 = 1.0f - u0 - u1;
+            if (u2 < -0.001f) continue;
+
+            // Next row points
+            float u0b = 1.0f - (float)(i + 1) / kSteps;
+            float u1b = (float)j / kSteps;
+            float u2b = 1.0f - u0b - u1b;
+
+            float u1c = (float)(j + 1) / kSteps;
+            float u2c = 1.0f - u0b - u1c;
+
+            // Map barycentric to crystal direction:
+            // [001] = (0,0,1), [011] = (0,1,1)/sqrt2, [111] = (1,1,1)/sqrt3
+            auto baryToDir = [](float b0, float b1, float b2, float& h, float& k, float& l) {
+                // Interpolate in crystal direction space
+                h = b2 * (1.0f / 1.7320508f);                      // [111] contribution
+                k = b1 * (1.0f / 1.4142136f) + b2 * (1.0f / 1.7320508f); // [011] + [111]
+                l = b0 * 1.0f + b1 * (1.0f / 1.4142136f) + b2 * (1.0f / 1.7320508f);
+                // Sort: l >= k >= h to match convention (largest first)
+                if (l < k) std::swap(l, k);
+                if (l < h) std::swap(l, h);
+                if (k < h) std::swap(k, h);
+                float len = std::sqrt(h * h + k * k + l * l);
+                if (len > 1e-10f) { h /= len; k /= len; l /= len; }
+            };
+
+            auto baryToScreen = [&](float b0, float b1, float b2) -> ImVec2 {
+                return ImVec2(b0 * v0.x + b1 * v1.x + b2 * v2.x,
+                              b0 * v0.y + b1 * v1.y + b2 * v2.y);
+            };
+
+            // Triangle A: (i,j) -> (i+1,j) -> (i+1,j+1)
+            if (u2b >= -0.001f && u2c >= -0.001f)
+            {
+                ImVec2 pA = baryToScreen(u0, u1, std::max(u2, 0.0f));
+                ImVec2 pB = baryToScreen(u0b, u1b, std::max(u2b, 0.0f));
+                ImVec2 pC = baryToScreen(u0b, u1c, std::max(u2c, 0.0f));
+
+                float h, k, l;
+                float bc0 = (u0 + u0b + u0b) / 3.0f;
+                float bc1 = (u1 + u1b + u1c) / 3.0f;
+                float bc2 = 1.0f - bc0 - bc1;
+                baryToDir(bc0, bc1, std::max(bc2, 0.0f), h, k, l);
+                ImU32 col = ipfDirToColor(l, k, h);
+
+                drawList->AddTriangleFilled(pA, pB, pC, col);
+            }
+
+            // Triangle B (upward): (i,j) -> (i,j+1) -> (i+1,j+1)  [only if valid]
+            if (j < i)
+            {
+                float u1d = (float)(j + 1) / kSteps;
+                float u2d = 1.0f - u0 - u1d;
+                if (u2d >= -0.001f && u2c >= -0.001f)
+                {
+                    ImVec2 pA = baryToScreen(u0, u1, std::max(u2, 0.0f));
+                    ImVec2 pB = baryToScreen(u0, u1d, std::max(u2d, 0.0f));
+                    ImVec2 pC = baryToScreen(u0b, u1c, std::max(u2c, 0.0f));
+
+                    float h, k, l;
+                    float bc0 = (u0 + u0 + u0b) / 3.0f;
+                    float bc1 = (u1 + u1d + u1c) / 3.0f;
+                    float bc2 = 1.0f - bc0 - bc1;
+                    baryToDir(bc0, bc1, std::max(bc2, 0.0f), h, k, l);
+                    ImU32 col = ipfDirToColor(l, k, h);
+
+                    drawList->AddTriangleFilled(pA, pB, pC, col);
+                }
+            }
+        }
+    }
+
+    // Draw border
+    drawList->AddTriangle(v0, v1, v2, IM_COL32(200, 200, 200, 255), 2.0f);
+
+    // Draw vertex labels
+    ImVec2 pos111(v2.x - sz111.x * 0.5f, v2.y - sz111.y - labelGap);
+    ImVec2 titlePos(ox + triSize * 0.5f - titleSize.x * 0.5f,
+                    pos111.y - titleSize.y - labelGap);
+    drawList->AddRectFilled(
+        ImVec2(titlePos.x - 4, titlePos.y - 2),
+        ImVec2(titlePos.x + titleSize.x + 4, titlePos.y + titleSize.y + 2),
+        IM_COL32(30, 30, 30, 200), 3.0f);
+    drawList->AddText(titlePos, IM_COL32(220, 220, 220, 255), title);
+
+    // Keep the bottom labels above the base edge so they stay inside the legend area.
+    ImVec2 pos001(v0.x, v0.y - sz001.y - labelGap);
+    drawList->AddRectFilled(
+        ImVec2(pos001.x - boxPadX, pos001.y - boxPadY),
+        ImVec2(pos001.x + sz001.x + boxPadX, pos001.y + sz001.y + boxPadY),
+        IM_COL32(30, 30, 30, 200), 2.0f);
+    drawList->AddText(pos001, IM_COL32(255, 80, 80, 255), lbl001);
+
+    ImVec2 pos011(v1.x - sz011.x, v1.y - sz011.y - labelGap);
+    drawList->AddRectFilled(
+        ImVec2(pos011.x - boxPadX, pos011.y - boxPadY),
+        ImVec2(pos011.x + sz011.x + boxPadX, pos011.y + sz011.y + boxPadY),
+        IM_COL32(30, 30, 30, 200), 2.0f);
+    drawList->AddText(pos011, IM_COL32(80, 255, 80, 255), lbl011);
+
+    drawList->AddRectFilled(
+        ImVec2(pos111.x - boxPadX, pos111.y - boxPadY),
+        ImVec2(pos111.x + sz111.x + boxPadX, pos111.y + sz111.y + boxPadY),
+        IM_COL32(30, 30, 30, 200), 2.0f);
+    drawList->AddText(pos111, IM_COL32(100, 100, 255, 255), lbl111);
+}
