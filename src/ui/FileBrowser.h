@@ -17,6 +17,15 @@
 #include <unordered_map>
 #include <vector>
 
+struct Renderer;
+
+struct ToastNotification
+{
+    std::string message;
+    double expiresAt = 0.0;
+    bool isError = false;
+};
+
 enum class ViewMode
 {
     Isometric,
@@ -214,12 +223,15 @@ struct FileBrowser
     void showLoadError(const std::string& message);
     // Show a modal informational popup for successful load status.
     void showLoadInfo(const std::string& message);
+    // Show a transient notification toast.
+    void showNotification(const std::string& message, bool isError = false);
 
 private:
     void updateBondElementFilterMask();
     void pushHistory(const std::string& dir);
     static std::string toLower(const std::string& s);
     bool isAllowedFile(const std::string& name) const;
+    void drawNotifications();
 
     bool showAbout;
     bool showManual;
@@ -278,6 +290,7 @@ private:
     char saveStatusMsg[256];
     char exportFilename[1024];
     char exportStatusMsg[256];
+    std::vector<ToastNotification> notifications;
 
     int selectedAtomicNumber;
 

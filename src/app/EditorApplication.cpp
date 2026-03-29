@@ -396,6 +396,7 @@ void handleImageExportIfRequested(bool hasImageExportRequest,
 
     if (exportOk)
     {
+        state.fileBrowser.showNotification(std::string("Image exported: ") + imageExportRequest.outputPath);
         std::cout << "[Operation] Image exported: " << imageExportRequest.outputPath << std::endl;
         return;
     }
@@ -430,7 +431,7 @@ void loadStartupStructureIfRequested(EditorState& state, const std::string& star
     state.structure = std::move(loadedStructure);
     state.fileBrowser.initFromPath(startupStructurePath);
     state.fileBrowser.applyElementColorOverrides(state.structure);
-    state.fileBrowser.showLoadInfo(state.structure.ipfLoadStatus);
+    state.fileBrowser.showLoadInfo(std::string("Structure loaded. ") + state.structure.ipfLoadStatus);
     state.pendingDefaultViewReset = true;
 
     std::cout << "[Operation] Startup-loaded structure: " << startupStructurePath
