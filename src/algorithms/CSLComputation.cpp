@@ -545,6 +545,11 @@ std::vector<SigmaCandidate> computeGBInfo(const int axisIn[3], int maxSigma)
 
     float axisNorm = std::sqrt((float)axisNorm2);
 
+    // Check if this is a principal axis: sorted abs values are {0,0,1}
+    int sortedAbs[3] = {std::abs(axis[0]), std::abs(axis[1]), std::abs(axis[2])};
+    std::sort(sortedAbs, sortedAbs + 3);
+    bool isPrincipalAxis = (sortedAbs[0] == 0 && sortedAbs[1] == 0 && sortedAbs[2] == 1);
+
     struct TMN { double theta; int m; int n; };
     std::map<int, std::vector<TMN>> sigmaTMN;
 
@@ -570,6 +575,30 @@ std::vector<SigmaCandidate> computeGBInfo(const int axisIn[3], int maxSigma)
         }
     }
 
+    // Helper: check if a CSL row is a positive standard basis vector
+    auto isStdBasisRow = [](const int v[3]) -> bool {
+        return (v[0]*v[0] + v[1]*v[1] + v[2]*v[2] == 1) &&
+               (v[0] + v[1] + v[2] == 1);
+    };
+
+    // Helper: fill SigmaCandidate from CSL int matrix
+    auto fillCandidate = [](SigmaCandidate& c, int sigma, int m, int n, float theta,
+                            const int csl[3][3]) {
+        c.sigma = sigma;
+        c.m = m;
+        c.n = n;
+        c.thetaDeg = theta;
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+                c.csl[i][j] = csl[i][j];
+        for (int col = 0; col < 3; col++)
+        {
+            c.plane[col][0] = csl[0][col];
+            c.plane[col][1] = csl[1][col];
+            c.plane[col][2] = csl[2][col];
+        }
+    };
+
     std::vector<SigmaCandidate> result;
     for (std::map<int, std::vector<TMN>>::iterator it = sigmaTMN.begin(); it != sigmaTMN.end(); ++it)
     {
@@ -584,21 +613,84 @@ std::vector<SigmaCandidate> computeGBInfo(const int axisIn[3], int maxSigma)
         M3 cslOrtho = orthogonalizeCsl(cslRaw, axis);
         M3 cslReduced = reduceCsl(cslOrtho);
 
-        SigmaCandidate cand;
-        cand.sigma = sigma;
-        cand.m = entries[0].m;
-        cand.n = entries[0].n;
-        cand.thetaDeg = (float)minTheta;
-        roundToInt3x3(cslReduced, cand.csl);
+        int cslInt[3][3];
+        roundToInt3x3(cslReduced, cslInt);
 
-        for (int col = 0; col < 3; col++)
+        // For principal axes, derive second CSL by modifying m,n in rows
+        // (matches aimsgb ext_csl algorithm)
+        if (isPrincipalAxis && (int)entries.size() > 1)
         {
-            cand.plane[col][0] = cand.csl[0][col];
-            cand.plane[col][1] = cand.csl[1][col];
-            cand.plane[col][2] = cand.csl[2][col];
-        }
+            int ind = -1;
+            int extCsl[3][3];
 
-        result.push_back(cand);
+            for (int ei = 0; ei < (int)entries.size(); ei++)
+            {
+                int mVal = entries[ei].m;
+                int nVal = entries[ei].n;
+
+                int tryCsl[3][3];
+                std::memcpy(tryCsl, cslInt, sizeof(tryCsl));
+
+                for (int row = 0; row < 3; row++)
+                {
+                    if (isStdBasisRow(cslInt[row]))
+                        continue;
+
+                    int a = cslInt[row][0], b = cslInt[row][1];
+                    int sa = (a >= 0) ? 1 : -1;
+                    int sb = (b >= 0) ? 1 : -1;
+                    if (std::abs(a) > std::abs(b))
+                    {
+                        tryCsl[row][0] = sa * mVal;
+                        tryCsl[row][1] = sb * nVal;
+                        tryCsl[row][2] = 0;
+                    }
+                    else
+                    {
+                        tryCsl[row][0] = sa * nVal;
+                        tryCsl[row][1] = sb * mVal;
+                        tryCsl[row][2] = 0;
+                    }
+                }
+
+                if (std::memcmp(tryCsl, cslInt, sizeof(cslInt)) != 0)
+                {
+                    ind = ei;
+                    std::memcpy(extCsl, tryCsl, sizeof(extCsl));
+                    break;
+                }
+            }
+
+            if (ind >= 0)
+            {
+                float theta2 = 90.0f - (float)minTheta;
+                SigmaCandidate c1, c2;
+                if (ind > 0)
+                {
+                    fillCandidate(c1, sigma, entries[0].m, entries[0].n, (float)minTheta, cslInt);
+                    fillCandidate(c2, sigma, entries[ind].m, entries[ind].n, theta2, extCsl);
+                }
+                else
+                {
+                    fillCandidate(c1, sigma, entries[0].m, entries[0].n, theta2, cslInt);
+                    fillCandidate(c2, sigma, entries[ind].m, entries[ind].n, (float)minTheta, extCsl);
+                }
+                result.push_back(c1);
+                result.push_back(c2);
+            }
+            else
+            {
+                SigmaCandidate cand;
+                fillCandidate(cand, sigma, entries[0].m, entries[0].n, (float)minTheta, cslInt);
+                result.push_back(cand);
+            }
+        }
+        else
+        {
+            SigmaCandidate cand;
+            fillCandidate(cand, sigma, entries[0].m, entries[0].n, (float)minTheta, cslInt);
+            result.push_back(cand);
+        }
     }
     return result;
 }
@@ -720,6 +812,266 @@ bool reduceToPrimitive(Structure& s, double symprec)
     (void)symprec;
     return false;
 #endif
+}
+
+// ── GB-aware primitive reduction ────────────────────────────────
+// Finds in-plane translational symmetry and reduces the cell while
+// keeping the stacking direction (GB normal) fixed, so the grain
+// boundary stays at frac 0 / 0.5 along that axis.
+
+bool reduceToPrimitiveGB(Structure& s, int stackDir, double tol)
+{
+    if (!s.hasUnitCell || s.atoms.empty() || s.atoms.size() < 2)
+        return false;
+
+    int natom = (int)s.atoms.size();
+
+    double cell[3][3], cellInv[3][3];
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            cell[i][j] = s.cellVectors[i][j];
+    invertCell(cell, cellInv);
+
+    // Fractional coordinates
+    std::vector<std::array<double,3>> fc(natom);
+    for (int i = 0; i < natom; i++)
+    {
+        double cart[3] = {s.atoms[i].x, s.atoms[i].y, s.atoms[i].z};
+        cartToFrac(cart, cellInv, fc[i].data());
+        for (int d = 0; d < 3; d++)
+            fc[i][d] = wrapFrac(fc[i][d]);
+    }
+
+    double tolSq = tol * tol;
+
+    // ---------- helper: does translation t map ALL atoms? ----------
+    auto mapsAll = [&](const double t[3]) -> bool {
+        for (int i = 0; i < natom; i++)
+        {
+            double sf[3] = { wrapFrac(fc[i][0] + t[0]),
+                             wrapFrac(fc[i][1] + t[1]),
+                             wrapFrac(fc[i][2] + t[2]) };
+            bool found = false;
+            for (int j = 0; j < natom && !found; j++)
+            {
+                if (s.atoms[j].atomicNumber != s.atoms[i].atomicNumber) continue;
+                double diff[3];
+                for (int d = 0; d < 3; d++)
+                {
+                    diff[d] = sf[d] - fc[j][d];
+                    diff[d] -= std::round(diff[d]);
+                }
+                double dCart[3] = {0,0,0};
+                for (int d = 0; d < 3; d++)
+                    for (int k = 0; k < 3; k++)
+                        dCart[k] += diff[d] * cell[d][k];
+                if (dCart[0]*dCart[0]+dCart[1]*dCart[1]+dCart[2]*dCart[2] < tolSq)
+                    found = true;
+            }
+            if (!found) return false;
+        }
+        return true;
+    };
+
+    // ---------- find reference species (most common) ----------
+    std::map<int,int> specCount;
+    for (auto& a : s.atoms) specCount[a.atomicNumber]++;
+    int refZ = s.atoms[0].atomicNumber;
+    int maxC = 0;
+    for (auto& p : specCount)
+        if (p.second > maxC) { maxC = p.second; refZ = p.first; }
+    int refIdx = 0;
+    for (int i = 0; i < natom; i++)
+        if (s.atoms[i].atomicNumber == refZ) { refIdx = i; break; }
+
+    // ---------- collect valid in-plane translations ----------
+    std::vector<std::array<double,3>> validT;
+    for (int j = 0; j < natom; j++)
+    {
+        if (j == refIdx || s.atoms[j].atomicNumber != refZ) continue;
+        double t[3];
+        for (int d = 0; d < 3; d++)
+        {
+            t[d] = fc[j][d] - fc[refIdx][d];
+            if (t[d] >  0.5) t[d] -= 1.0;
+            if (t[d] < -0.5) t[d] += 1.0;
+        }
+        // Must be in-plane (no stacking component)
+        if (std::abs(t[stackDir]) > 0.01) continue;
+        t[stackDir] = 0.0;
+        // Skip zero-length
+        double ct[3] = {0,0,0};
+        for (int d = 0; d < 3; d++)
+            for (int k = 0; k < 3; k++)
+                ct[k] += t[d] * cell[d][k];
+        if (ct[0]*ct[0]+ct[1]*ct[1]+ct[2]*ct[2] < tolSq) continue;
+
+        if (mapsAll(t))
+            validT.push_back({t[0], t[1], t[2]});
+    }
+
+    if (validT.empty()) return false; // already primitive
+
+    // ---------- build candidate Cartesian vectors ----------
+    int d1 = (stackDir + 1) % 3;
+    int d2 = (stackDir + 2) % 3;
+
+    struct V3 { double v[3]; };
+    std::vector<V3> cand;
+
+    auto addFrac = [&](double f0, double f1, double f2) {
+        double fv[3] = {f0, f1, f2};
+        V3 c = {{0,0,0}};
+        for (int d = 0; d < 3; d++)
+            for (int k = 0; k < 3; k++)
+                c.v[k] += fv[d] * cell[d][k];
+        double len = c.v[0]*c.v[0]+c.v[1]*c.v[1]+c.v[2]*c.v[2];
+        if (len > tolSq) cand.push_back(c);
+    };
+
+    // Original in-plane cell vectors
+    double e1[3]={0,0,0}, e2[3]={0,0,0};
+    e1[d1] = 1.0;
+    e2[d2] = 1.0;
+    addFrac(e1[0], e1[1], e1[2]);
+    addFrac(e2[0], e2[1], e2[2]);
+    addFrac(-e1[0], -e1[1], -e1[2]);
+    addFrac(-e2[0], -e2[1], -e2[2]);
+
+    // Valid translations, their negatives, and combinations with cell vectors
+    for (auto& t : validT)
+    {
+        addFrac( t[0],  t[1],  t[2]);
+        addFrac(-t[0], -t[1], -t[2]);
+        addFrac(e1[0]+t[0], e1[1]+t[1], e1[2]+t[2]);
+        addFrac(e1[0]-t[0], e1[1]-t[1], e1[2]-t[2]);
+        addFrac(e2[0]+t[0], e2[1]+t[1], e2[2]+t[2]);
+        addFrac(e2[0]-t[0], e2[1]-t[1], e2[2]-t[2]);
+    }
+    // Combinations among translations
+    for (int i = 0; i < (int)validT.size(); i++)
+        for (int j = i+1; j < (int)validT.size(); j++)
+        {
+            addFrac(validT[i][0]+validT[j][0],
+                    validT[i][1]+validT[j][1],
+                    validT[i][2]+validT[j][2]);
+            addFrac(validT[i][0]-validT[j][0],
+                    validT[i][1]-validT[j][1],
+                    validT[i][2]-validT[j][2]);
+        }
+
+    // ---------- pick two shortest independent vectors ----------
+    auto vlen = [](const V3& a) {
+        return std::sqrt(a.v[0]*a.v[0]+a.v[1]*a.v[1]+a.v[2]*a.v[2]);
+    };
+    std::sort(cand.begin(), cand.end(),
+              [&](const V3& a, const V3& b){ return vlen(a) < vlen(b); });
+
+    V3 v1 = cand[0];
+    V3 v2 = {{0,0,0}};
+    bool gotV2 = false;
+    for (int i = 1; i < (int)cand.size() && !gotV2; i++)
+    {
+        double cx = v1.v[1]*cand[i].v[2] - v1.v[2]*cand[i].v[1];
+        double cy = v1.v[2]*cand[i].v[0] - v1.v[0]*cand[i].v[2];
+        double cz = v1.v[0]*cand[i].v[1] - v1.v[1]*cand[i].v[0];
+        double cl  = std::sqrt(cx*cx+cy*cy+cz*cz);
+        if (cl > tol * vlen(v1))
+        {
+            v2 = cand[i];
+            gotV2 = true;
+        }
+    }
+    if (!gotV2) return false;
+
+    // Ensure right-handed system relative to stacking direction
+    {
+        double cx = v1.v[1]*v2.v[2] - v1.v[2]*v2.v[1];
+        double cy = v1.v[2]*v2.v[0] - v1.v[0]*v2.v[2];
+        double cz = v1.v[0]*v2.v[1] - v1.v[1]*v2.v[0];
+        double dotStack = cx*cell[stackDir][0]+cy*cell[stackDir][1]+cz*cell[stackDir][2];
+        double origCx = cell[d1][1]*cell[d2][2] - cell[d1][2]*cell[d2][1];
+        double origCy = cell[d1][2]*cell[d2][0] - cell[d1][0]*cell[d2][2];
+        double origCz = cell[d1][0]*cell[d2][1] - cell[d1][1]*cell[d2][0];
+        double origDot = origCx*cell[stackDir][0]+origCy*cell[stackDir][1]+origCz*cell[stackDir][2];
+        if (dotStack * origDot < 0)
+            for (int j = 0; j < 3; j++) v2.v[j] = -v2.v[j];
+    }
+
+    // ---------- build new cell ----------
+    double newCell[3][3];
+    for (int j = 0; j < 3; j++)
+    {
+        newCell[d1][j]       = v1.v[j];
+        newCell[d2][j]       = v2.v[j];
+        newCell[stackDir][j] = cell[stackDir][j];
+    }
+
+    // Check volume actually decreased
+    M3 oldM, newM;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+        {
+            oldM[i][j] = cell[i][j];
+            newM[i][j] = newCell[i][j];
+        }
+    double oldVol = std::abs(det3(oldM));
+    double newVol = std::abs(det3(newM));
+    if (newVol >= oldVol - 1e-4) return false;
+
+    // ---------- re-map atoms into smaller cell ----------
+    double ncInv[3][3];
+    invertCell(newCell, ncInv);
+
+    std::vector<AtomSite> newAtoms;
+    newAtoms.reserve(natom);
+    for (int i = 0; i < natom; i++)
+    {
+        double cart[3] = {s.atoms[i].x, s.atoms[i].y, s.atoms[i].z};
+        double f[3];
+        cartToFrac(cart, ncInv, f);
+        for (int d = 0; d < 3; d++) f[d] = wrapFrac(f[d]);
+        double nc[3];
+        fracToCart(f, newCell, nc);
+
+        // Check for duplicate (PBC-aware)
+        bool dup = false;
+        for (auto& a : newAtoms)
+        {
+            double df[3];
+            double ac[3] = {a.x, a.y, a.z};
+            cartToFrac(ac, ncInv, df);
+            for (int d = 0; d < 3; d++) df[d] = wrapFrac(df[d]);
+            double dd[3];
+            for (int d = 0; d < 3; d++)
+            {
+                dd[d] = f[d] - df[d];
+                dd[d] -= std::round(dd[d]);
+            }
+            double dCart[3] = {0,0,0};
+            for (int d = 0; d < 3; d++)
+                for (int k = 0; k < 3; k++)
+                    dCart[k] += dd[d] * newCell[d][k];
+            if (dCart[0]*dCart[0]+dCart[1]*dCart[1]+dCart[2]*dCart[2] < tolSq)
+            {
+                dup = true;
+                break;
+            }
+        }
+        if (!dup)
+        {
+            AtomSite a = s.atoms[i];
+            a.x = nc[0]; a.y = nc[1]; a.z = nc[2];
+            newAtoms.push_back(a);
+        }
+    }
+
+    // Update structure
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            s.cellVectors[i][j] = newCell[i][j];
+    s.atoms = newAtoms;
+    return true;
 }
 
 double cellVecLen(const double v[3])

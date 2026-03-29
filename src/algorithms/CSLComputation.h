@@ -64,6 +64,7 @@ Grain structureToGrain(const Structure& s);
 Structure grainToStructure(const Grain& g);
 
 bool reduceToPrimitive(Structure& s, double symprec = 1e-3);
+bool reduceToPrimitiveGB(Structure& s, int stackDir, double tol = 0.25);
 
 double cellVecLen(const double v[3]);
 void cartToFrac(const double cart[3], const double cellInv[3][3], double frac[3]);

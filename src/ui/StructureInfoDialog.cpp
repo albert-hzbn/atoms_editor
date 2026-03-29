@@ -226,16 +226,32 @@ void drawSymmetrySection(const Structure& structure)
     ImGui::Separator();
     ImGui::Text("Symmetry (spglib)");
 
-    const SymmetryInfo symmetry = analyzeSymmetryWithSpglib(structure);
-    if (!symmetry.success)
+    // Cache result so spglib is only called once per structure, not every frame.
+    static SymmetryInfo cachedSymmetry;
+    static int cachedAtomCount = -1;
+    static double cachedCellTrace = 0.0;
+
+    int atomCount = (int)structure.atoms.size();
+    double cellTrace = 0.0;
+    if (structure.hasUnitCell)
+        cellTrace = structure.cellVectors[0][0] + structure.cellVectors[1][1] + structure.cellVectors[2][2];
+
+    if (atomCount != cachedAtomCount || std::abs(cellTrace - cachedCellTrace) > 1e-8)
     {
-        ImGui::TextWrapped("Space group: unavailable (%s)", symmetry.error.c_str());
+        cachedSymmetry = analyzeSymmetryWithSpglib(structure);
+        cachedAtomCount = atomCount;
+        cachedCellTrace = cellTrace;
+    }
+
+    if (!cachedSymmetry.success)
+    {
+        ImGui::TextWrapped("Space group: unavailable (%s)", cachedSymmetry.error.c_str());
         return;
     }
 
-    ImGui::Text("Space group: %d (%s)", symmetry.spaceGroupNumber, symmetry.internationalSymbol.c_str());
-    ImGui::Text("Hall symbol: %s", symmetry.hallSymbol.c_str());
-    ImGui::Text("Point group: %s", symmetry.pointGroup.c_str());
+    ImGui::Text("Space group: %d (%s)", cachedSymmetry.spaceGroupNumber, cachedSymmetry.internationalSymbol.c_str());
+    ImGui::Text("Hall symbol: %s", cachedSymmetry.hallSymbol.c_str());
+    ImGui::Text("Point group: %s", cachedSymmetry.pointGroup.c_str());
 }
 
 void drawAtomicPositionsTable(const Structure& structure, bool hasValidLattice)

@@ -633,13 +633,9 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
                     structure.pbcBoundaryTol = (float)(minSpacing * 0.5 + 1e-6);
                 }
 
-                // Skip reduceToPrimitive for grain boundaries: a bicrystal
-                // is not a primitive cell, and spglib would re-wrap atoms
-                // destroying the grain boundary centering.
                 if (!conventionalCell)
                 {
-                    // Only reduce if explicitly requested via unchecking
-                    // "Conventional cell" — note this will lose GB centering.
+                    reduceToPrimitiveGB(structure, direction);
                 }
 
                 lastResult.success = true;
