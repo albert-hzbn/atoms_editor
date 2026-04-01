@@ -166,36 +166,6 @@ ConvexPoly makeBox(const glm::vec3& lo, const glm::vec3& hi)
         {hi.x, hi.y, hi.z}, {hi.x, lo.y, hi.z}}});
     return box;
 }
-
-// Build a box-shaped convex polyhedron from cell vectors (parallelepiped).
-ConvexPoly makeCellBox(const glm::vec3& origin, const glm::mat3& cell)
-{
-    // 8 corners of the parallelepiped
-    glm::vec3 c[8];
-    for (int i = 0; i < 8; ++i)
-    {
-        float fi = (i & 1) ? 1.0f : 0.0f;
-        float fj = (i & 2) ? 1.0f : 0.0f;
-        float fk = (i & 4) ? 1.0f : 0.0f;
-        c[i] = origin + cell * glm::vec3(fi, fj, fk);
-    }
-
-    // 6 faces of the parallelepiped (order vertices consistently)
-    ConvexPoly box;
-    // face at frac_a=0: corners 0,2,6,4
-    box.faces.push_back({{c[0], c[2], c[6], c[4]}});
-    // face at frac_a=1: corners 1,5,7,3
-    box.faces.push_back({{c[1], c[5], c[7], c[3]}});
-    // face at frac_b=0: corners 0,4,5,1
-    box.faces.push_back({{c[0], c[4], c[5], c[1]}});
-    // face at frac_b=1: corners 2,3,7,6
-    box.faces.push_back({{c[2], c[3], c[7], c[6]}});
-    // face at frac_c=0: corners 0,1,3,2
-    box.faces.push_back({{c[0], c[1], c[3], c[2]}});
-    // face at frac_c=1: corners 4,6,7,5
-    box.faces.push_back({{c[4], c[6], c[7], c[5]}});
-    return box;
-}
 }
 
 VoronoiDiagram computeVoronoi(const Structure& structure)
@@ -221,7 +191,6 @@ VoronoiDiagram computeVoronoi(const Structure& structure)
             (float)structure.cellOffset[2]);
     }
 
-    // Collect atom positions.
     const size_t N = structure.atoms.size();
     std::vector<glm::vec3> positions(N);
     for (size_t i = 0; i < N; ++i)
@@ -232,22 +201,53 @@ VoronoiDiagram computeVoronoi(const Structure& structure)
             (float)structure.atoms[i].z);
     }
 
-    // Compute bounding box for non-PBC case.
-    glm::vec3 bboxLo(1e30f);
-    glm::vec3 bboxHi(-1e30f);
-    for (const auto& p : positions)
+    // For PBC, wrap atom positions to match the renderer's
+    // wrapAndSnapFractional: map to [0,1), snap near-0 and near-1 to 0.
+    const float kSnapTol = 1e-4f;
+    if (usePbc)
     {
-        bboxLo = glm::min(bboxLo, p);
-        bboxHi = glm::max(bboxHi, p);
+        for (size_t i = 0; i < N; ++i)
+        {
+            glm::vec3 frac = invCell * (positions[i] - origin);
+            frac.x -= std::floor(frac.x);
+            frac.y -= std::floor(frac.y);
+            frac.z -= std::floor(frac.z);
+            if (std::abs(frac.x) <= kSnapTol)       frac.x = 0.0f;
+            if (std::abs(1.0f - frac.x) <= kSnapTol) frac.x = 0.0f;
+            if (std::abs(frac.y) <= kSnapTol)       frac.y = 0.0f;
+            if (std::abs(1.0f - frac.y) <= kSnapTol) frac.y = 0.0f;
+            if (std::abs(frac.z) <= kSnapTol)       frac.z = 0.0f;
+            if (std::abs(1.0f - frac.z) <= kSnapTol) frac.z = 0.0f;
+            positions[i] = origin + cell * frac;
+        }
     }
-    // Expand by 50% to give cells room.
-    glm::vec3 extent = bboxHi - bboxLo;
-    float pad = std::max({extent.x, extent.y, extent.z}) * 0.5f + 2.0f;
-    bboxLo -= glm::vec3(pad);
-    bboxHi += glm::vec3(pad);
 
-    // Periodic image offsets to consider.
+    // Bounding box for non-PBC case.
+    glm::vec3 bboxLo(1e30f), bboxHi(-1e30f);
+    if (!usePbc)
+    {
+        for (const auto& p : positions)
+        {
+            bboxLo = glm::min(bboxLo, p);
+            bboxHi = glm::max(bboxHi, p);
+        }
+        glm::vec3 extent = bboxHi - bboxLo;
+        float pad = std::max({extent.x, extent.y, extent.z}) * 0.5f + 2.0f;
+        bboxLo -= glm::vec3(pad);
+        bboxHi += glm::vec3(pad);
+    }
+
     const int imageRange = 1;
+
+    // For PBC, the atom-centred initial box half-width must be large enough
+    // to contain the full Voronoi cell.  The Voronoi cell radius is at most
+    // max(|a|,|b|,|c|) (one full cell vector length) which is a safe upper
+    // bound; sorted-neighbour early termination keeps clipping fast.
+    float maxCellLen = 0.0f;
+    if (usePbc)
+        maxCellLen = std::max({glm::length(cell[0]), glm::length(cell[1]), glm::length(cell[2])});
+
+    struct Neighbor { float dist2; glm::vec3 pos; };
 
     diagram.cells.resize(N);
 
@@ -255,67 +255,151 @@ VoronoiDiagram computeVoronoi(const Structure& structure)
     {
         const glm::vec3& pi = positions[i];
 
-        // Start with the bounding volume.
-        ConvexPoly cell_poly;
-        if (usePbc)
-            cell_poly = makeCellBox(origin, cell);
-        else
-            cell_poly = makeBox(bboxLo, bboxHi);
+        // Build neighbour list.
+        std::vector<Neighbor> neighbors;
 
-        // Clip against bisector planes with all neighbors.
-        for (size_t j = 0; j < N; ++j)
+        if (usePbc)
         {
-            if (usePbc)
+            for (size_t j = 0; j < N; ++j)
             {
-                // Consider all periodic images of atom j.
                 for (int da = -imageRange; da <= imageRange; ++da)
                 for (int db = -imageRange; db <= imageRange; ++db)
                 for (int dc = -imageRange; dc <= imageRange; ++dc)
                 {
                     if (j == i && da == 0 && db == 0 && dc == 0)
                         continue;
-
                     glm::vec3 shift = cell * glm::vec3((float)da, (float)db, (float)dc);
-                    glm::vec3 pj_img = positions[j] + shift;
-
-                    glm::vec3 midpoint = 0.5f * (pi + pj_img);
-                    glm::vec3 normal = pj_img - pi;
-                    float len = glm::length(normal);
-                    if (len < 1e-10f)
+                    glm::vec3 pj = positions[j] + shift;
+                    glm::vec3 diff = pj - pi;
+                    float d2 = glm::dot(diff, diff);
+                    // Skip coincident atoms (can happen in grain boundaries).
+                    if (d2 < 1e-6f)
                         continue;
-                    normal /= len;
-
-                    cell_poly = clipPolyhedronByPlane(cell_poly, midpoint, normal);
-                    if (cell_poly.faces.empty())
-                        break;
+                    neighbors.push_back({d2, pj});
                 }
             }
-            else
+        }
+        else
+        {
+            neighbors.reserve(N);
+            for (size_t j = 0; j < N; ++j)
             {
                 if (j == i)
                     continue;
-
-                glm::vec3 midpoint = 0.5f * (pi + positions[j]);
-                glm::vec3 normal = positions[j] - pi;
-                float len = glm::length(normal);
-                if (len < 1e-10f)
-                    continue;
-                normal /= len;
-
-                cell_poly = clipPolyhedronByPlane(cell_poly, midpoint, normal);
+                glm::vec3 diff = positions[j] - pi;
+                neighbors.push_back({glm::dot(diff, diff), positions[j]});
             }
-
-            if (cell_poly.faces.empty())
-                break;
         }
 
-        // Sort each face's vertices for proper rendering.
+        // Sort nearest first for fast convergence.
+        std::sort(neighbors.begin(), neighbors.end(),
+            [](const Neighbor& a, const Neighbor& b) { return a.dist2 < b.dist2; });
+
+        // Start with an atom-centred AABB large enough to contain the full
+        // Voronoi cell.  Bisector clipping will shrink it down quickly.
+        ConvexPoly cell_poly;
+        if (usePbc)
+            cell_poly = makeBox(pi - glm::vec3(maxCellLen), pi + glm::vec3(maxCellLen));
+        else
+            cell_poly = makeBox(bboxLo, bboxHi);
+
+        // Track the maximum squared distance from the atom to any vertex.
+        float rmax2 = 0.0f;
+        for (const auto& face : cell_poly.faces)
+            for (const auto& v : face.vertices)
+            {
+                float d2 = glm::dot(v - pi, v - pi);
+                if (d2 > rmax2) rmax2 = d2;
+            }
+
+        // Clip against bisector planes, nearest neighbours first.
+        for (const auto& nb : neighbors)
+        {
+            if (cell_poly.faces.empty())
+                break;
+
+            // Early termination: the bisector sits at dist/2 from pi.
+            // If dist/2 > rmax, no remaining neighbour can clip the cell.
+            if (nb.dist2 > 4.0f * rmax2)
+                break;
+
+            float len = std::sqrt(nb.dist2);
+            glm::vec3 midpoint = 0.5f * (pi + nb.pos);
+            glm::vec3 normal = (nb.pos - pi) / len;
+
+            cell_poly = clipPolyhedronByPlane(cell_poly, midpoint, normal);
+
+            // Recompute rmax2 after clip.
+            rmax2 = 0.0f;
+            for (const auto& face : cell_poly.faces)
+                for (const auto& v : face.vertices)
+                {
+                    float d2 = glm::dot(v - pi, v - pi);
+                    if (d2 > rmax2) rmax2 = d2;
+                }
+        }
+
         for (auto& face : cell_poly.faces)
             sortFaceVertices(face);
 
         VoronoiCell vc;
         vc.faces = std::move(cell_poly.faces);
         diagram.cells[i] = std::move(vc);
+    }
+
+    // Replicate Voronoi cells for boundary atoms to match the periodic
+    // image atoms rendered by appendPbcBoundaryImages.
+    // Use the same tolerance as the renderer (pbcBoundaryTol or kSnapTol).
+    // Atoms with fractional coordinate near 0 get a copy shifted by +1.
+    if (usePbc)
+    {
+        const float tol = structure.pbcBoundaryTol > 0.0f
+                        ? structure.pbcBoundaryTol : kSnapTol;
+
+        // Cap the tolerance: in fractional coords it should never exceed 0.5
+        // (otherwise interior atoms get replicated for no reason).
+        const float safeTol = std::min(tol, 0.5f);
+
+        // Collect replicated cells in a separate vector to avoid
+        // invalidating references into diagram.cells during push_back.
+        std::vector<VoronoiCell> replicatedCells;
+
+        for (size_t i = 0; i < N; ++i)
+        {
+            const auto& baseCell = diagram.cells[i];
+            if (baseCell.faces.empty())
+                continue;
+
+            glm::vec3 frac = invCell * (positions[i] - origin);
+
+            std::vector<int> sx = {0}, sy = {0}, sz = {0};
+            if (std::abs(frac.x) <= safeTol) sx.push_back(1);
+            if (std::abs(frac.y) <= safeTol) sy.push_back(1);
+            if (std::abs(frac.z) <= safeTol) sz.push_back(1);
+
+            for (int a : sx)
+            for (int b : sy)
+            for (int c : sz)
+            {
+                if (a == 0 && b == 0 && c == 0)
+                    continue;
+
+                glm::vec3 shift = cell * glm::vec3((float)a, (float)b, (float)c);
+                VoronoiCell sc;
+                for (const auto& face : baseCell.faces)
+                {
+                    VoronoiFace sf;
+                    sf.vertices.reserve(face.vertices.size());
+                    for (const auto& v : face.vertices)
+                        sf.vertices.push_back(v + shift);
+                    sc.faces.push_back(std::move(sf));
+                }
+                replicatedCells.push_back(std::move(sc));
+            }
+        }
+
+        for (auto& rc : replicatedCells)
+            diagram.cells.push_back(std::move(rc));
     }
 
     return diagram;

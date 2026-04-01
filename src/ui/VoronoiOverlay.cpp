@@ -4,9 +4,31 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace
 {
+
+// Compute the volume of a convex polyhedron from its triangulated faces
+// using the divergence theorem: V = |1/6 * sum(v0 . (v1 x v2))| per triangle.
+float computeCellVolume(const VoronoiCell& cell)
+{
+    float vol = 0.0f;
+    for (const auto& face : cell.faces)
+    {
+        if (face.vertices.size() < 3)
+            continue;
+        const glm::vec3& v0 = face.vertices[0];
+        for (size_t i = 1; i + 1 < face.vertices.size(); ++i)
+        {
+            const glm::vec3& v1 = face.vertices[i];
+            const glm::vec3& v2 = face.vertices[i + 1];
+            vol += glm::dot(v0, glm::cross(v1, v2));
+        }
+    }
+    return std::abs(vol) / 6.0f;
+}
+
 bool projectToScreen(const glm::vec3& p,
                      const glm::mat4& projection,
                      const glm::mat4& view,
@@ -78,24 +100,49 @@ void drawVoronoiOverlay(ImDrawList* drawList,
     if (!enabled || drawList == nullptr || diagram.cells.empty())
         return;
 
-    const ImU32 defaultFill = ImColor(1.0f, 1.0f, 1.0f, 0.06f);
-    const ImU32 defaultEdge = ImColor(1.0f, 1.0f, 1.0f, 0.7f);
     const ImU32 selectedFill = ImColor(1.0f, 0.2f, 0.2f, 0.15f);
     const ImU32 selectedEdge = ImColor(1.0f, 0.2f, 0.2f, 0.85f);
 
+    // Compute volumes for all cells to determine color mapping.
+    const size_t numCells = diagram.cells.size();
+    std::vector<float> volumes(numCells);
+    float minVol = std::numeric_limits<float>::max();
+    float maxVol = 0.0f;
+    for (size_t ci = 0; ci < numCells; ++ci)
+    {
+        volumes[ci] = computeCellVolume(diagram.cells[ci]);
+        if (volumes[ci] < minVol) minVol = volumes[ci];
+        if (volumes[ci] > maxVol) maxVol = volumes[ci];
+    }
+    const float volRange = (maxVol - minVol > 1e-10f) ? (maxVol - minVol) : 1.0f;
+
     // Build a fast lookup for selected cell indices.
-    std::vector<bool> isSelected(diagram.cells.size(), false);
+    std::vector<bool> isSelected(numCells, false);
     for (int idx : selectedIndices)
     {
         if (idx >= 0 && idx < (int)isSelected.size())
             isSelected[idx] = true;
     }
 
-    for (size_t ci = 0; ci < diagram.cells.size(); ++ci)
+    for (size_t ci = 0; ci < numCells; ++ci)
     {
         const auto& cell = diagram.cells[ci];
-        const ImU32 fillColor = isSelected[ci] ? selectedFill : defaultFill;
-        const ImU32 edgeColor = isSelected[ci] ? selectedEdge : defaultEdge;
+
+        // Map volume to 0..1: 0 = smallest volume (light blue), 1 = largest (dark blue).
+        const float t = (volumes[ci] - minVol) / volRange;
+
+        // Light blue (0.6, 0.8, 1.0) for small volume -> dark blue (0.0, 0.1, 0.6) for large volume.
+        const float fillR = 0.6f * (1.0f - t);
+        const float fillG = 0.8f * (1.0f - t) + 0.1f * t;
+        const float fillB = 1.0f * (1.0f - t) + 0.6f * t;
+        const float fillA = 0.08f + 0.12f * t; // slightly more opaque for larger cells
+
+        const float edgeR = 0.4f * (1.0f - t);
+        const float edgeG = 0.6f * (1.0f - t) + 0.1f * t;
+        const float edgeB = 1.0f * (1.0f - t) + 0.7f * t;
+
+        const ImU32 fillColor = isSelected[ci] ? selectedFill : (ImU32)ImColor(fillR, fillG, fillB, fillA);
+        const ImU32 edgeColor = isSelected[ci] ? selectedEdge : (ImU32)ImColor(edgeR, edgeG, edgeB, 0.75f);
         for (const auto& face : cell.faces)
         {
             if (face.vertices.size() < 3)
