@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <cmath>
 
+constexpr float Camera::kMinDistance;
+constexpr float Camera::kMaxDistance;
+
 Camera* Camera::instance = nullptr;
 
 void Camera::mouseButton(GLFWwindow*,int button,int action,int)
