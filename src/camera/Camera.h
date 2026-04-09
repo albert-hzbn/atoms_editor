@@ -13,6 +13,7 @@ public:
     // trackball parameters
     float yaw   = 45.0f;
     float pitch = 35.2643897f;
+    float roll  = 0.0f;  // degrees, right-hand rotation around forward axis (set by orbital rotation)
 
     float distance = 10.0f;
 
@@ -25,6 +26,7 @@ public:
 
     glm::vec3 panOffset = glm::vec3(0.0f);
     bool allowPan = true;
+    bool allowOrbit = true;
 
     double lastX = 0;
     double lastY = 0;

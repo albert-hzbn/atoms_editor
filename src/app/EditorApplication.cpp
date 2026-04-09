@@ -163,6 +163,9 @@ void mergeFileBrowserRequests(EditorState& state,
     requests.requestViewLatticeA = requests.requestViewLatticeA || state.fileBrowser.consumeViewLatticeARequest();
     requests.requestViewLatticeB = requests.requestViewLatticeB || state.fileBrowser.consumeViewLatticeBRequest();
     requests.requestViewLatticeC = requests.requestViewLatticeC || state.fileBrowser.consumeViewLatticeCRequest();
+    requests.requestRotateCrystalX = requests.requestRotateCrystalX || state.fileBrowser.consumeRotateCrystalXRequest();
+    requests.requestRotateCrystalY = requests.requestRotateCrystalY || state.fileBrowser.consumeRotateCrystalYRequest();
+    requests.requestRotateCrystalZ = requests.requestRotateCrystalZ || state.fileBrowser.consumeRotateCrystalZRequest();
 }
 
 void handleStructureResetRequests(EditorState& state)
@@ -230,18 +233,21 @@ void handleAxisViewRequest(Camera& camera,
     {
         camera.yaw = 90.0f;
         camera.pitch = 0.0f;
+            camera.roll = 0.0f;
         std::cout << "[Operation] View along X axis" << std::endl;
     }
     else if (requests.requestViewAxisY)
     {
         camera.yaw = 0.0f;
         camera.pitch = 90.0f;
+            camera.roll = 0.0f;
         std::cout << "[Operation] View along Y axis" << std::endl;
     }
     else if (requests.requestViewAxisZ)
     {
         camera.yaw = 0.0f;
         camera.pitch = 0.0f;
+        camera.roll = 0.0f;
         std::cout << "[Operation] View along Z axis" << std::endl;
     }
     else if (requests.requestViewLatticeA)
@@ -479,6 +485,7 @@ int runAtomsEditor(const std::string& startupStructurePath)
     while (!glfwWindowShouldClose(window))
     {
         camera.allowPan = !state.fileBrowser.isBoxSelectModeEnabled();
+        camera.allowOrbit = !state.grabState.active;
 
         glfwPollEvents();
         processDroppedFiles(state);
@@ -494,15 +501,24 @@ int runAtomsEditor(const std::string& startupStructurePath)
                    state.fileBrowser.isOrthographicViewEnabled(),
                    frame);
 
-        handlePendingAtomPick(
-            camera,
-            state,
-            frame.cameraPosition,
-            frame.windowWidth,
-            frame.windowHeight,
-            frame.projection,
-            frame.view);
-        handleRightClick(camera, state);
+        // Suppress camera orbit and atom picking during grab mode
+        if (state.grabState.active)
+        {
+            camera.pendingClick = false;
+            camera.pendingRightClick = false;
+        }
+        else
+        {
+            handlePendingAtomPick(
+                camera,
+                state,
+                frame.cameraPosition,
+                frame.windowWidth,
+                frame.windowHeight,
+                frame.projection,
+                frame.view);
+            handleRightClick(camera, state);
+        }
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -510,6 +526,14 @@ int runAtomsEditor(const std::string& startupStructurePath)
 
         FrameActionRequests requests = beginFrameActionRequests(state);
         applyKeyboardShortcuts(state, requests);
+
+        handleGrabMode(
+            state,
+            camera,
+            frame.projection,
+            frame.view,
+            frame.windowWidth,
+            frame.windowHeight);
 
         state.fileBrowser.draw(
             state.structure,
@@ -524,6 +548,17 @@ int runAtomsEditor(const std::string& startupStructurePath)
         handleStructureResetRequests(state);
         handleUndoRedoRequest(state, requests);
         handleAxisViewRequest(camera, requests, state.structure);
+
+        if (requests.requestRotateCrystalX || requests.requestRotateCrystalY || requests.requestRotateCrystalZ)
+        {
+            const double angleDeg = (double)state.fileBrowser.getRotateCrystalAngle();
+            if (requests.requestRotateCrystalX)
+                rotateCrystalAroundAxis(camera, 0, angleDeg);
+            else if (requests.requestRotateCrystalY)
+                rotateCrystalAroundAxis(camera, 1, angleDeg);
+            else
+                rotateCrystalAroundAxis(camera, 2, angleDeg);
+        }
 
         // Keep scene overlays visible over the viewport but underneath UI popups/dialogs.
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();
@@ -625,6 +660,15 @@ int runAtomsEditor(const std::string& startupStructurePath)
                 frame.framebufferWidth,
                 frame.framebufferHeight);
         }
+
+        // Draw grab mode overlay with real-time atom coordinates
+        drawGrabOverlay(
+            state,
+            drawList,
+            frame.projection,
+            frame.view,
+            frame.windowWidth,
+            frame.windowHeight);
 
         ImGui::Render();
 
