@@ -52,6 +52,17 @@ struct RdfResult
     bool hasFirstPeak = false;
     bool hasFirstMinimum = false;
 
+    bool hasDistortionMetrics = false;
+    bool distortionWindowAuto = true;
+    float distortionWindowMin = 0.0f;
+    float distortionWindowMax = 0.0f;
+    float shellMeanDistance = 0.0f;
+    float shellStdDev = 0.0f;
+    float shellRelativeDistortion = 0.0f;
+    float shellCoordination = 0.0f;
+    float firstPeakFwhm = 0.0f;
+    bool hasFirstPeakFwhm = false;
+
     std::vector<RdfBin> bins;
 };
 
@@ -186,7 +197,11 @@ RdfResult runRdf(const Structure& structure,
                  float rMin,
                  float rMax,
                  int binCount,
-                 int smoothingPasses)
+                 int smoothingPasses,
+                 bool enableDistortionAnalysis,
+                 bool autoDistortionWindow,
+                 float manualDistortionMin,
+                 float manualDistortionMax)
 {
     RdfResult result;
     result.atomCount = (int)structure.atoms.size();
@@ -345,6 +360,134 @@ RdfResult runRdf(const Structure& structure,
             result.firstMinimumR = result.bins[minIndex].rCenter;
             result.firstMinimumValue = result.bins[minIndex].g;
         }
+
+        float halfHeight = 0.5f * result.firstPeakValue;
+        float leftCrossR = result.bins[peakIndex].rCenter;
+        float rightCrossR = result.bins[peakIndex].rCenter;
+
+        for (int i = peakIndex; i > 0; --i)
+        {
+            float y0 = result.bins[i - 1].g;
+            float y1 = result.bins[i].g;
+            if (y0 <= halfHeight && y1 >= halfHeight)
+            {
+                float t = std::abs(y1 - y0) > 1e-12f ? (halfHeight - y0) / (y1 - y0) : 0.0f;
+                float r0 = result.bins[i - 1].rCenter;
+                float r1 = result.bins[i].rCenter;
+                leftCrossR = r0 + t * (r1 - r0);
+                break;
+            }
+        }
+        for (int i = peakIndex; i + 1 < binCount; ++i)
+        {
+            float y0 = result.bins[i].g;
+            float y1 = result.bins[i + 1].g;
+            if (y0 >= halfHeight && y1 <= halfHeight)
+            {
+                float t = std::abs(y1 - y0) > 1e-12f ? (halfHeight - y0) / (y1 - y0) : 0.0f;
+                float r0 = result.bins[i].rCenter;
+                float r1 = result.bins[i + 1].rCenter;
+                rightCrossR = r0 + t * (r1 - r0);
+                break;
+            }
+        }
+
+        if (rightCrossR > leftCrossR)
+        {
+            result.hasFirstPeakFwhm = true;
+            result.firstPeakFwhm = rightCrossR - leftCrossR;
+        }
+    }
+
+    if (enableDistortionAnalysis)
+    {
+        float shellMin = manualDistortionMin;
+        float shellMax = manualDistortionMax;
+        bool hasWindow = false;
+
+        if (autoDistortionWindow)
+        {
+            if (result.hasFirstPeak)
+            {
+                int leftMinIndex = -1;
+                int rightMinIndex = -1;
+
+                for (int i = peakIndex - 1; i >= 1; --i)
+                {
+                    const float y = result.bins[i].g;
+                    if (y <= result.bins[i - 1].g && y <= result.bins[i + 1].g)
+                    {
+                        leftMinIndex = i;
+                        break;
+                    }
+                }
+                for (int i = peakIndex + 1; i + 1 < binCount; ++i)
+                {
+                    const float y = result.bins[i].g;
+                    if (y <= result.bins[i - 1].g && y <= result.bins[i + 1].g)
+                    {
+                        rightMinIndex = i;
+                        break;
+                    }
+                }
+
+                if (rightMinIndex >= 0)
+                {
+                    shellMin = (leftMinIndex >= 0) ? result.bins[leftMinIndex].rCenter : rMin;
+                    shellMax = result.bins[rightMinIndex].rCenter;
+                    hasWindow = shellMax > shellMin;
+                }
+            }
+        }
+        else
+        {
+            hasWindow = shellMax > shellMin;
+        }
+
+        if (hasWindow)
+        {
+            float sumW = 0.0f;
+            float sumWR = 0.0f;
+            float shellRawSum = 0.0f;
+
+            for (int i = 0; i < (int)result.bins.size(); ++i)
+            {
+                const float r = result.bins[i].rCenter;
+                if (r < shellMin || r > shellMax)
+                    continue;
+
+                const float w = result.bins[i].rawCount;
+                sumW += w;
+                sumWR += w * r;
+                shellRawSum += w;
+            }
+
+            if (sumW > 1e-8f && result.refCount > 0)
+            {
+                const float mean = sumWR / sumW;
+                float var = 0.0f;
+                for (int i = 0; i < (int)result.bins.size(); ++i)
+                {
+                    const float r = result.bins[i].rCenter;
+                    if (r < shellMin || r > shellMax)
+                        continue;
+
+                    const float w = result.bins[i].rawCount;
+                    const float d = r - mean;
+                    var += w * d * d;
+                }
+                var /= sumW;
+
+                result.hasDistortionMetrics = true;
+                result.distortionWindowAuto = autoDistortionWindow;
+                result.distortionWindowMin = shellMin;
+                result.distortionWindowMax = shellMax;
+                result.shellMeanDistance = mean;
+                result.shellStdDev = std::sqrt(std::max(var, 0.0f));
+                result.shellRelativeDistortion = mean > 1e-8f ? (result.shellStdDev / mean) * 100.0f : 0.0f;
+                result.shellCoordination = shellRawSum / (float)result.refCount;
+            }
+        }
     }
 
     result.valid = true;
@@ -390,14 +533,11 @@ void clampSpeciesSelectionIndices(int& refSpeciesIndex,
 
 void drawRdfSummary(const RdfResult& result)
 {
-    ImGui::Separator();
+    ImGui::SeparatorText("RDF Summary");
     ImGui::Text("Status: %s", result.message.c_str());
-    ImGui::Text("Atoms: %d", result.atomCount);
-    ImGui::Text("Reference atoms: %d", result.refCount);
-    ImGui::Text("Target atoms: %d", result.targetCount);
-    ImGui::Text("PBC used in analysis: %s", result.pbcUsed ? "Yes" : "No");
-    ImGui::Text("Volume used: %.6f A^3", result.volume);
-    ImGui::Text("Target density: %.6f A^-3", result.density);
+    ImGui::Text("Atoms: %d    Ref: %d    Target: %d", result.atomCount, result.refCount, result.targetCount);
+    ImGui::Text("PBC used: %s", result.pbcUsed ? "Yes" : "No");
+    ImGui::Text("Volume: %.6f A^3    Target density: %.6f A^-3", result.volume, result.density);
     ImGui::Text("Bin width: %.5f A", result.binWidth);
 
     if (result.hasFirstPeak)
@@ -409,47 +549,34 @@ void drawRdfSummary(const RdfResult& result)
         ImGui::Text("First minimum after peak: r = %.4f A, value = %.4f", result.firstMinimumR, result.firstMinimumValue);
     else
         ImGui::Text("First minimum after peak: not detected");
+
+    if (result.hasFirstPeakFwhm)
+        ImGui::Text("First-peak FWHM: %.4f A", result.firstPeakFwhm);
 }
 
-void drawRdfTable(const RdfResult& result, bool normalize)
+void drawDistortionSummary(const RdfResult& result)
 {
+    ImGui::SeparatorText("Alloy/Compound Distortion");
     if (!result.valid)
-        return;
-
-    ImGui::Separator();
-    ImGui::Text("Per-bin RDF data");
-    ImGui::BeginChild("##rdf-table-child", ImVec2(0.0f, 250.0f), true);
-    if (ImGui::BeginTable("##rdf-table", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
     {
-        ImGui::TableSetupColumn("r", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-        ImGui::TableSetupColumn(normalize ? "g(r)" : "Histogram", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-        ImGui::TableSetupColumn("Counts", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-        ImGui::TableSetupColumn("Cumulative CN", ImGuiTableColumnFlags_WidthFixed, 130.0f);
-        ImGui::TableSetupColumn("Shell Range", ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableHeadersRow();
-
-        for (int i = 0; i < (int)result.bins.size(); ++i)
-        {
-            const RdfBin& bin = result.bins[i];
-            const float shellStart = result.rMin + i * result.binWidth;
-            const float shellEnd = shellStart + result.binWidth;
-
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%.5f", bin.rCenter);
-            ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%.6f", bin.g);
-            ImGui::TableSetColumnIndex(2);
-            ImGui::Text("%.2f", bin.rawCount);
-            ImGui::TableSetColumnIndex(3);
-            ImGui::Text("%.6f", bin.cumulative);
-            ImGui::TableSetColumnIndex(4);
-            ImGui::Text("[%.5f, %.5f)", shellStart, shellEnd);
-        }
-
-        ImGui::EndTable();
+        ImGui::TextDisabled("Run RDF to compute distortion metrics.");
+        return;
     }
-    ImGui::EndChild();
+
+    if (!result.hasDistortionMetrics)
+    {
+        ImGui::TextWrapped("No valid shell window was found for distortion analysis. Use manual shell bounds or adjust radius/bin settings.");
+        return;
+    }
+
+    ImGui::Text("Shell window: [%.4f, %.4f] A (%s)",
+                result.distortionWindowMin,
+                result.distortionWindowMax,
+                result.distortionWindowAuto ? "auto" : "manual");
+    ImGui::Text("Shell mean bond length: %.5f A", result.shellMeanDistance);
+    ImGui::Text("Shell sigma (bond spread): %.5f A", result.shellStdDev);
+    ImGui::Text("Relative distortion sigma/r_mean: %.3f %%", result.shellRelativeDistortion);
+    ImGui::Text("Shell coordination (pair-resolved): %.4f", result.shellCoordination);
 }
 
 } // namespace
@@ -467,6 +594,10 @@ void RadialDistributionAnalysisDialog::drawDialog(const Structure& structure)
     static bool normalize = true;
     static bool showRawCounts = false;
     static bool showCumulative = false;
+    static bool enableDistortionAnalysis = true;
+    static bool autoDistortionWindow = true;
+    static float manualDistortionMin = 1.8f;
+    static float manualDistortionMax = 3.2f;
     static float rMin = 0.0f;
     static float rMax = 8.0f;
     static int binCount = 200;
@@ -485,38 +616,82 @@ void RadialDistributionAnalysisDialog::drawDialog(const Structure& structure)
     std::vector<std::pair<int, std::string> > speciesOptions = buildSpeciesOptions(structure);
     clampSpeciesSelectionIndices(refSpeciesIndex, targetSpeciesIndex, (int)speciesOptions.size());
 
-    ImGui::SetNextWindowSize(ImVec2(1120.0f, 820.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(1180.0f, 820.0f), ImGuiCond_FirstUseEver);
     bool dialogOpen = true;
-    if (ImGui::BeginPopupModal("Radial Distribution Function", &dialogOpen, ImGuiWindowFlags_NoResize))
+    if (ImGui::BeginPopupModal("Radial Distribution Function", &dialogOpen, ImGuiWindowFlags_None))
     {
         bool changed = false;
-        changed |= ImGui::Checkbox("Use PBC when unit cell is available", &usePbc);
-        changed |= ImGui::Checkbox("Normalize to g(r)", &normalize);
-        changed |= ImGui::Checkbox("Overlay raw counts", &showRawCounts);
-        changed |= ImGui::Checkbox("Overlay cumulative coordination", &showCumulative);
-        changed |= ImGui::DragFloatRange2("Radius range", &rMin, &rMax, 0.01f, 0.0f, 50.0f, "r_min = %.2f", "r_max = %.2f");
-        changed |= ImGui::SliderInt("Bins", &binCount, 32, 2000);
-        changed |= ImGui::SliderInt("Smoothing passes", &smoothingPasses, 0, 8);
-        changed |= ImGui::Combo("Reference species", &refSpeciesIndex, speciesLabelGetter, &speciesOptions, (int)speciesOptions.size());
-        changed |= ImGui::Combo("Target species", &targetSpeciesIndex, speciesLabelGetter, &speciesOptions, (int)speciesOptions.size());
-        ImGui::SameLine();
-        if (ImGui::Button("Run RDF"))
-            requestRecompute = true;
-        if (changed)
-            requestRecompute = true;
-
-        if (requestRecompute)
+        if (ImGui::BeginTable("##rdf-layout", 2, ImGuiTableFlags_SizingStretchProp))
         {
-            int refZ = speciesOptions[refSpeciesIndex].first;
-            int targetZ = speciesOptions[targetSpeciesIndex].first;
-            result = runRdf(structure, refZ, targetZ, usePbc, normalize, rMin, rMax, binCount, smoothingPasses);
-            requestRecompute = false;
+            ImGui::TableSetupColumn("##rdf-controls", ImGuiTableColumnFlags_WidthStretch, 0.43f);
+            ImGui::TableSetupColumn("##rdf-results", ImGuiTableColumnFlags_WidthStretch, 0.57f);
+            ImGui::TableNextRow();
+
+            ImGui::TableSetColumnIndex(0);
+            ImGui::BeginChild("##rdf-controls-child", ImVec2(0.0f, 0.0f), true);
+            ImGui::SeparatorText("Scope and Pair Selection");
+            changed |= ImGui::Combo("Reference species", &refSpeciesIndex, speciesLabelGetter, &speciesOptions, (int)speciesOptions.size());
+            changed |= ImGui::Combo("Target species", &targetSpeciesIndex, speciesLabelGetter, &speciesOptions, (int)speciesOptions.size());
+            changed |= ImGui::Checkbox("Use PBC when unit cell is available", &usePbc);
+            changed |= ImGui::Checkbox("Normalize to g(r)", &normalize);
+
+            ImGui::SeparatorText("Sampling");
+            changed |= ImGui::DragFloatRange2("Radius range", &rMin, &rMax, 0.01f, 0.0f, 50.0f, "r_min = %.2f", "r_max = %.2f");
+            changed |= ImGui::SliderInt("Bins", &binCount, 32, 2000);
+            changed |= ImGui::SliderInt("Smoothing passes", &smoothingPasses, 0, 8);
+
+            ImGui::SeparatorText("Plot Overlays");
+            changed |= ImGui::Checkbox("Overlay raw counts", &showRawCounts);
+            changed |= ImGui::Checkbox("Overlay cumulative coordination", &showCumulative);
+
+            ImGui::SeparatorText("Distortion Metrics (Alloy/Compound)");
+            changed |= ImGui::Checkbox("Enable distortion analysis", &enableDistortionAnalysis);
+            if (enableDistortionAnalysis)
+            {
+                changed |= ImGui::Checkbox("Auto shell window from first-shell minima", &autoDistortionWindow);
+                if (!autoDistortionWindow)
+                    changed |= ImGui::DragFloatRange2("Manual shell window", &manualDistortionMin, &manualDistortionMax, 0.005f, 0.0f, 50.0f, "r_min = %.3f", "r_max = %.3f");
+                ImGui::TextWrapped("Use pair-resolved RDF (for example A-B) to track bond-length disorder and local distortion in multicomponent systems.");
+            }
+
+            if (ImGui::Button("Run RDF", ImVec2(140.0f, 0.0f)))
+                requestRecompute = true;
+            ImGui::SameLine();
+            if (ImGui::Button("Close", ImVec2(120.0f, 0.0f)))
+                dialogOpen = false;
+            if (changed)
+                requestRecompute = true;
+            ImGui::EndChild();
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::BeginChild("##rdf-results-child", ImVec2(0.0f, 0.0f), true);
+            if (requestRecompute)
+            {
+                int refZ = speciesOptions[refSpeciesIndex].first;
+                int targetZ = speciesOptions[targetSpeciesIndex].first;
+                result = runRdf(structure,
+                                refZ,
+                                targetZ,
+                                usePbc,
+                                normalize,
+                                rMin,
+                                rMax,
+                                binCount,
+                                smoothingPasses,
+                                enableDistortionAnalysis,
+                                autoDistortionWindow,
+                                manualDistortionMin,
+                                manualDistortionMax);
+                requestRecompute = false;
+            }
+
+            drawRdfSummary(result);
+            drawPlot(result, showRawCounts, showCumulative);
+            drawDistortionSummary(result);
+            ImGui::EndChild();
+
+            ImGui::EndTable();
         }
-
-        drawRdfSummary(result);
-
-        drawPlot(result, showRawCounts, showCumulative);
-        drawRdfTable(result, normalize);
 
         ImGui::EndPopup();
     }
