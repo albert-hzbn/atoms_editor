@@ -4,7 +4,7 @@
 #include "ui/BulkCrystalBuilderDialog.h"
 #include "ui/CSLGrainBoundaryDialog.h"
 #include "ui/NanoCrystalBuilderDialog.h"
-#include "ui/SingleCrystalFillDialog.h"
+#include "ui/CustomStructureDialog.h"
 #include "ui/InterfaceBuilderDialog.h"
 #include "ui/PolyCrystalBuilderDialog.h"
 #include "ui/CommonNeighbourAnalysis.h"
@@ -228,10 +228,10 @@ struct FileBrowser
     bool isNanoCrystalDialogOpen() const;
     void feedDropToNanoCrystalDialog(const std::string& path);
 
-    // Single crystal fill dialog GL resources and drop routing.
-    void initSingleCrystalFillRenderResources(Renderer& renderer);
-    bool isSingleCrystalFillDialogOpen() const;
-    void feedDropToSingleCrystalFillDialog(const std::string& path);
+    // Custom structure dialog GL resources and drop routing.
+    void initCustomStructureRenderResources(Renderer& renderer);
+    bool isCustomStructureDialogOpen() const;
+    void feedDropToCustomStructureDialog(const std::string& path);
 
     // CSL grain boundary dialog GL resources and drop routing.
     void initCSLGrainBoundaryRenderResources(Renderer& renderer);
@@ -350,7 +350,7 @@ private:
     BulkCrystalBuilderDialog bulkCrystalDialog;
     CSLGrainBoundaryDialog cslDialog;
     NanoCrystalBuilderDialog nanoCrystalDialog;
-    SingleCrystalFillDialog singleCrystalFillDialog;
+    CustomStructureDialog customStructureDialog;
     InterfaceBuilderDialog interfaceBuilderDialog;
     PolyCrystalBuilderDialog polyCrystalDialog;
     CommonNeighbourAnalysisDialog cnaDialog;

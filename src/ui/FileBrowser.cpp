@@ -269,7 +269,7 @@ void FileBrowser::draw(Structure& structure,
             bulkCrystalDialog.drawMenuItem(true);
             cslDialog.drawMenuItem(true);
             nanoCrystalDialog.drawMenuItem(true);
-            singleCrystalFillDialog.drawMenuItem(true);
+            customStructureDialog.drawMenuItem(true);
             interfaceBuilderDialog.drawMenuItem(true);
             polyCrystalDialog.drawMenuItem(true);
             ImGui::EndMenu();
@@ -489,9 +489,9 @@ void FileBrowser::draw(Structure& structure,
     nanoCrystalDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                  editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
                                  updateBuffers);
-    singleCrystalFillDialog.drawDialog(structure, editMenuDialogs.elementColors,
-                                        editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
-                                        updateBuffers);
+    customStructureDialog.drawDialog(structure, editMenuDialogs.elementColors,
+                                      editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
+                                      updateBuffers);
     interfaceBuilderDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                       editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
                                       updateBuffers);
@@ -1139,11 +1139,8 @@ void FileBrowser::draw(Structure& structure,
 
             ImGui::Spacing();
             ImGui::Text("Build Menu");
-            ImGui::BulletText("Bulk Crystal builds a full periodic unit cell from crystal system, space group, lattice parameters, and asymmetric-unit atoms.");
-            ImGui::BulletText("CSL Grain Boundary builds cubic bicrystals from ideal sc, bcc, fcc, or diamond source lattices.");
-            ImGui::BulletText("Nanocrystal carves a finite particle from a loaded reference structure using sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, or cuboctahedron shapes.");
-            ImGui::BulletText("Polycrystal builds a Voronoi-based polycrystalline microstructure from a loaded reference single crystal with controllable box size, grain count, seed, and grain orientations.");
-            ImGui::BulletText("Custom Structure fills an imported 3D mesh volume with atoms from a reference crystal using the dedicated dialog.");
+            ImGui::BulletText("Contains builders for Bulk Crystal, CSL Grain Boundary, Nanocrystal, Polycrystal, and Custom Structure.");
+            ImGui::BulletText("See the individual builder sections below for details on each.");
 
             ImGui::Spacing();
             ImGui::Text("Bulk Crystal Builder");
@@ -1397,19 +1394,19 @@ void FileBrowser::feedDropToNanoCrystalDialog(const std::string& path)
     nanoCrystalDialog.feedDroppedFile(path);
 }
 
-bool FileBrowser::isSingleCrystalFillDialogOpen() const
+bool FileBrowser::isCustomStructureDialogOpen() const
 {
-    return singleCrystalFillDialog.isOpen();
+    return customStructureDialog.isOpen();
 }
 
-void FileBrowser::feedDropToSingleCrystalFillDialog(const std::string& path)
+void FileBrowser::feedDropToCustomStructureDialog(const std::string& path)
 {
-    singleCrystalFillDialog.feedDroppedFile(path);
+    customStructureDialog.feedDroppedFile(path);
 }
 
-void FileBrowser::initSingleCrystalFillRenderResources(Renderer& renderer)
+void FileBrowser::initCustomStructureRenderResources(Renderer& renderer)
 {
-    singleCrystalFillDialog.initRenderResources(renderer);
+    customStructureDialog.initRenderResources(renderer);
 }
 
 void FileBrowser::initInterfaceBuilderRenderResources(Renderer& renderer)

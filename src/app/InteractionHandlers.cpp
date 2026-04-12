@@ -4,6 +4,7 @@
 #include "app/EditorOps.h"
 #include "graphics/Picking.h"
 #include "math/StructureMath.h"
+#include "ui/ThemeUtils.h"
 #include "imgui.h"
 
 #include <algorithm>
@@ -13,11 +14,6 @@
 
 namespace
 {
-static bool isLightTheme()
-{
-    const ImVec4& bg = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
-    return (bg.x + bg.y + bg.z) / 3.0f > 0.5f;
-}
 bool isInsideSelectionRect(const ImVec2& p, const ImVec2& a, const ImVec2& b)
 {
     const float minX = std::min(a.x, b.x);

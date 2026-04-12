@@ -15,10 +15,10 @@ struct Renderer;
 struct SphereMesh;
 struct CylinderMesh;
 
-struct SingleCrystalFillDialog
+struct CustomStructureDialog
 {
-    SingleCrystalFillDialog();
-    ~SingleCrystalFillDialog();
+    CustomStructureDialog();
+    ~CustomStructureDialog();
 
     void initRenderResources(Renderer& renderer);
 

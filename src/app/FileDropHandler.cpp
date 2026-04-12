@@ -41,10 +41,10 @@ void processDroppedFiles(EditorState& state)
         return;
 
     // Custom Structure dialog accepts multiple files (structure + model).
-    if (state.fileBrowser.isSingleCrystalFillDialogOpen())
+    if (state.fileBrowser.isCustomStructureDialogOpen())
     {
         for (const auto& f : state.pendingDroppedFiles)
-            state.fileBrowser.feedDropToSingleCrystalFillDialog(f);
+            state.fileBrowser.feedDropToCustomStructureDialog(f);
         state.pendingDroppedFiles.clear();
         return;
     }

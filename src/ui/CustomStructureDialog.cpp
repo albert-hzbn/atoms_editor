@@ -1,4 +1,4 @@
-#include "ui/SingleCrystalFillDialog.h"
+#include "ui/CustomStructureDialog.h"
 
 #include "algorithms/NanoCrystalBuilder.h"
 #include "graphics/CylinderMesh.h"
@@ -303,9 +303,9 @@ static const char* kMeshFS = R"(
     }
 )";
 
-SingleCrystalFillDialog::SingleCrystalFillDialog() = default;
+CustomStructureDialog::CustomStructureDialog() = default;
 
-SingleCrystalFillDialog::~SingleCrystalFillDialog()
+CustomStructureDialog::~CustomStructureDialog()
 {
     delete m_previewSphere;
     delete m_previewCylinder;
@@ -324,7 +324,7 @@ SingleCrystalFillDialog::~SingleCrystalFillDialog()
     if (m_meshIBO) glDeleteBuffers(1, &m_meshIBO);
 }
 
-void SingleCrystalFillDialog::initRenderResources(Renderer& renderer)
+void CustomStructureDialog::initRenderResources(Renderer& renderer)
 {
     m_renderer = &renderer;
     m_previewSphere   = new SphereMesh(24, 24);
@@ -342,7 +342,7 @@ void SingleCrystalFillDialog::initRenderResources(Renderer& renderer)
 // FBO helpers
 // ---------------------------------------------------------------------------
 
-void SingleCrystalFillDialog::ensureRefFBO(int w, int h)
+void CustomStructureDialog::ensureRefFBO(int w, int h)
 {
     if (w == m_refFboW && h == m_refFboH && m_refFBO != 0)
         return;
@@ -375,7 +375,7 @@ void SingleCrystalFillDialog::ensureRefFBO(int w, int h)
     m_refFboH = h;
 }
 
-void SingleCrystalFillDialog::ensureModelFBO(int w, int h)
+void CustomStructureDialog::ensureModelFBO(int w, int h)
 {
     if (w == m_modelFboW && h == m_modelFboH && m_modelFBO != 0)
         return;
@@ -412,7 +412,7 @@ void SingleCrystalFillDialog::ensureModelFBO(int w, int h)
 // Structure preview
 // ---------------------------------------------------------------------------
 
-void SingleCrystalFillDialog::rebuildPreviewBuffers(const std::vector<float>& radii,
+void CustomStructureDialog::rebuildPreviewBuffers(const std::vector<float>& radii,
                                                      const std::vector<float>& shininess)
 {
     if (!m_glReady || m_reference.atoms.empty())
@@ -427,7 +427,7 @@ void SingleCrystalFillDialog::rebuildPreviewBuffers(const std::vector<float>& ra
     m_previewBufDirty = false;
 }
 
-void SingleCrystalFillDialog::autoFitRefCamera()
+void CustomStructureDialog::autoFitRefCamera()
 {
     m_refCamYaw   = 45.0f;
     m_refCamPitch = 35.0f;
@@ -453,7 +453,7 @@ void SingleCrystalFillDialog::autoFitRefCamera()
     m_refCamDistance = dist;
 }
 
-void SingleCrystalFillDialog::renderRefPreviewToFBO(int w, int h)
+void CustomStructureDialog::renderRefPreviewToFBO(int w, int h)
 {
     if (!m_glReady || !m_renderer || m_previewBuffers.atomCount == 0)
         return;
@@ -505,7 +505,7 @@ void SingleCrystalFillDialog::renderRefPreviewToFBO(int w, int h)
 // Model wireframe preview
 // ---------------------------------------------------------------------------
 
-void SingleCrystalFillDialog::rebuildMeshSurface()
+void CustomStructureDialog::rebuildMeshSurface()
 {
     if (m_modelVertices.empty() || m_modelIndices.empty())
         return;
@@ -549,7 +549,7 @@ void SingleCrystalFillDialog::rebuildMeshSurface()
     glBindVertexArray(0);
 }
 
-void SingleCrystalFillDialog::autoFitModelCamera()
+void CustomStructureDialog::autoFitModelCamera()
 {
     m_modelCamYaw   = 45.0f;
     m_modelCamPitch = 35.0f;
@@ -563,7 +563,7 @@ void SingleCrystalFillDialog::autoFitModelCamera()
     m_modelCamDistance = dist;
 }
 
-void SingleCrystalFillDialog::renderModelPreviewToFBO(int w, int h)
+void CustomStructureDialog::renderModelPreviewToFBO(int w, int h)
 {
     if (!m_glReady || !m_renderer || m_meshTriCount == 0)
         return;
@@ -616,19 +616,19 @@ void SingleCrystalFillDialog::renderModelPreviewToFBO(int w, int h)
     glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
 }
 
-void SingleCrystalFillDialog::drawMenuItem(bool enabled)
+void CustomStructureDialog::drawMenuItem(bool enabled)
 {
     if (ImGui::MenuItem("Custom Structure", NULL, false, enabled))
         m_openRequested = true;
 }
 
-void SingleCrystalFillDialog::feedDroppedFile(const std::string& path)
+void CustomStructureDialog::feedDroppedFile(const std::string& path)
 {
     m_pendingDropPaths.push_back(path);
     std::cout << "[CustomStructure] File queued: " << path << std::endl;
 }
 
-bool SingleCrystalFillDialog::loadReferenceStructure(const std::string& path)
+bool CustomStructureDialog::loadReferenceStructure(const std::string& path)
 {
     Structure loaded;
     std::string error;
@@ -650,7 +650,7 @@ bool SingleCrystalFillDialog::loadReferenceStructure(const std::string& path)
     return true;
 }
 
-bool SingleCrystalFillDialog::loadModelMesh(const std::string& path)
+bool CustomStructureDialog::loadModelMesh(const std::string& path)
 {
     std::vector<glm::vec3> verts;
     std::vector<unsigned int> idx;
@@ -699,7 +699,7 @@ bool SingleCrystalFillDialog::loadModelMesh(const std::string& path)
     return true;
 }
 
-void SingleCrystalFillDialog::drawDialog(Structure& structure,
+void CustomStructureDialog::drawDialog(Structure& structure,
                                          const std::vector<glm::vec3>& elementColors,
                                          const std::vector<float>& elementRadii,
                                          const std::vector<float>& elementShininess,
