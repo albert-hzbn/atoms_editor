@@ -366,12 +366,17 @@ void FileBrowser::draw(Structure& structure,
             if (ImGui::MenuItem("Reset Default View"))
                 requestResetDefaultView = true;
             ImGui::Separator();
-            if (ImGui::MenuItem("Light Theme", nullptr, &useLightTheme))
+            if (ImGui::BeginMenu("Select Theme"))
             {
-                if (useLightTheme)
-                    applyLightTheme();
-                else
-                    applyDarkTheme();
+                if (ImGui::MenuItem("Dark", nullptr, !useLightTheme))
+                {
+                    if (useLightTheme) { useLightTheme = false; applyDarkTheme(); }
+                }
+                if (ImGui::MenuItem("Light", nullptr, useLightTheme))
+                {
+                    if (!useLightTheme) { useLightTheme = true; applyLightTheme(); }
+                }
+                ImGui::EndMenu();
             }
             ImGui::EndMenu();
         }

@@ -888,7 +888,8 @@ void Renderer::drawBonds(const glm::mat4& projection,
 void Renderer::drawBoxLines(const glm::mat4& projection,
                              const glm::mat4& view,
                              GLuint lineVAO,
-                             size_t lineVertexCount)
+                             size_t lineVertexCount,
+                             const glm::vec3& color)
 {
     if (lineVertexCount == 0)
         return;
@@ -899,7 +900,7 @@ void Renderer::drawBoxLines(const glm::mat4& projection,
                        1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(glGetUniformLocation(lineProgram, "view"),
                        1, GL_FALSE, glm::value_ptr(view));
-    glUniform3f(glGetUniformLocation(lineProgram, "uColor"), 0.85f, 0.85f, 0.85f);
+    glUniform3f(glGetUniformLocation(lineProgram, "uColor"), color.r, color.g, color.b);
 
     glLineWidth(2.0f);
     glBindVertexArray(lineVAO);

@@ -174,7 +174,8 @@ void drawSceneToCurrentFramebuffer(const ImageExportView& view,
         view.projection,
         view.view,
         sceneBuffers.lineVAO,
-        sceneBuffers.boxLines.size());
+        sceneBuffers.boxLines.size(),
+        clearColor.r > 0.5f ? glm::vec3(0.25f) : glm::vec3(0.85f));
 }
 
 void flipImageRows(std::vector<unsigned char>& pixels, int width, int height, int channels)

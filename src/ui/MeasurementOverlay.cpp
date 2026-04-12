@@ -341,11 +341,15 @@ void drawOrientationAxesGizmo(ImDrawList* drawList,
     const ImVec2 origin(73.0f, (float)viewportHeight - 73.0f);
     drawGizmoBackdrop(drawList, origin);
 
+    const bool light = isLightTheme();
     const glm::mat3 viewRotation(view);
     std::array<AxisOverlayEntry, 3> axes = {{
-        { glm::normalize(viewRotation * glm::vec3(1.0f, 0.0f, 0.0f)), "X", IM_COL32(235, 92, 92, 255) },
-        { glm::normalize(viewRotation * glm::vec3(0.0f, 1.0f, 0.0f)), "Y", IM_COL32(110, 220, 120, 255) },
-        { glm::normalize(viewRotation * glm::vec3(0.0f, 0.0f, 1.0f)), "Z", IM_COL32(110, 175, 255, 255) }
+        { glm::normalize(viewRotation * glm::vec3(1.0f, 0.0f, 0.0f)), "X",
+          light ? IM_COL32(200, 50, 50, 255) : IM_COL32(235, 92, 92, 255) },
+        { glm::normalize(viewRotation * glm::vec3(0.0f, 1.0f, 0.0f)), "Y",
+          light ? IM_COL32(40, 160, 50, 255) : IM_COL32(110, 220, 120, 255) },
+        { glm::normalize(viewRotation * glm::vec3(0.0f, 0.0f, 1.0f)), "Z",
+          light ? IM_COL32(40, 110, 220, 255) : IM_COL32(110, 175, 255, 255) }
     }};
 
     draw3DOrientationGizmo(drawList, origin, axes, viewRotation);

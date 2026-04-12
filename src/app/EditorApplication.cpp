@@ -360,7 +360,8 @@ void drawScene(Renderer& renderer,
         frame.projection,
         frame.view,
         sceneBuffers.lineVAO,
-        sceneBuffers.boxLines.size());
+        sceneBuffers.boxLines.size(),
+        lightTheme ? glm::vec3(0.25f) : glm::vec3(0.85f));
 }
 
 void handleImageExportIfRequested(bool hasImageExportRequest,

@@ -92,5 +92,6 @@ struct Renderer
     void drawBoxLines(const glm::mat4& projection,
                       const glm::mat4& view,
                       GLuint lineVAO,
-                      size_t lineVertexCount);
+                      size_t lineVertexCount,
+                      const glm::vec3& color = glm::vec3(0.85f));
 };
