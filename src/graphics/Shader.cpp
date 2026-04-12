@@ -44,7 +44,21 @@ GLuint createProgram(const char* vs,const char* fs)
     glAttachShader(p,v);
     glAttachShader(p,f);
 
+    // Keep attribute locations stable across drivers/platforms.
+    // SceneBuffers::init wires VAOs assuming this exact mapping.
     glBindAttribLocation(p,0,"position");
+    glBindAttribLocation(p,1,"instancePos");
+    glBindAttribLocation(p,2,"instanceColor");
+    glBindAttribLocation(p,3,"instanceScale");
+    glBindAttribLocation(p,4,"instanceShininess");
+
+    glBindAttribLocation(p,1,"bondStart");
+    glBindAttribLocation(p,2,"bondEnd");
+    glBindAttribLocation(p,3,"bondColorA");
+    glBindAttribLocation(p,4,"bondColorB");
+    glBindAttribLocation(p,5,"bondRadius");
+    glBindAttribLocation(p,6,"bondShininessA");
+    glBindAttribLocation(p,7,"bondShininessB");
 
     glLinkProgram(p);
 

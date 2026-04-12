@@ -502,16 +502,6 @@ void updateBuffers(EditorState& state)
                 state.structure.atoms[i].b = state.structure.grainColors[i][2];
             }
         }
-        else
-        {
-            // No per-atom grain colors: assume identity orientation (IPF-Z [001] = red)
-            for (size_t i = 0; i < state.structure.atoms.size(); ++i)
-            {
-                state.structure.atoms[i].r = 1.0f;
-                state.structure.atoms[i].g = 0.0f;
-                state.structure.atoms[i].b = 0.0f;
-            }
-        }
     }
     else if (state.fileBrowser.getAtomColorMode() == AtomColorMode::GrainBoundary)
     {
