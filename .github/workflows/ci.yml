@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Linux – GCC, system packages via apt
+  # --------------------------------------------------------------------------
+  build-linux:
+    name: Linux (GCC)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install required dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            pkg-config \
+            libglfw3-dev \
+            libglew-dev \
+            libglm-dev \
+            libopenbabel-dev \
+            libopenbabel3
+
+      - name: Install optional dependencies (spglib)
+        # spglib is optional – build proceeds without it if the package is absent
+        run: sudo apt-get install -y libsymspg-dev || true
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+  # --------------------------------------------------------------------------
+  # Windows – MinGW-w64 (MSYS2 UCRT64), mirrors the documented quick-start
+  # --------------------------------------------------------------------------
+  build-windows:
+    name: Windows (MSYS2 UCRT64 / MinGW-w64)
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-glfw
+            mingw-w64-ucrt-x86_64-glew
+            mingw-w64-ucrt-x86_64-glm
+            mingw-w64-ucrt-x86_64-openbabel
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-spglib
+
+      - name: Configure
+        run: cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j$(nproc)

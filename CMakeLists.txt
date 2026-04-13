@@ -101,8 +101,26 @@ target_include_directories(AtomForge PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui
 )
 
+# Vendored ImGui sources are third-party code; suppress all warnings for them
+# so that our strict project warnings are not buried in third-party noise.
+set(ATOMFORGE_IMGUI_SOURCES
+    imgui/imgui.cpp
+    imgui/imgui_draw.cpp
+    imgui/imgui_tables.cpp
+    imgui/imgui_widgets.cpp
+    imgui/imgui_impl_glfw.cpp
+    imgui/imgui_impl_opengl3.cpp
+)
+set_source_files_properties(${ATOMFORGE_IMGUI_SOURCES} PROPERTIES COMPILE_FLAGS "-w")
+
 target_compile_options(AtomForge PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wformat>
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall>
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wformat>
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wextra>
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wshadow>
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wnon-virtual-dtor>
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wold-style-cast>
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wpedantic>
 )
 
 target_link_libraries(AtomForge PRIVATE
