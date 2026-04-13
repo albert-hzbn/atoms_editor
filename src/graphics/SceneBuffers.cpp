@@ -453,75 +453,74 @@ void SceneBuffers::upload(const StructureInstanceData& data,
                     for (int dz = -neighborRange; dz <= neighborRange; ++dz)
                     {
                         glm::ivec3 neighborCell = centerCell + glm::ivec3(dx, dy, dz);
-                        auto it = grid.find(neighborCell);
-                        if (it == grid.end())
-                            continue;
-
-                        for (size_t j : it->second)
+                        if (auto it = grid.find(neighborCell); it != grid.end())
                         {
-                            if (j <= i)
-                                continue;  // Only check each pair once
-
-                            if (bondElementFilterEnabled)
+                            for (size_t j : it->second)
                             {
-                                const int zA = (i < bondSourceAtomicNumbers.size()) ? bondSourceAtomicNumbers[i] : 0;
-                                const int zB = (j < bondSourceAtomicNumbers.size()) ? bondSourceAtomicNumbers[j] : 0;
+                                if (j <= i)
+                                    continue;  // Only check each pair once
 
-                                const bool allowedA = (zA >= 1 && zA <= 118) ? bondElementFilterMask[(size_t)zA] : false;
-                                const bool allowedB = (zB >= 1 && zB <= 118) ? bondElementFilterMask[(size_t)zB] : false;
-                                // Filter semantics: include bonds touching selected elements
-                                // (e.g. "C,F" keeps C-*, F-* and C-F bonds).
-                                if (!allowedA && !allowedB)
+                                if (bondElementFilterEnabled)
+                                {
+                                    const int zA = (i < bondSourceAtomicNumbers.size()) ? bondSourceAtomicNumbers[i] : 0;
+                                    const int zB = (j < bondSourceAtomicNumbers.size()) ? bondSourceAtomicNumbers[j] : 0;
+
+                                    const bool allowedA = (zA >= 1 && zA <= 118) ? bondElementFilterMask[(size_t)zA] : false;
+                                    const bool allowedB = (zB >= 1 && zB <= 118) ? bondElementFilterMask[(size_t)zB] : false;
+                                    // Filter semantics: include bonds touching selected elements
+                                    // (e.g. "C,F" keeps C-*, F-* and C-F bonds).
+                                    if (!allowedA && !allowedB)
+                                        continue;
+                                }
+                                else
+                                {
+                                    const int zA = (i < bondSourceAtomicNumbers.size()) ? bondSourceAtomicNumbers[i] : 0;
+                                    const int zB = (j < bondSourceAtomicNumbers.size()) ? bondSourceAtomicNumbers[j] : 0;
+
+                                    // Default mode is covalent-focused: suppress metal-metal bonds.
+                                    if (zA >= 1 && zA <= 118 && zB >= 1 && zB <= 118 &&
+                                        !isLikelyCovalentElement(zA) && !isLikelyCovalentElement(zB))
+                                        continue;
+                                }
+
+                                glm::vec3 delta = atomPositions[j] - atomPositions[i];
+                                float distance = glm::length(delta);
+                                if (distance <= kMinBondDistance)
                                     continue;
-                            }
-                            else
-                            {
-                                const int zA = (i < bondSourceAtomicNumbers.size()) ? bondSourceAtomicNumbers[i] : 0;
-                                const int zB = (j < bondSourceAtomicNumbers.size()) ? bondSourceAtomicNumbers[j] : 0;
 
-                                // Default mode is covalent-focused: suppress metal-metal bonds.
-                                if (zA >= 1 && zA <= 118 && zB >= 1 && zB <= 118 &&
-                                    !isLikelyCovalentElement(zA) && !isLikelyCovalentElement(zB))
+                                float radiusB = (j < bondSourceRadii.size()) ? bondSourceRadii[j] : 1.0f;
+                                float maxBondDistance = (radiusA + radiusB) * kBondToleranceFactor;
+                                if (distance > maxBondDistance)
                                     continue;
-                            }
 
-                            glm::vec3 delta = atomPositions[j] - atomPositions[i];
-                            float distance = glm::length(delta);
-                            if (distance <= kMinBondDistance)
-                                continue;
+                                glm::vec3 direction = delta / distance;
+                                float insetA = std::min(radiusA * kBondInsetFactor, distance * 0.30f);
+                                float insetB = std::min(radiusB * kBondInsetFactor, distance * 0.30f);
+                                glm::vec3 start = atomPositions[i] + direction * insetA;
+                                glm::vec3 end = atomPositions[j] - direction * insetB;
+                                float visibleLength = glm::length(end - start);
+                                if (visibleLength <= kMinBondDistance)
+                                    continue;
 
-                            float radiusB = (j < bondSourceRadii.size()) ? bondSourceRadii[j] : 1.0f;
-                            float maxBondDistance = (radiusA + radiusB) * kBondToleranceFactor;
-                            if (distance > maxBondDistance)
-                                continue;
+                                float bondRadius = clampValue(0.12f * (radiusA + radiusB) * 0.5f,
+                                                              kMinBondRadius,
+                                                              kMaxBondRadius);
 
-                            glm::vec3 direction = delta / distance;
-                            float insetA = std::min(radiusA * kBondInsetFactor, distance * 0.30f);
-                            float insetB = std::min(radiusB * kBondInsetFactor, distance * 0.30f);
-                            glm::vec3 start = atomPositions[i] + direction * insetA;
-                            glm::vec3 end = atomPositions[j] - direction * insetB;
-                            float visibleLength = glm::length(end - start);
-                            if (visibleLength <= kMinBondDistance)
-                                continue;
+                                bondStarts.push_back(start);
+                                bondEnds.push_back(end);
+                                bondColorA.push_back((i < atomColors.size()) ? atomColors[i] : glm::vec3(0.8f));
+                                bondColorB.push_back((j < atomColors.size()) ? atomColors[j] : glm::vec3(0.8f));
+                                bondRadii.push_back(bondRadius);
+                                bondShininessA.push_back((i < atomShininess.size()) ? atomShininess[i] : 32.0f);
+                                bondShininessB.push_back((j < atomShininess.size()) ? atomShininess[j] : 32.0f);
 
-                            float bondRadius = clampValue(0.12f * (radiusA + radiusB) * 0.5f,
-                                                          kMinBondRadius,
-                                                          kMaxBondRadius);
-
-                            bondStarts.push_back(start);
-                            bondEnds.push_back(end);
-                            bondColorA.push_back((i < atomColors.size()) ? atomColors[i] : glm::vec3(0.8f));
-                            bondColorB.push_back((j < atomColors.size()) ? atomColors[j] : glm::vec3(0.8f));
-                            bondRadii.push_back(bondRadius);
-                            bondShininessA.push_back((i < atomShininess.size()) ? atomShininess[i] : 32.0f);
-                            bondShininessB.push_back((j < atomShininess.size()) ? atomShininess[j] : 32.0f);
-
-                            if (bondStarts.size() >= kMaxBondCount)
-                            {
-                                std::cerr << "Warning: Bond count capped at " << kMaxBondCount
-                                          << " to prevent memory exhaustion. Structure has "
-                                          << atomPositions.size() << " atoms." << std::endl;
-                                goto bonds_done;
+                                if (bondStarts.size() >= kMaxBondCount)
+                                {
+                                    std::cerr << "Warning: Bond count capped at " << kMaxBondCount
+                                              << " to prevent memory exhaustion. Structure has "
+                                              << atomPositions.size() << " atoms." << std::endl;
+                                    goto bonds_done;
+                                }
                             }
                         }
                     }

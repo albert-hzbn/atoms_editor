@@ -29,9 +29,9 @@ static void createSphereIndexed(std::vector<float>& vertices,
         uint64_t hash = ((uint64_t)ix << 32) | iy;
         hash ^= (uint64_t)iz;
 
-        if (vertexMap.find(hash) != vertexMap.end())
+        if (auto it = vertexMap.find(hash); it != vertexMap.end())
         {
-            return vertexMap[hash];
+            return it->second;
         }
 
         // Add new vertex

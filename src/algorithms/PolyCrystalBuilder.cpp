@@ -330,7 +330,6 @@ PolyBuildResult buildPolycrystal(Structure& structure,
             auto it = dedupGrid.find(key);
             if (it == dedupGrid.end())
                 continue;
-
             for (int idx : it->second)
             {
                 const AtomSite& existing = generatedAtoms[idx];

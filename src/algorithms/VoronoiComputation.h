@@ -24,4 +24,4 @@ struct VoronoiDiagram
 // Compute Voronoi tessellation for all atoms in the structure.
 // Uses periodic boundary conditions when the structure has a unit cell.
 // Returns cells clipped to the unit cell bounding box.
-VoronoiDiagram computeVoronoi(const Structure& structure);
+[[nodiscard]] VoronoiDiagram computeVoronoi(const Structure& structure);

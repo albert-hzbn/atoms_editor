@@ -62,7 +62,7 @@ Note: Build and run from the MSYS2 UCRT64 shell. PowerShell often misses require
 
 ## Build notes
 
-- The project uses CMake and targets C++11.
+- The project uses CMake and targets C++17.
 - OpenGL 3.x, GLFW, GLEW, GLM, and Open Babel are required.
 - spglib/symspg is optional; when available, symmetry-related features are enabled automatically.
 

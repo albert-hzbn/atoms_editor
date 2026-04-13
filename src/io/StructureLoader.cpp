@@ -345,12 +345,8 @@ bool recoverIpfFromGeometry(Structure& structure)
                 for (int dz = -1; dz <= 1; ++dz)
                 {
                     const glm::ivec3 cc(c.x + dx, c.y + dy, c.z + dz);
-                    auto it = grid.find(cc);
-                    if (it == grid.end())
-                        continue;
-
-                    const std::vector<int>& bucket = it->second;
-                    for (int idx : bucket)
+                    if (auto it = grid.find(cc); it != grid.end())
+                    for (int idx : it->second)
                     {
                         if (idx == i)
                             continue;

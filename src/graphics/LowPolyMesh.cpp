@@ -13,16 +13,15 @@ void normalize(float& x, float& y, float& z)
 }
 
 // Return the index of the midpoint between two vertices, adding it if new.
-typedef std::map<std::pair<unsigned int, unsigned int>, unsigned int> EdgeMap;
+using EdgeMap = std::map<std::pair<unsigned int, unsigned int>, unsigned int>;
 
 unsigned int midpoint(std::vector<float>& verts, EdgeMap& cache,
                       unsigned int a, unsigned int b)
 {
     if (a > b) std::swap(a, b);
-    std::pair<unsigned int, unsigned int> key(a, b);
+    const std::pair<unsigned int, unsigned int> key(a, b);
 
-    EdgeMap::iterator it = cache.find(key);
-    if (it != cache.end())
+    if (auto it = cache.find(key); it != cache.end())
         return it->second;
 
     float mx = (verts[3 * a] + verts[3 * b]) * 0.5f;

@@ -45,10 +45,8 @@ std::string buildFormula(const std::map<int, int>& counts)
 {
     std::ostringstream out;
     bool first = true;
-    for (const auto& item : counts)
+    for (const auto& [z, count] : counts)
     {
-        int z = item.first;
-        int count = item.second;
         if (z <= 0 || count <= 0)
             continue;
 
@@ -204,11 +202,8 @@ void drawElementCountsTable(const std::map<int, int>& counts)
     ImGui::TableSetupColumn("Count", ImGuiTableColumnFlags_WidthFixed, 100.0f);
     ImGui::TableHeadersRow();
 
-    for (const auto& item : counts)
+    for (const auto& [z, count] : counts)
     {
-        const int z = item.first;
-        const int count = item.second;
-
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::Text("%d", z);

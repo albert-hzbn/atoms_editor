@@ -54,7 +54,7 @@ struct PolyBuildResult
 
 // Build a polycrystalline microstructure by Voronoi tessellation.
 // The reference structure must have a unit cell.
-PolyBuildResult buildPolycrystal(Structure& structure,
+[[nodiscard]] PolyBuildResult buildPolycrystal(Structure& structure,
                                  const Structure& reference,
                                  const PolyParams& params,
                                  const std::vector<glm::vec3>& elementColors);

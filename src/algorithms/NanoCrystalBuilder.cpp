@@ -393,8 +393,7 @@ NanoBuildResult buildNanocrystal(Structure& structure,
             for (int dz = -1; dz <= 1 && !isDup; ++dz)
             {
                 const glm::ivec3 nc(cell.x + dx, cell.y + dy, cell.z + dz);
-                auto it = grid.find(nc);
-                if (it == grid.end()) continue;
+                if (auto it = grid.find(nc); it != grid.end())
                 for (size_t idx : it->second)
                 {
                     const glm::vec3 pj((float)unique[idx].x,

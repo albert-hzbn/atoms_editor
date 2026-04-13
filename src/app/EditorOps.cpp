@@ -190,12 +190,11 @@ void applyGrainBoundaryColors(Structure& structure)
             for (int dz = -1; dz <= 1; ++dz)
             {
                 const glm::ivec3 neighborCell(cellCoord.x + dx, cellCoord.y + dy, cellCoord.z + dz);
-                auto it = grid.find(neighborCell);
-                if (it == grid.end())
-                    continue;
-
-                for (int idx : it->second)
-                    tryAddBond(i, idx);
+                if (auto it = grid.find(neighborCell); it != grid.end())
+                {
+                    for (int idx : it->second)
+                        tryAddBond(i, idx);
+                }
             }
         }
     }

@@ -22,7 +22,7 @@ Core capabilities implemented so far:
 
 ## Build system
 
-- **CMake ≥ 3.16**, C++11 (`CMAKE_CXX_STANDARD 11`, extensions OFF).
+- **CMake ≥ 3.16**, C++17 (`CMAKE_CXX_STANDARD 17`, extensions OFF).
 - Required libraries: OpenGL 3.x, GLFW3, GLEW, GLM, Open Babel 3 — all resolved via `pkg-config`.
 - Optional: **spglib/symspg** (toggled by `ATOMFORGE_ENABLE_SPGLIB`); guarded with `#ifdef HAVE_SPGLIB`.
 - Portable Windows packaging via `BUILD_PORTABLE=ON`; CPack produces `AtomForge-<ver>-win64.zip`.
@@ -242,7 +242,7 @@ One-shot boolean flags produced by `beginFrameActionRequests()` and populated by
 
 ## Coding standards
 
-- **C++11 only** — no C++14/17/20 features. Range-for, lambdas, `auto`, `nullptr`, `= default`, `= delete`, and move semantics are all fine.
+- **C++17** — use features like structured bindings, `std::optional`, `std::variant`, `if constexpr`, and fallthrough. Avoid C++20+ features (concepts, ranges, three-way comparison, designated initializers in most cases).
 - Include guards: `#pragma once` on every header.
 - GLM for all linear-algebra in rendering/camera code (`glm::vec3`, `glm::mat3`, `glm::mat4`, `glm::quat`). Do not introduce Eigen or another LA library.
 - Algorithm math that is crystallographic (CSL, lattice) uses the local `M3` type or plain `double[3][3]` arrays; convert with `makeCellMatrix` / `glm::make_mat3` at the boundary.
@@ -404,7 +404,7 @@ fooProgram = createProgram(fooVertSrc, fooFragSrc);
 
 ## What NOT to do
 
-- Do not add C++14 or later features (project targets C++11 strictly).
+- Do not add C++20 or later features (project targets C++17 strictly).
 - Do not write directly to `Structure::atoms` from a UI callback; go through a builder or edit helper and then call `updateBuffers`.
 - Do not store GPU state (VAOs, VBOs, shader IDs) anywhere except `SceneBuffers` or `Renderer`.
 - Do not use `std::shared_ptr` or `std::unique_ptr` for scene objects; the ownership model is value-based structs.

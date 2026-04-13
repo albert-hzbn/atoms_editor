@@ -78,7 +78,7 @@ bool sameFractionalPosition(const glm::vec3& lhs, const glm::vec3& rhs, float to
 
 // -- Builder -----------------------------------------------------------------
 
-BulkBuildResult buildBulkCrystal(Structure& structure,
+[[nodiscard]] BulkBuildResult buildBulkCrystal(Structure& structure,
                                  CrystalSystem system,
                                  int spaceGroupNumber,
                                  const LatticeParameters& params,

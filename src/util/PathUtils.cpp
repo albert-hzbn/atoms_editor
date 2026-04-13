@@ -231,9 +231,11 @@ bool loadDirectoryEntries(const std::string& directory,
 #endif
 
     std::sort(entries.begin(), entries.end(), [](const DirectoryEntry& a, const DirectoryEntry& b) {
-        if (a.second != b.second)
-            return a.second > b.second;
-        return a.first < b.first;
+        const auto& [nameA, isDirA] = a;
+        const auto& [nameB, isDirB] = b;
+        if (isDirA != isDirB)
+            return isDirA > isDirB;
+        return nameA < nameB;
     });
 
     return true;
@@ -246,10 +248,9 @@ void drawDirectoryEntries(const std::vector<DirectoryEntry>& entries,
 {
     for (size_t i = 0; i < entries.size(); ++i)
     {
-        const std::string& name = entries[i].first;
-        bool isDir = entries[i].second;
+        const auto& [name, isDir] = entries[i];
 
-        ImGui::PushID((int)i + idBase);
+        ImGui::PushID(static_cast<int>(i) + idBase);
         if (isDir)
         {
             std::string label = std::string("[DIR] ") + name + "##" + name;

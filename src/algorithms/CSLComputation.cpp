@@ -789,8 +789,7 @@ bool reduceToPrimitive(Structure& s, double symprec)
         newAtoms[ai].y = cart[1];
         newAtoms[ai].z = cart[2];
         newAtoms[ai].atomicNumber = types[ai];
-        auto it = zInfo.find(types[ai]);
-        if (it != zInfo.end())
+        if (auto it = zInfo.find(types[ai]); it != zInfo.end())
         {
             newAtoms[ai].symbol = it->second.sym;
             newAtoms[ai].r = it->second.r;
@@ -878,8 +877,8 @@ bool reduceToPrimitiveGB(Structure& s, int stackDir, double tol)
     for (auto& a : s.atoms) specCount[a.atomicNumber]++;
     int refZ = s.atoms[0].atomicNumber;
     int maxC = 0;
-    for (auto& p : specCount)
-        if (p.second > maxC) { maxC = p.second; refZ = p.first; }
+    for (auto& [z, count] : specCount)
+        if (count > maxC) { maxC = count; refZ = z; }
     int refIdx = 0;
     for (int i = 0; i < natom; i++)
         if (s.atoms[i].atomicNumber == refZ) { refIdx = i; break; }

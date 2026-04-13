@@ -95,7 +95,7 @@ glm::vec3 computeAtomCentroid(const std::vector<AtomSite>& atoms);
 
 // -- Builder -----------------------------------------------------------------
 
-NanoBuildResult buildNanocrystal(Structure& structure,
+[[nodiscard]] NanoBuildResult buildNanocrystal(Structure& structure,
                                  const Structure& reference,
                                  const NanoParams& params,
                                  const std::vector<glm::vec3>& elementColors,
