@@ -1,25 +1,21 @@
 # AtomForge
 
-AtomForge is an atomic structure builder for metallurgical simulation and atomistic modeling. It provides interactive tools for constructing, editing, and analyzing periodic crystals, grain boundaries, and nanostructures—all essential for preparing input structures for molecular dynamics and first-principles computational materials science.
+AtomForge is an interactive atomic structure builder for metallurgical simulation and atomistic modeling. It is designed to help researchers and engineers create, edit, inspect, and export structures used in molecular dynamics (MD) and first-principles workflows.
 
-## Core capabilities
+## Highlights
 
-- **Build structures from scratch** using crystal-system-aware builders for bulk crystals, cubic grain boundaries, and nanocrystals.
-- **Create custom finite structures** by filling imported 3D mesh volumes with atoms from a reference crystal in the Custom Structure workflow.
-- **Edit and refine** atoms and lattice parameters interactively, with real-time visualization.
-- **Generate polycrystalline microstructures** with Voronoi-based grain construction from a reference single crystal.
-- **Create metallurgical defects** such as grain boundaries with explicit Sigma selection and in-plane replication.
-- **Carve finite nanostructures** from any loaded reference structure using geometric shapes.
-- **Analyze local order** with common-neighbour analysis and radial distribution functions.
-- **Export for simulation** in VASP and other supported atomistic structure formats.
-- **Export publication-ready images** to PNG, JPEG, or SVG with optional background and resolution scaling above the live viewport size.
-- **Adapt the interface to dark/light themes and HiDPI displays** so overlays, previews, and text remain legible on high-resolution screens.
-- **Inspect structure quality** through coordination statistics, symmetry detection, and lattice metrics.
+- Build structures from scratch using crystal-aware workflows for bulk crystals, cubic grain boundaries, and nanocrystals.
+- Generate custom finite structures by filling imported 3D mesh volumes with atoms from a reference crystal.
+- Create polycrystalline microstructures via Voronoi grain construction.
+- Analyze local order with common neighbour analysis (CNA) and radial distribution function (RDF) tools.
+- Export structures for simulation (VASP and other supported formats).
+- Export publication-ready images (PNG, JPEG, SVG), including high-resolution scaling.
+- Use dark/light themes with HiDPI-aware UI scaling for readable overlays and dialogs.
 
 ## Platform support
 
 - Linux
-- Windows via MSYS2 UCRT64 / MinGW-w64
+- Windows (MSYS2 UCRT64 / MinGW-w64)
 
 ## Quick start
 
@@ -62,33 +58,31 @@ cmake --build build -j
 ./build/AtomForge.exe structure.cif
 ```
 
-Note: run the Windows build from the MSYS2 UCRT64 shell. PowerShell will often miss the required toolchain and DLL paths.
+Note: Build and run from the MSYS2 UCRT64 shell. PowerShell often misses required toolchain and DLL paths.
 
 ## Build notes
 
 - The project uses CMake and targets C++11.
 - OpenGL 3.x, GLFW, GLEW, GLM, and Open Babel are required.
-- spglib or symspg is optional; if found, symmetry-related features are enabled automatically.
+- spglib/symspg is optional; when available, symmetry-related features are enabled automatically.
 
-To clean the current build tree:
+Clean current build artifacts:
 
 ```bash
 cmake --build build --target clean
 ```
 
-To remove all generated artifacts:
+Remove the full build directory:
 
 ```bash
 rm -rf build
 ```
 
-## Portable Builds
+## Portable builds
 
-Portable builds now bundle required runtime libraries and Open Babel plugins into the package folder automatically.
+Portable packaging bundles runtime libraries and Open Babel plugins into the output package.
 
-### Windows Portable
-
-Build a portable ZIP package:
+### Windows portable ZIP
 
 ```bash
 # In MSYS2 UCRT64 shell:
@@ -99,22 +93,22 @@ cmake --build build-mingw -- -j1
 cpack --config build-mingw/CPackConfig.cmake -B build-mingw/package
 ```
 
-This generates a portable archive containing:
+Archive output:
+
+- `build-mingw/package/AtomForge-1.0.0-win64.zip`
+
+Contains:
+
 - `AtomForge.exe`
 - required runtime DLLs
 - Open Babel plugins under `openbabel/<version>/`
 - `README.md`
 
-Archive output path:
-- `build-mingw/package/AtomForge-1.0.0-win64.zip`
-
 Extract and run `AtomForge.exe` directly.
 
-Note: do not reuse a build folder configured with another generator (for example NMake). Use a dedicated folder like `build-mingw` for MinGW.
+Note: Do not reuse a build folder configured with a different generator (for example, NMake). Use a dedicated folder such as `build-mingw`.
 
-### Linux Portable (Tarball)
-
-Build a portable tarball:
+### Linux portable tarball
 
 ```bash
 cmake -S . -B build-portable -DCMAKE_BUILD_TYPE=Release -DBUILD_PORTABLE=ON
@@ -122,22 +116,22 @@ cmake --build build-portable -j
 cpack --config build-portable/CPackConfig.cmake -B build-portable/package
 ```
 
-This generates a portable archive containing:
+Contains:
+
 - `AtomForge/bin/AtomForge`
-- required `.so` runtime libraries copied next to the executable
+- required `.so` libraries copied next to the executable
 - Open Babel plugins under `AtomForge/bin/openbabel/`
 - `AtomForge/README.md`
 
-To run the portable Linux package:
+Run:
+
 ```bash
 tar xzf build-portable/package/AtomForge-*.tar.gz
 cd AtomForge/bin
 ./AtomForge
 ```
 
-### Alternative: Build for System Installation
-
-For standard system-wide installation (requires dependencies on target machine):
+### Alternative: system installation
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -148,11 +142,15 @@ On Linux, this installs to `/usr/local/bin` (may require `sudo`).
 
 ## Supported formats
 
-**Structure files** (open and save): `.xyz`, `.cif`, `.pdb`, `.sdf`, `.mol`, `.vasp`, `.mol2`, `.pwi`, `.gjf`
+Structure files (open/save): `.xyz`, `.cif`, `.pdb`, `.sdf`, `.mol`, `.vasp`, `.mol2`, `.pwi`, `.gjf`
 
-**Rendered images**: `.png`, `.jpg`, `.svg`
+Rendered image export: `.png`, `.jpg`, `.svg`
 
-You can also open a structure directly at launch by passing the file path as the first argument, for example `AtomForge structure.cif`.
+You can also open a structure at launch by passing a file path, for example:
+
+```bash
+AtomForge structure.cif
+```
 
 ## Core controls
 
@@ -162,178 +160,164 @@ You can also open a structure directly at launch by passing the file path as the
 | --- | --- |
 | Rotate scene | Left drag |
 | Zoom | Scroll wheel |
-| Reset fitted default view | View -> Reset Default View |
+| Reset fitted default view | `R` or View -> Reset Default View |
 
 ### Selection
 
 | Action | Input |
 | --- | --- |
 | Select one atom | Left click |
-| Add or remove from selection | Ctrl + left click |
-| Select all | Ctrl+A |
-| Clear selection | Ctrl+D or Escape |
+| Add/remove from selection | Ctrl + left click |
+| Select all | Ctrl + A |
+| Clear selection | Ctrl + D or Escape |
 | Delete selection | Delete |
 
-Box selection is available through Edit -> Box Select Mode. When enabled, right-drag draws a selection rectangle. Hold Ctrl to add to the current selection.
+Box selection is available from Edit -> Box Select Mode. When enabled, right-drag draws a selection rectangle. Hold Ctrl to add to current selection.
 
 ### File shortcuts
 
 | Action | Shortcut |
 | --- | --- |
-| Open structure | Ctrl+O |
-| Save structure as | Ctrl+S |
-| Export rendered image | Ctrl+Shift+S |
-| Undo | Ctrl+Z |
-| Redo | Ctrl+Y or Ctrl+Shift+Z |
+| Open structure | Ctrl + O |
+| Save structure as | Ctrl + S |
+| Export rendered image | Ctrl + Shift + S |
+| Undo | Ctrl + Z |
+| Redo | Ctrl + Y or Ctrl + Shift + Z |
 
 ## Main workflows
 
-### Open and inspect a structure
+### Open and inspect
 
 1. Use File -> Open.
-2. Rotate and zoom the scene.
+2. Navigate with rotate/zoom controls.
 3. Toggle View -> Show Bonds and View -> Show Element as needed.
 4. Open View -> Structure Info for composition, lattice, positions, and symmetry.
 
-### Edit atoms and structure data
+### Edit structure data
 
-- Right-click a selection to substitute atoms, insert an atom at a midpoint, measure, or delete.
+- Right-click a selection to substitute atoms, insert midpoint atoms, measure, or delete.
 - Use Edit -> Edit Structure to modify lattice vectors and atom positions.
-- Use Edit -> Atomic Sizes and Edit -> Element Colors to tune radii, colors, and shininess.
+- Use Edit -> Atomic Sizes and Edit -> Element Colors to adjust visual properties.
 - Use Edit -> Transform Structure to apply a 3x3 matrix to periodic structures.
 
-### Build and construct structures
+### Build structures
 
-- **Bulk Crystal**: Generate periodic cells from crystal system, space group, lattice parameters, and asymmetric-unit atoms. Ideal for preparing supercells and commensurate structures.
-- **CSL Grain Boundary**: Construct cubic bicrystals with explicit Sigma selection from sc, bcc, fcc, or diamond source lattices. Control GB plane, in-plane replication, rigid translation, and overlap removal.
-- **Nanocrystal**: Carve finite particles from any loaded reference structure using sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, or cuboctahedron geometry. Apply auto-centering and optional unit-cell padding.
-- **Polycrystal**: Build a polycrystalline box from a loaded reference single crystal using Voronoi grain partitioning. Control box size, grain count, random seed, and grain orientations.
-- **Custom Structure**: Import a reference crystal and a triangulated 3D model, preview both side-by-side, then fill the model volume with atoms from the crystal. The model preview is rendered as a shaded surface for easier inspection.
+- **Bulk Crystal**: Create periodic cells from crystal system, space group, lattice parameters, and asymmetric-unit atoms.
+- **CSL Grain Boundary**: Build cubic bicrystals with explicit Sigma selection and control over GB plane, in-plane replication, translation, and overlap handling.
+- **Nanocrystal**: Carve finite particles from loaded reference structures (sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, cuboctahedron).
+- **Custom Structure**: Fill imported mesh volumes (OBJ/STL) with atoms from a reference crystal, with side-by-side 3D previews.
+- **Interface Builder**: Build interfaces from two input structures with candidate matching and preview.
+- **Polycrystal**: Generate Voronoi-based polycrystalline structures from a reference crystal.
 
-## Structure builders and analysis
-
-AtomForge's builder system is designed to prepare structures for atomistic simulation—from perfect crystals to defected metallurgical systems.
+## Builder and analysis details
 
 ### Bulk crystal builder
 
-- Organizes space groups by crystal system (triclinic through cubic).
+- Organizes space groups by crystal system (triclinic to cubic).
 - Applies system-specific lattice constraints and trigonal settings.
-- Expands asymmetric-unit atoms using symmetry operations to build the full unit cell.
-- Perfect for creating supercells and preparing input for VASP, Quantum ESPRESSO, and other supported structure workflows.
+- Expands asymmetric-unit atoms using symmetry operations to produce full unit cells.
 
 ### CSL grain boundary builder
 
-- Targeted at metallurgical simulation of grain boundaries in cubic systems.
-- Generates sigma-list candidates from a rotation axis; select explicitly by Sigma, m, n, and angle.
-- Controls GB plane, supercell dimensions, in-plane replication, overlap removal, and rigid translation.
-- Outputs bicrystal structures ready for MD or DFT study of interface properties.
+- Designed for cubic grain boundary studies in metallurgy.
+- Generates Sigma candidates from rotation axis input.
+- Controls GB plane, dimensions, replication, overlap removal, and rigid translation.
 
 ### Nanocrystal builder
 
-- Carves finite particles from any loaded reference structure.
-- Supports geometric shapes: sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, cuboctahedron.
-- Auto-replicates periodic inputs for efficient particle generation and can pad with vacuum.
-- Ideal for preparing nanoparticle input for cluster simulations and nanoscale property calculations.
+- Carves finite structures from loaded references.
+- Supports sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, and cuboctahedron geometries.
+- Can auto-replicate periodic inputs and apply vacuum padding.
 
 ### Polycrystal builder
 
-- Uses a loaded single-crystal reference structure with unit-cell information.
-- Builds grains by Voronoi tessellation inside a user-defined simulation box.
-- Supports fully random grain orientations, fully specified Euler-angle orientations, or mixed specified/random orientation sets.
-- Shows a live 3D preview of the reference crystal inside the builder dialog.
-- Writes per-atom IPF-Z orientation colors for visualization and export-side metadata.
+- Uses unit-cell-aware reference structures.
+- Builds grains via Voronoi tessellation in a user-defined box.
+- Supports random, explicit, and mixed orientation assignment.
 
 ### Custom structure builder
 
-- Accepts drag-and-drop input for both the source crystal and the target 3D mesh model.
-- Shows live 3D previews for the reference crystal and the imported model inside the dialog.
-- Renders the model as a shaded surface to make volume and orientation easier to inspect before generation.
-- Produces a finite atomistic structure constrained by the imported model geometry.
+- Accepts drag-and-drop crystal and mesh inputs.
+- Provides live 3D previews for both reference crystal and mesh model.
+- Produces finite atomistic structures constrained by the model volume.
 
 ### Crystal orientation coloring
 
-- View -> Color Structure By -> Crystal Orientation switches atom colors from element colors to cubic IPF-Z colors.
-- An IPF triangle legend is shown in the main view when crystal-orientation coloring is active.
-- When a structure is saved, AtomForge writes a companion `basename.atomforge-ipf` file when IPF data is available.
-- On load, AtomForge first restores IPF from that saved metadata and only falls back to geometry-based reconstruction if no sidecar is found.
+- View -> Color Structure By -> Crystal Orientation switches from element colors to cubic IPF-Z colors.
+- Displays an IPF triangle legend in the main view when active.
+- Saves companion `basename.atomforge-ipf` metadata when IPF data is available.
+- Restores from sidecar metadata on load when present, with geometry-based fallback otherwise.
 
-### Structure analysis
+### Analysis tools
 
-- **Common Neighbour Analysis**: Identifies local crystalline environments (FCC, HCP, BCC, ICO) and reports Honeycutt-Andersen-style pair signatures.
-- **Radial Distribution Function**: Plots RDF with species filters, normalization, smoothing, and first-peak analysis for structure validation.
-- **Coordination and bonding**: Automatic bond detection, PBC-aware coordination counting, and bond-length statistics for quality assurance.
+- **Common Neighbour Analysis (CNA)**: Classifies local motifs (FCC, HCP, BCC, ICO) with Honeycutt-Andersen-style signatures.
+- **Radial Distribution Function (RDF)**: Provides species filtering, normalization, smoothing, and first-peak analysis.
+- **Coordination and bonding**: Includes automatic bond detection, PBC-aware coordination counting, and bond-length statistics.
 
-## Display and measurements
+## Display and measurement
 
 - Bonds are inferred from covalent radii and rendered as split-color cylinders.
-- Periodic image atoms are drawn at cell boundaries for periodic visualization.
-- Distance and angle tools draw helper overlays in the scene.
-- Atom Info reports element data, Cartesian and direct coordinates, and bond statistics.
-- View -> Select Theme switches between the default dark theme and a light theme with matching gizmo, overlay, and bounding-box colors.
-- The interface scales automatically on high-resolution / HiDPI displays so text and controls remain readable.
-
-## Image export
-
-- Export Image supports PNG, JPEG, and SVG output.
-- Background can be included or omitted depending on the target format.
-- Resolution scale can be increased above the current viewport size (for example 2x, 3x, and higher) for high-resolution screenshots.
-- Export rendering follows the active theme so light-theme captures use a light background and matching overlay colors.
+- Periodic image atoms are shown at cell boundaries for periodic context.
+- Distance and angle tools draw overlays directly in the scene.
+- Atom Info reports element, Cartesian/direct coordinates, and bond statistics.
+- View -> Select Theme supports dark and light themes with matching overlay colors.
+- UI scales automatically for high-resolution and HiDPI displays.
 
 ## Menus at a glance
 
 ### File
 
-- Open structures.
-- Save the current structure.
-- Export a rendered image.
-- Close the current structure.
+- Open structures
+- Save structures
+- Export rendered images
+- Close current structure
 
 ### Edit
 
-- Undo and redo.
-- Box selection mode.
-- Structure editing.
-- Atomic-size and element-color overrides.
-- Supercell transform.
+- Undo/redo
+- Box selection mode
+- Structure editing
+- Atomic-size and element-color overrides
+- Supercell transform
 
 ### View
 
-- Element labels and bond visibility.
-- Isometric and orthographic camera modes.
-- Color by element type or crystal orientation.
-- Structure information and measurement dialogs.
-- Reset default view.
+- Element labels and bonds
+- Isometric/orthographic camera modes
+- Element/crystal-orientation color modes
+- Structure and measurement dialogs
+- Reset default view
 
 ### Build
 
-- Bulk Crystal.
-- CSL Grain Boundary.
-- Nanocrystal.
-- Polycrystal.
-- Nanocrystal.
+- Bulk Crystal
+- CSL Grain Boundary
+- Nanocrystal
+- Custom Structure
+- Interface Builder
+- Polycrystal
 
 ### Analysis
 
-- Common Neighbour Analysis.
-- Radial Distribution Function.
+- Common Neighbour Analysis
+- Radial Distribution Function
 
 ### Help
 
-- Manual.
-- About.
+- Manual
+- About
 
 ## Windows troubleshooting
 
-### Open Babel plugin path is missing
+### Open Babel plugin path missing
 
-If AtomForge reports that Open Babel plugins cannot be found, set the plugin path before launch:
+If AtomForge reports missing Open Babel plugins, set `BABEL_LIBDIR` before launch:
 
 ```bash
 export BABEL_LIBDIR=/ucrt64/lib/openbabel/3.1.0/
 ```
 
-If you moved/cloned the project and loading any structure fails, this is usually the reason.
-Use the actual installed plugin directory for your Open Babel version, for example:
+If loading fails after moving/cloning the project, this is often the cause. Use the installed Open Babel plugin directory for your version, for example:
 
 ```bash
 # Linux examples
@@ -358,7 +342,7 @@ Run from the UCRT64 shell, or ensure `C:/msys64/ucrt64/bin` is present in `PATH`
 
 ### CMake cannot find dependencies
 
-Verify that `pkgconf` and the required MSYS2 packages are installed in the same UCRT64 environment used for the build.
+Verify `pkgconf` and the required MSYS2 packages are installed in the same UCRT64 environment used for build and run.
 
 ## Project layout
 
@@ -366,12 +350,13 @@ Verify that `pkgconf` and the required MSYS2 packages are installed in the same 
 CMakeLists.txt              cross-platform build configuration
 src/
   main.cpp                  application entry point and frame loop
-  ElementData.cpp/.h        element symbols, colors, radii, metadata
-  app/                      editor coordination, file handling, interaction glue
+  app/                      editor coordination, workflow control, undo/redo, interactions
+  algorithms/               structure generation and geometry/model processing
   camera/                   orbit camera and callbacks
   graphics/                 renderer, scene buffers, picking, meshes, shaders
-  io/                       structure loading through Open Babel
+  io/                       structure loading and saving through Open Babel
   math/                     structure and geometry helpers
   ui/                       Dear ImGui windows, dialogs, and builders
+  util/                     shared utilities and element metadata
 imgui/                      bundled Dear ImGui sources and backend bindings
 ```
