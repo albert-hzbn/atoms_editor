@@ -205,6 +205,7 @@ void initImGui(GLFWwindow* window)
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigWindowsMoveFromTitleBarOnly = true;
+    io.IniFilename = nullptr;
 
     applyDarkTheme();
 
