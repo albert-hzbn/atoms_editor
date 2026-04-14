@@ -56,6 +56,7 @@ set(ATOMFORGE_SOURCES
     src/ui/CSLGrainBoundaryDialog.cpp
     src/ui/NanoCrystalBuilderDialog.cpp
     src/ui/CustomStructureDialog.cpp
+    src/ui/MergeStructuresDialog.cpp
     src/ui/PolyCrystalBuilderDialog.cpp
     src/ui/InterfaceBuilderDialog.cpp
     src/ui/CommonNeighbourAnalysis.cpp

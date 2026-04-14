@@ -5,6 +5,7 @@
 #include "ui/CSLGrainBoundaryDialog.h"
 #include "ui/NanoCrystalBuilderDialog.h"
 #include "ui/CustomStructureDialog.h"
+#include "ui/MergeStructuresDialog.h"
 #include "ui/InterfaceBuilderDialog.h"
 #include "ui/PolyCrystalBuilderDialog.h"
 #include "ui/CommonNeighbourAnalysis.h"
@@ -233,6 +234,11 @@ struct FileBrowser
     bool isCustomStructureDialogOpen() const;
     void feedDropToCustomStructureDialog(const std::string& path);
 
+    // Merge structures dialog resources and drop routing.
+    void initMergeStructuresRenderResources(Renderer& renderer);
+    bool isMergeStructuresDialogOpen() const;
+    void feedDropToMergeStructuresDialog(const std::string& path);
+
     // CSL grain boundary dialog GL resources and drop routing.
     void initCSLGrainBoundaryRenderResources(Renderer& renderer);
     bool isCSLGrainBoundaryDialogOpen() const;
@@ -351,6 +357,7 @@ private:
     CSLGrainBoundaryDialog cslDialog;
     NanoCrystalBuilderDialog nanoCrystalDialog;
     CustomStructureDialog customStructureDialog;
+    MergeStructuresDialog mergeStructuresDialog;
     InterfaceBuilderDialog interfaceBuilderDialog;
     PolyCrystalBuilderDialog polyCrystalDialog;
     CommonNeighbourAnalysisDialog cnaDialog;

@@ -49,6 +49,14 @@ void processDroppedFiles(EditorState& state)
         return;
     }
 
+    if (state.fileBrowser.isMergeStructuresDialogOpen())
+    {
+        for (const auto& f : state.pendingDroppedFiles)
+            state.fileBrowser.feedDropToMergeStructuresDialog(f);
+        state.pendingDroppedFiles.clear();
+        return;
+    }
+
     const std::string droppedFile = state.pendingDroppedFiles.back();
     state.pendingDroppedFiles.clear();
 

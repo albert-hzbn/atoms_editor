@@ -474,6 +474,7 @@ int runAtomsEditor(const std::string& startupStructurePath)
     renderer.init();
     state.fileBrowser.initNanoCrystalRenderResources(renderer);
     state.fileBrowser.initCustomStructureRenderResources(renderer);
+    state.fileBrowser.initMergeStructuresRenderResources(renderer);
     state.fileBrowser.initInterfaceBuilderRenderResources(renderer);
     state.fileBrowser.initCSLGrainBoundaryRenderResources(renderer);
     state.fileBrowser.initPolyCrystalRenderResources(renderer);

@@ -260,6 +260,8 @@ void FileBrowser::draw(Structure& structure,
             editMenuDialogs.drawMenuItems();
             ImGui::Separator();
             transformDialog.drawMenuItem(structure.hasUnitCell);
+            ImGui::Separator();
+            mergeStructuresDialog.drawMenuItem(true);
 
             ImGui::EndMenu();
         }
@@ -498,6 +500,7 @@ void FileBrowser::draw(Structure& structure,
     customStructureDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                       editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
                                       updateFromBuilder);
+    mergeStructuresDialog.drawDialog(structure, updateFromBuilder);
     interfaceBuilderDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                       editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
                                       updateFromBuilder);
@@ -1408,6 +1411,21 @@ bool FileBrowser::isCustomStructureDialogOpen() const
 void FileBrowser::feedDropToCustomStructureDialog(const std::string& path)
 {
     customStructureDialog.feedDroppedFile(path);
+}
+
+bool FileBrowser::isMergeStructuresDialogOpen() const
+{
+    return mergeStructuresDialog.isOpen();
+}
+
+void FileBrowser::feedDropToMergeStructuresDialog(const std::string& path)
+{
+    mergeStructuresDialog.feedDroppedFile(path);
+}
+
+void FileBrowser::initMergeStructuresRenderResources(Renderer& renderer)
+{
+    mergeStructuresDialog.initRenderResources(renderer);
 }
 
 void FileBrowser::initCustomStructureRenderResources(Renderer& renderer)
