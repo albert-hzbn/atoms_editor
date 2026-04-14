@@ -399,6 +399,8 @@ void InterfaceBuilderDialog::drawDropZone(
     const std::vector<float>& shininess,
     float width, float height, int slot)
 {
+    (void)tex;
+
     ImGui::BeginChild(label, ImVec2(width, height), true);
     ImGui::TextColored(ImVec4(0.7f, 0.85f, 1.0f, 1.0f), "%s", label);
     ImGui::Separator();
@@ -701,6 +703,8 @@ void InterfaceBuilderDialog::drawDialog(
     const std::vector<float>& elementShininess,
     const std::function<void(Structure&)>& updateBuffers)
 {
+    (void)elementColors;
+
     // Consume pending file drops
     if (!m_pendingDropPathA.empty())
     {

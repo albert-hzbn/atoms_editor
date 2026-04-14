@@ -120,7 +120,6 @@ target_compile_options(AtomForge PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang>:-Wextra>
     $<$<CXX_COMPILER_ID:GNU,Clang>:-Wshadow>
     $<$<CXX_COMPILER_ID:GNU,Clang>:-Wnon-virtual-dtor>
-    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wold-style-cast>
     $<$<CXX_COMPILER_ID:GNU,Clang>:-Wpedantic>
 )
 

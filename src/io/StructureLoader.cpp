@@ -395,8 +395,8 @@ bool recoverIpfFromGeometry(Structure& structure)
         glm::vec3 u2raw(0.0f);
         for (size_t n = 1; n < unitVecs.size(); ++n)
         {
-            const float c = std::abs(glm::dot(u1, unitVecs[n]));
-            if (c < 0.85f)
+            const float cosine = std::abs(glm::dot(u1, unitVecs[n]));
+            if (cosine < 0.85f)
             {
                 u2raw = unitVecs[n];
                 foundSecond = true;

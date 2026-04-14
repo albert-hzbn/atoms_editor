@@ -405,8 +405,8 @@ void SceneBuffers::upload(const StructureInstanceData& data,
                      GL_STATIC_DRAW);
     }
 
-    std::vector<glm::vec3> bondStarts;
-    std::vector<glm::vec3> bondEnds;
+    std::vector<glm::vec3> bondStartPositions;
+    std::vector<glm::vec3> bondEndPositions;
     std::vector<glm::vec3> bondColorA;
     std::vector<glm::vec3> bondColorB;
     std::vector<float> bondRadii;
@@ -422,8 +422,8 @@ void SceneBuffers::upload(const StructureInstanceData& data,
     {
         // Pre-allocate for expected bonds (not squared!)
         size_t expectedBonds = std::min(atomPositions.size() * 6, kMaxBondCount);
-        bondStarts.reserve(std::min(expectedBonds, kMaxBondCount));
-        bondEnds.reserve(std::min(expectedBonds, kMaxBondCount));
+        bondStartPositions.reserve(std::min(expectedBonds, kMaxBondCount));
+        bondEndPositions.reserve(std::min(expectedBonds, kMaxBondCount));
         bondColorA.reserve(std::min(expectedBonds, kMaxBondCount));
         bondColorB.reserve(std::min(expectedBonds, kMaxBondCount));
         bondRadii.reserve(std::min(expectedBonds, kMaxBondCount));
@@ -440,7 +440,7 @@ void SceneBuffers::upload(const StructureInstanceData& data,
 
         // Check bonds only within neighboring cells
         const int neighborRange = 2;  // Check 3x3x3 neighborhood (includes diagonals)
-        for (size_t i = 0; i < atomPositions.size() && bondStarts.size() < kMaxBondCount; ++i)
+        for (size_t i = 0; i < atomPositions.size() && bondStartPositions.size() < kMaxBondCount; ++i)
         {
             glm::ivec3 centerCell = getGridCell(atomPositions[i], kSpatialHashCellSize);
             float radiusA = (i < bondSourceRadii.size()) ? bondSourceRadii[i] : 1.0f;
@@ -506,15 +506,15 @@ void SceneBuffers::upload(const StructureInstanceData& data,
                                                               kMinBondRadius,
                                                               kMaxBondRadius);
 
-                                bondStarts.push_back(start);
-                                bondEnds.push_back(end);
+                                bondStartPositions.push_back(start);
+                                bondEndPositions.push_back(end);
                                 bondColorA.push_back((i < atomColors.size()) ? atomColors[i] : glm::vec3(0.8f));
                                 bondColorB.push_back((j < atomColors.size()) ? atomColors[j] : glm::vec3(0.8f));
                                 bondRadii.push_back(bondRadius);
                                 bondShininessA.push_back((i < atomShininess.size()) ? atomShininess[i] : 32.0f);
                                 bondShininessB.push_back((j < atomShininess.size()) ? atomShininess[j] : 32.0f);
 
-                                if (bondStarts.size() >= kMaxBondCount)
+                                if (bondStartPositions.size() >= kMaxBondCount)
                                 {
                                     std::cerr << "Warning: Bond count capped at " << kMaxBondCount
                                               << " to prevent memory exhaustion. Structure has "
@@ -535,24 +535,24 @@ void SceneBuffers::upload(const StructureInstanceData& data,
                   << " atoms (>500k cutoff). Bonds will not be rendered." << std::endl;
     }
 
-    bondCount = bondStarts.size();
+    bondCount = bondStartPositions.size();
 
-    this->bondStarts = bondStarts;
-    this->bondEnds = bondEnds;
+    this->bondStarts = bondStartPositions;
+    this->bondEnds = bondEndPositions;
     this->bondColorsA = bondColorA;
     this->bondColorsB = bondColorB;
     this->bondRadiiCpu = bondRadii;
 
     glBindBuffer(GL_ARRAY_BUFFER, bondStartVBO);
     glBufferData(GL_ARRAY_BUFFER,
-                 bondStarts.size() * sizeof(glm::vec3),
-                 bondStarts.empty() ? nullptr : bondStarts.data(),
+                 bondStartPositions.size() * sizeof(glm::vec3),
+                 bondStartPositions.empty() ? nullptr : bondStartPositions.data(),
                  GL_STATIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, bondEndVBO);
     glBufferData(GL_ARRAY_BUFFER,
-                 bondEnds.size() * sizeof(glm::vec3),
-                 bondEnds.empty() ? nullptr : bondEnds.data(),
+                 bondEndPositions.size() * sizeof(glm::vec3),
+                 bondEndPositions.empty() ? nullptr : bondEndPositions.data(),
                  GL_STATIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, bondColorAVBO);

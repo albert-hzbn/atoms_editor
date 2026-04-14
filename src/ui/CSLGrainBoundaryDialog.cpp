@@ -257,6 +257,8 @@ void CSLGrainBoundaryDialog::drawDialog(Structure& structure,
                                         const std::vector<float>& elementShininess,
                                         const std::function<void(Structure&)>& updateBuffers)
 {
+    (void)elementColors;
+
 // -- Static dialog state --------------------------------------------
     static Structure inputStructure;
     static char statusMsg[256] = "(no structure loaded)";
