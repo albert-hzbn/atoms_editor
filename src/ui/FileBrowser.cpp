@@ -47,6 +47,8 @@ static const ImageExportFormatOption kImageExportFormats[] = {
 };
 static constexpr int kNumImageExportFormats = (int)(sizeof(kImageExportFormats) / sizeof(kImageExportFormats[0]));
 static constexpr double kNotificationLifetimeSeconds = 3.5;
+// Persistent sidebar width shared across all three file-browser dialogs.
+static float s_sidebarW = 130.0f;
 
 FileBrowser::FileBrowser()
         : useLightTheme(false),
@@ -536,65 +538,110 @@ void FileBrowser::draw(Structure& structure,
         openStatusMsg[0] = '\0';
     }
 
+    ImGui::SetNextWindowSize(ImVec2(720.0f, 510.0f), ImGuiCond_Appearing);
     bool openStructureOpen = true;
-    if (ImGui::BeginPopupModal("Open Structure", &openStructureOpen, ImGuiWindowFlags_AlwaysAutoResize))
+    if (ImGui::BeginPopupModal("Open Structure", &openStructureOpen, 0))
     {
-        ImGui::Text("Current folder: %s", openDir.c_str());
-        ImGui::SameLine();
-        if (ImGui::Button(".."))
+        // --- Compact navigation bar with editable path ---
+        static char s_openPathBuf[2048] = {};
+        static std::string s_prevOpenDir;
+        if (s_prevOpenDir != openDir)
         {
-            openDir = parentPath(openDir);
-            pushHistory(openDir);
-            openStatusMsg[0] = '\0';
+            std::snprintf(s_openPathBuf, sizeof(s_openPathBuf), "%s", openDir.c_str());
+            s_prevOpenDir = openDir;
         }
 
-        ImGui::SameLine();
-        if (ImGui::Button("Back") && historyIndex > 0)
+        const float navBtnW = 32.0f;
+        if (ImGui::Button("\xe2\x86\x90##openBack", ImVec2(navBtnW, 0.0f)) && historyIndex > 0)
         {
             historyIndex--;
             openDir = dirHistory[historyIndex];
             openStatusMsg[0] = '\0';
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Forward") && historyIndex + 1 < (int)dirHistory.size())
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Back");
+        ImGui::SameLine(0.0f, 2.0f);
+        if (ImGui::Button("\xe2\x86\x92##openFwd", ImVec2(navBtnW, 0.0f)) && historyIndex + 1 < (int)dirHistory.size())
         {
             historyIndex++;
             openDir = dirHistory[historyIndex];
             openStatusMsg[0] = '\0';
         }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Root"))
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Forward");
+        ImGui::SameLine(0.0f, 2.0f);
+        if (ImGui::Button("\xe2\x86\x91##openUp", ImVec2(navBtnW, 0.0f)))
         {
-            openDir = !driveRoots.empty() ? driveRoots.front() : "/";
+            openDir = parentPath(openDir);
             pushHistory(openDir);
             openStatusMsg[0] = '\0';
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Home"))
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Up one level");
+        ImGui::SameLine(0.0f, 8.0f);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::InputText("##openPathBar", s_openPathBuf, sizeof(s_openPathBuf),
+                             ImGuiInputTextFlags_EnterReturnsTrue))
         {
-            openDir = detectHomePath();
+            std::string newDir = normalizePathSeparators(std::string(s_openPathBuf));
+            if (isDriveRootPath(newDir) && newDir.size() == 2)
+                newDir += "/";
+            openDir = newDir;
             pushHistory(openDir);
             openStatusMsg[0] = '\0';
         }
 
         ImGui::Separator();
 
-        if (ImGui::TreeNodeEx("Supported Formats", ImGuiTreeNodeFlags_DefaultOpen))
+        // --- Sidebar + file list ---
+        const float listH = 300.0f;
+
+        if (ImGui::BeginChild("##opensidebar", ImVec2(s_sidebarW, listH), true))
         {
-            ImGui::BulletText("XYZ (.xyz) - XYZ structure format");
-            ImGui::BulletText("CIF (.cif) - Crystallographic Information File");
-            ImGui::BulletText("PDB (.pdb) - Protein Data Bank format");
-            ImGui::BulletText("SDF (.sdf) - Structure Data File");
-            ImGui::BulletText("MOL (.mol) - MDL MOL format");
-            ImGui::BulletText("VASP (.vasp) - VASP POSCAR format");
-            ImGui::BulletText("Mol2 (.mol2) - Sybyl Mol2 format");
-            ImGui::BulletText("Quantum ESPRESSO (.pwi) - PWscf input");
-            ImGui::BulletText("Gaussian (.gjf) - Gaussian input");
-            ImGui::TreePop();
+            ImGui::TextDisabled("Locations");
+            ImGui::Separator();
+            if (ImGui::Selectable("Home##openHome"))
+            {
+                openDir = detectHomePath();
+                pushHistory(openDir);
+                openStatusMsg[0] = '\0';
+            }
+            ImGui::Spacing();
+            ImGui::TextDisabled("Drives");
+            ImGui::Separator();
+            for (const auto& root : driveRoots)
+            {
+                if (ImGui::Selectable(root.c_str()))
+                {
+                    openDir = root;
+                    pushHistory(openDir);
+                    openStatusMsg[0] = '\0';
+                }
+            }
+            ImGui::EndChild();
         }
 
-        if (ImGui::BeginChild("##filebrowser", ImVec2(500, 300), true))
+        // Draggable splitter
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::InvisibleButton("##openSplitter", ImVec2(6.0f, listH));
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        if (ImGui::IsItemActive())
+        {
+            s_sidebarW += ImGui::GetIO().MouseDelta.x;
+            s_sidebarW = std::max(80.0f, std::min(s_sidebarW, 300.0f));
+        }
+        {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            const ImVec2 r0 = ImGui::GetItemRectMin();
+            const ImVec2 r1 = ImGui::GetItemRectMax();
+            const float  cx = (r0.x + r1.x) * 0.5f;
+            const ImU32  lc = ImGui::IsItemHovered() || ImGui::IsItemActive()
+                              ? IM_COL32(150, 190, 230, 200)
+                              : IM_COL32(120, 120, 120, 100);
+            dl->AddLine(ImVec2(cx, r0.y + 4.0f), ImVec2(cx, r1.y - 4.0f), lc, 1.5f);
+        }
+        ImGui::SameLine(0.0f, 0.0f);
+
+        bool openFileDoubleClicked = false;
+        if (ImGui::BeginChild("##filebrowser", ImVec2(0.0f, listH), true))
         {
             std::vector<DirectoryEntry> entries;
             bool listed = loadDirectoryEntries(
@@ -614,17 +661,38 @@ void FileBrowser::draw(Structure& structure,
                         openDir = joinPath(openDir, name);
                         pushHistory(openDir);
                         openStatusMsg[0] = '\0';
-                    });
+                    }, &openFileDoubleClicked);
             }
 
             ImGui::EndChild();
         }
 
-        ImGui::InputText("Filename", openFilename, sizeof(openFilename));
+        {
+            static const char* kOpenExtHint = ".xyz  .cif  .pdb  .sdf  .mol  .vasp  .mol2  .pwi  .gjf";
+            const float extHintW = ImGui::CalcTextSize(kOpenExtHint).x;
+            const float labelW   = ImGui::CalcTextSize("Filename").x
+                                  + ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
+            const float spacing  = ImGui::GetStyle().ItemSpacing.x;
+            const float inputW   = ImGui::GetContentRegionAvail().x - labelW - extHintW - spacing * 2.0f;
+            ImGui::SetNextItemWidth(inputW > 120.0f ? inputW : 120.0f);
+            if (ImGui::InputText("Filename##open", openFilename, sizeof(openFilename),
+                                 ImGuiInputTextFlags_EnterReturnsTrue))
+                openFileDoubleClicked = true;
+            ImGui::SameLine(0.0f, spacing);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("%s", kOpenExtHint);
+        }
         if (openStatusMsg[0] != '\0')
             ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", openStatusMsg);
 
-        if (ImGui::Button("Load"))
+        bool doLoad = openFileDoubleClicked;
+        if (ImGui::Button("Load", ImVec2(120.0f, 0.0f)))
+            doLoad = true;
+        ImGui::SameLine(0.0f, 8.0f);
+        if (ImGui::Button("Cancel##openCancel", ImVec2(120.0f, 0.0f)))
+            ImGui::CloseCurrentPopup();
+
+        if (doLoad)
         {
             std::string fullPath = joinPath(openDir, openFilename);
             Structure newStructure;
@@ -667,9 +735,9 @@ void FileBrowser::draw(Structure& structure,
         saveStructurePopup = false;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(560, 480), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(720.0f, 480.0f), ImGuiCond_Appearing);
     bool saveAsOpen = true;
-    if (ImGui::BeginPopupModal("Save As", &saveAsOpen, ImGuiWindowFlags_AlwaysAutoResize))
+    if (ImGui::BeginPopupModal("Save As", &saveAsOpen, 0))
     {
         // Helper: navigate to a new directory and record it in history.
         auto pushSaveDir = [&](const std::string& dir) {
@@ -677,34 +745,89 @@ void FileBrowser::draw(Structure& structure,
             pushDirectoryHistory(saveDirHistory, saveHistoryIndex, saveDir);
         };
 
-        ImGui::Text("Current folder: %s", saveDir.c_str());
-        ImGui::SameLine();
-        if (ImGui::Button("..##save"))
+        // --- Compact navigation bar with editable path ---
+        static char s_savePathBuf[2048] = {};
+        static std::string s_prevSaveDir;
+        if (s_prevSaveDir != saveDir)
         {
-            pushSaveDir(parentPath(saveDir));
+            std::snprintf(s_savePathBuf, sizeof(s_savePathBuf), "%s", saveDir.c_str());
+            s_prevSaveDir = saveDir;
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Back##save") && saveHistoryIndex > 0)
+
+        const float navBtnW = 32.0f;
+        if (ImGui::Button("\xe2\x86\x90##saveBack", ImVec2(navBtnW, 0.0f)) && saveHistoryIndex > 0)
         {
             saveHistoryIndex--;
             saveDir = saveDirHistory[saveHistoryIndex];
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Forward##save") && saveHistoryIndex + 1 < (int)saveDirHistory.size())
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Back");
+        ImGui::SameLine(0.0f, 2.0f);
+        if (ImGui::Button("\xe2\x86\x92##saveFwd", ImVec2(navBtnW, 0.0f)) && saveHistoryIndex + 1 < (int)saveDirHistory.size())
         {
             saveHistoryIndex++;
             saveDir = saveDirHistory[saveHistoryIndex];
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Root##save"))
-            pushSaveDir(!driveRoots.empty() ? driveRoots.front() : "/");
-        ImGui::SameLine();
-        if (ImGui::Button("Home##save"))
-            pushSaveDir(detectHomePath());
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Forward");
+        ImGui::SameLine(0.0f, 2.0f);
+        if (ImGui::Button("\xe2\x86\x91##saveUp", ImVec2(navBtnW, 0.0f)))
+            pushSaveDir(parentPath(saveDir));
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Up one level");
+        ImGui::SameLine(0.0f, 8.0f);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::InputText("##savePathBar", s_savePathBuf, sizeof(s_savePathBuf),
+                             ImGuiInputTextFlags_EnterReturnsTrue))
+        {
+            std::string newDir = normalizePathSeparators(std::string(s_savePathBuf));
+            if (isDriveRootPath(newDir) && newDir.size() == 2)
+                newDir += "/";
+            pushSaveDir(newDir);
+        }
 
         ImGui::Separator();
 
-        if (ImGui::BeginChild("##savefilebrowser", ImVec2(500, 200), true))
+        // --- Sidebar + file list ---
+        const float listH = 200.0f;
+
+        if (ImGui::BeginChild("##savesidebar", ImVec2(s_sidebarW, listH), true))
+        {
+            ImGui::TextDisabled("Locations");
+            ImGui::Separator();
+            if (ImGui::Selectable("Home##saveHome"))
+                pushSaveDir(detectHomePath());
+            ImGui::Spacing();
+            ImGui::TextDisabled("Drives");
+            ImGui::Separator();
+            for (const auto& root : driveRoots)
+            {
+                if (ImGui::Selectable(root.c_str()))
+                    pushSaveDir(root);
+            }
+            ImGui::EndChild();
+        }
+
+        // Draggable splitter
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::InvisibleButton("##saveSplitter", ImVec2(6.0f, listH));
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        if (ImGui::IsItemActive())
+        {
+            s_sidebarW += ImGui::GetIO().MouseDelta.x;
+            s_sidebarW = std::max(80.0f, std::min(s_sidebarW, 300.0f));
+        }
+        {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            const ImVec2 r0 = ImGui::GetItemRectMin();
+            const ImVec2 r1 = ImGui::GetItemRectMax();
+            const float  cx = (r0.x + r1.x) * 0.5f;
+            const ImU32  lc = ImGui::IsItemHovered() || ImGui::IsItemActive()
+                              ? IM_COL32(150, 190, 230, 200)
+                              : IM_COL32(120, 120, 120, 100);
+            dl->AddLine(ImVec2(cx, r0.y + 4.0f), ImVec2(cx, r1.y - 4.0f), lc, 1.5f);
+        }
+        ImGui::SameLine(0.0f, 0.0f);
+
+        if (ImGui::BeginChild("##savefilebrowser", ImVec2(0.0f, listH), true))
         {
             const std::string saveExtFilter = toLower(kSaveFormats[selectedSaveFormat].ext);
 
@@ -732,7 +855,8 @@ void FileBrowser::draw(Structure& structure,
             ImGui::EndChild();
         }
 
-        ImGui::InputText("Filename##save", saveFilename, sizeof(saveFilename));
+        bool saveEnterPressed = ImGui::InputText("Filename##save", saveFilename, sizeof(saveFilename),
+                                                 ImGuiInputTextFlags_EnterReturnsTrue);
 
         // Format selector
         if (ImGui::Combo("Format", &selectedSaveFormat,
@@ -753,7 +877,14 @@ void FileBrowser::draw(Structure& structure,
 
         ImGui::Separator();
 
-        if (ImGui::Button("Save"))
+        bool doSave = saveEnterPressed;
+        if (ImGui::Button("Save", ImVec2(120.0f, 0.0f)))
+            doSave = true;
+        ImGui::SameLine(0.0f, 8.0f);
+        if (ImGui::Button("Cancel##saveCancel", ImVec2(120.0f, 0.0f)))
+            ImGui::CloseCurrentPopup();
+
+        if (doSave)
         {
             if (structure.atoms.empty())
             {
@@ -822,42 +953,98 @@ void FileBrowser::draw(Structure& structure,
         exportImagePopup = false;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(560, 500), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(720.0f, 500.0f), ImGuiCond_Appearing);
     bool exportImageOpen = true;
-    if (ImGui::BeginPopupModal("Export Image", &exportImageOpen, ImGuiWindowFlags_AlwaysAutoResize))
+    if (ImGui::BeginPopupModal("Export Image", &exportImageOpen, 0))
     {
         auto pushExportDir = [&](const std::string& dir) {
             exportDir = dir;
             pushDirectoryHistory(exportDirHistory, exportHistoryIndex, exportDir);
         };
 
-        ImGui::Text("Current folder: %s", exportDir.c_str());
-        ImGui::SameLine();
-        if (ImGui::Button("..##export"))
-            pushExportDir(parentPath(exportDir));
+        // --- Compact navigation bar with editable path ---
+        static char s_exportPathBuf[2048] = {};
+        static std::string s_prevExportDir;
+        if (s_prevExportDir != exportDir)
+        {
+            std::snprintf(s_exportPathBuf, sizeof(s_exportPathBuf), "%s", exportDir.c_str());
+            s_prevExportDir = exportDir;
+        }
 
-        ImGui::SameLine();
-        if (ImGui::Button("Back##export") && exportHistoryIndex > 0)
+        const float navBtnW = 32.0f;
+        if (ImGui::Button("\xe2\x86\x90##exportBack", ImVec2(navBtnW, 0.0f)) && exportHistoryIndex > 0)
         {
             exportHistoryIndex--;
             exportDir = exportDirHistory[exportHistoryIndex];
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Forward##export") && exportHistoryIndex + 1 < (int)exportDirHistory.size())
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Back");
+        ImGui::SameLine(0.0f, 2.0f);
+        if (ImGui::Button("\xe2\x86\x92##exportFwd", ImVec2(navBtnW, 0.0f)) && exportHistoryIndex + 1 < (int)exportDirHistory.size())
         {
             exportHistoryIndex++;
             exportDir = exportDirHistory[exportHistoryIndex];
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Root##export"))
-            pushExportDir(!driveRoots.empty() ? driveRoots.front() : "/");
-        ImGui::SameLine();
-        if (ImGui::Button("Home##export"))
-            pushExportDir(detectHomePath());
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Forward");
+        ImGui::SameLine(0.0f, 2.0f);
+        if (ImGui::Button("\xe2\x86\x91##exportUp", ImVec2(navBtnW, 0.0f)))
+            pushExportDir(parentPath(exportDir));
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Up one level");
+        ImGui::SameLine(0.0f, 8.0f);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::InputText("##exportPathBar", s_exportPathBuf, sizeof(s_exportPathBuf),
+                             ImGuiInputTextFlags_EnterReturnsTrue))
+        {
+            std::string newDir = normalizePathSeparators(std::string(s_exportPathBuf));
+            if (isDriveRootPath(newDir) && newDir.size() == 2)
+                newDir += "/";
+            pushExportDir(newDir);
+        }
 
         ImGui::Separator();
 
-        if (ImGui::BeginChild("##exportfilebrowser", ImVec2(500, 200), true))
+        // --- Sidebar + file list ---
+        const float listH = 200.0f;
+
+        if (ImGui::BeginChild("##exportsidebar", ImVec2(s_sidebarW, listH), true))
+        {
+            ImGui::TextDisabled("Locations");
+            ImGui::Separator();
+            if (ImGui::Selectable("Home##exportHome"))
+                pushExportDir(detectHomePath());
+            ImGui::Spacing();
+            ImGui::TextDisabled("Drives");
+            ImGui::Separator();
+            for (const auto& root : driveRoots)
+            {
+                if (ImGui::Selectable(root.c_str()))
+                    pushExportDir(root);
+            }
+            ImGui::EndChild();
+        }
+
+        // Draggable splitter
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::InvisibleButton("##exportSplitter", ImVec2(6.0f, listH));
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        if (ImGui::IsItemActive())
+        {
+            s_sidebarW += ImGui::GetIO().MouseDelta.x;
+            s_sidebarW = std::max(80.0f, std::min(s_sidebarW, 300.0f));
+        }
+        {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            const ImVec2 r0 = ImGui::GetItemRectMin();
+            const ImVec2 r1 = ImGui::GetItemRectMax();
+            const float  cx = (r0.x + r1.x) * 0.5f;
+            const ImU32  lc = ImGui::IsItemHovered() || ImGui::IsItemActive()
+                              ? IM_COL32(150, 190, 230, 200)
+                              : IM_COL32(120, 120, 120, 100);
+            dl->AddLine(ImVec2(cx, r0.y + 4.0f), ImVec2(cx, r1.y - 4.0f), lc, 1.5f);
+        }
+        ImGui::SameLine(0.0f, 0.0f);
+
+        if (ImGui::BeginChild("##exportfilebrowser", ImVec2(0.0f, listH), true))
         {
             const std::string exportExtFilter = toLower(kImageExportFormats[selectedExportFormat].ext);
 
@@ -913,7 +1100,7 @@ void FileBrowser::draw(Structure& structure,
 
         ImGui::Separator();
 
-        if (ImGui::Button("Export"))
+        if (ImGui::Button("Export", ImVec2(120.0f, 0.0f)))
         {
             if (structure.atoms.empty())
             {
@@ -955,6 +1142,9 @@ void FileBrowser::draw(Structure& structure,
                 ImGui::CloseCurrentPopup();
             }
         }
+        ImGui::SameLine(0.0f, 8.0f);
+        if (ImGui::Button("Cancel##exportCancel", ImVec2(120.0f, 0.0f)))
+            ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
     if (!exportImageOpen)

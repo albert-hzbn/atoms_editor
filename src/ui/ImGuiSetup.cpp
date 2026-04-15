@@ -76,6 +76,41 @@ void rebuildFonts()
     io.Fonts->AddFontDefault(&fontConfig);
     io.FontGlobalScale = 1.0f;
 
+    // Merge a small set of Unicode glyphs (navigation arrows + folder triangle)
+    // from a system TTF so they render correctly without replacing the default font.
+    static const ImWchar kNavGlyphRanges[] = {
+        0x2190, 0x2192, // U+2190 ← U+2191 ↑ U+2192 →
+        0,
+    };
+#ifdef _WIN32
+    static const char* kSystemFontCandidates[] = {
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+        nullptr
+    };
+#else
+    static const char* kSystemFontCandidates[] = {
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        nullptr
+    };
+#endif
+    ImFontConfig mergeConfig;
+    mergeConfig.MergeMode   = true;
+    mergeConfig.SizePixels  = kBaseFontSizePixels * gUiScale;
+    mergeConfig.OversampleH = 2;
+    mergeConfig.OversampleV = 1;
+    for (int i = 0; kSystemFontCandidates[i]; ++i)
+    {
+        if (io.Fonts->AddFontFromFileTTF(
+                kSystemFontCandidates[i],
+                kBaseFontSizePixels * gUiScale,
+                &mergeConfig,
+                kNavGlyphRanges))
+            break; // merged successfully; stop trying
+    }
+
     if (gImGuiBackendsReady)
     {
         ImGui_ImplOpenGL3_DestroyDeviceObjects();
@@ -212,6 +247,11 @@ void initImGui(GLFWwindow* window)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
     gImGuiBackendsReady = true;
+
+    // Always build the font atlas here so the Unicode glyph merge in
+    // rebuildFonts() runs even on non-HiDPI displays where updateImGuiScale
+    // would return early (newScale == gUiScale == 1.0).
+    rebuildFonts();
 
     updateImGuiScale(window);
 }

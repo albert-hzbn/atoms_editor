@@ -37,7 +37,8 @@ bool loadDirectoryEntries(const std::string& directory,
 void drawDirectoryEntries(const std::vector<DirectoryEntry>& entries,
                           char* selectedFilename,
                           int idBase,
-                          const std::function<void(const std::string&)>& onEnterDirectory);
+                          const std::function<void(const std::string&)>& onEnterDirectory,
+                          bool* fileDoubleClicked = nullptr);
 
 void pushDirectoryHistory(std::vector<std::string>& history,
                           int& historyIndex,

@@ -244,7 +244,8 @@ bool loadDirectoryEntries(const std::string& directory,
 void drawDirectoryEntries(const std::vector<DirectoryEntry>& entries,
                           char* selectedFilename,
                           int idBase,
-                          const std::function<void(const std::string&)>& onEnterDirectory)
+                          const std::function<void(const std::string&)>& onEnterDirectory,
+                          bool* fileDoubleClicked)
 {
     for (size_t i = 0; i < entries.size(); ++i)
     {
@@ -253,16 +254,39 @@ void drawDirectoryEntries(const std::vector<DirectoryEntry>& entries,
         ImGui::PushID(static_cast<int>(i) + idBase);
         if (isDir)
         {
-            std::string label = std::string("[DIR] ") + name + "##" + name;
-            if (ImGui::Selectable(label.c_str()))
+            // Leave room for the hand-drawn folder icon (5 spaces ≈ icon width)
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.78f, 1.00f, 1.0f));
+            std::string label = std::string("     ") + name + "##dir";
+            const bool clicked = ImGui::Selectable(label.c_str());
+            ImGui::PopStyleColor();
+
+            // Draw a two-rectangle folder icon over the reserved leading space
+            const ImVec2 itemMin  = ImGui::GetItemRectMin();
+            const ImVec2 itemSize = ImGui::GetItemRectSize();
+            const float  th  = ImGui::GetTextLineHeight();
+            const float  iw  = th * 1.10f;
+            const float  x0  = itemMin.x + 2.0f;
+            const float  y0  = itemMin.y + (itemSize.y - th) * 0.5f;
+            ImDrawList*  dl  = ImGui::GetWindowDrawList();
+            const ImU32  col = IM_COL32(100, 175, 255, 225);
+            // tab nub (top-left corner)
+            dl->AddRectFilled(ImVec2(x0,              y0 + th * 0.14f),
+                              ImVec2(x0 + iw * 0.48f, y0 + th * 0.36f), col, 2.0f);
+            // folder body
+            dl->AddRectFilled(ImVec2(x0,        y0 + th * 0.28f),
+                              ImVec2(x0 + iw,   y0 + th * 0.92f), col, 2.0f);
+
+            if (clicked)
                 onEnterDirectory(name);
         }
         else
         {
-            std::string label = name + "##" + name;
+            std::string label = "  " + name + "##file";
             bool selected = (std::string(selectedFilename) == name);
             if (ImGui::Selectable(label.c_str(), selected))
                 std::snprintf(selectedFilename, 1024, "%s", name.c_str());
+            if (fileDoubleClicked && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                *fileDoubleClicked = true;
         }
         ImGui::PopID();
     }
