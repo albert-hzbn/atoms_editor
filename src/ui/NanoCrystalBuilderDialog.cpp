@@ -48,7 +48,7 @@ bool nanoIsSupportedFile(const std::string& name)
 {
     static const char* exts[] = {
         ".cif",".mol",".pdb",".xyz",".sdf",".vasp",".mol2",".pwi",".gjf",
-        ".obj",".stl",nullptr
+        nullptr
     };
     std::string low = name;
     for (char& c : low) c = (char)std::tolower((unsigned char)c);
@@ -61,24 +61,7 @@ bool nanoIsSupportedFile(const std::string& name)
     return false;
 }
 
-bool hasExtCaseInsensitive(const std::string& path, const char* ext)
-{
-    if (!ext)
-        return false;
-    std::string lowPath = path;
-    std::string lowExt = ext;
-    for (char& c : lowPath) c = (char)std::tolower((unsigned char)c);
-    for (char& c : lowExt) c = (char)std::tolower((unsigned char)c);
-    return lowPath.size() >= lowExt.size()
-        && lowPath.compare(lowPath.size() - lowExt.size(), lowExt.size(), lowExt) == 0;
-}
-
-bool isModelFilePath(const std::string& path)
-{
-    return hasExtCaseInsensitive(path, ".obj") || hasExtCaseInsensitive(path, ".stl");
-}
-
-bool parseObjMesh(const std::string& path,
+bool parseObjMesh_unused(const std::string& path,
                   std::vector<glm::vec3>& outVertices,
                   std::vector<unsigned int>& outIndices,
                   std::string& error)
@@ -152,7 +135,7 @@ bool parseObjMesh(const std::string& path,
     return true;
 }
 
-bool parseStlMesh(const std::string& path,
+bool parseStlMesh_unused(const std::string& path,
                   std::vector<glm::vec3>& outVertices,
                   std::vector<unsigned int>& outIndices,
                   std::string& error)
@@ -247,46 +230,6 @@ bool parseStlMesh(const std::string& path,
     return true;
 }
 
-bool loadModelMesh(const std::string& path,
-                   std::vector<glm::vec3>& outVertices,
-                   std::vector<unsigned int>& outIndices,
-                   glm::vec3& outHalfExtents,
-                   std::string& outName,
-                   std::string& error)
-{
-    std::vector<glm::vec3> rawVerts;
-    std::vector<unsigned int> rawIndices;
-    bool ok = false;
-
-    if (hasExtCaseInsensitive(path, ".obj"))
-        ok = parseObjMesh(path, rawVerts, rawIndices, error);
-    else if (hasExtCaseInsensitive(path, ".stl"))
-        ok = parseStlMesh(path, rawVerts, rawIndices, error);
-    else
-        error = "Unsupported 3D model format (use OBJ or STL).";
-
-    if (!ok)
-        return false;
-
-    glm::vec3 minP(1e30f), maxP(-1e30f);
-    for (const glm::vec3& v : rawVerts)
-    {
-        minP = glm::min(minP, v);
-        maxP = glm::max(maxP, v);
-    }
-    const glm::vec3 center = 0.5f * (minP + maxP);
-    outHalfExtents = 0.5f * (maxP - minP);
-
-    outVertices.resize(rawVerts.size());
-    for (size_t i = 0; i < rawVerts.size(); ++i)
-        outVertices[i] = rawVerts[i] - center;
-    outIndices.swap(rawIndices);
-
-    const size_t slash = path.find_last_of("/\\");
-    outName = (slash == std::string::npos) ? path : path.substr(slash + 1);
-    return true;
-}
-
 void nanoLoadDirEntries(const std::string& dir,
                         std::vector<std::pair<std::string, bool>>& entries)
 {
@@ -345,31 +288,32 @@ void drawShapeParameters(NanoParams& params)
 {
     switch (params.shape) {
         case NanoShape::Sphere:
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Radius (A)##sph", &params.sphereRadius, 0.0f, 0.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Radius (A)##sph", &params.sphereRadius, 0.5f, 0.1f, 500.0f, "%.2f");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Drag to adjust, Ctrl+click to type");
             if (params.sphereRadius < 0.1f) params.sphereRadius = 0.1f;
             break;
 
         case NanoShape::Ellipsoid:
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Semi-axis X (A)##ell", &params.ellipRx, 0.0f, 0.0f, "%.2f");
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Semi-axis Y (A)##ell", &params.ellipRy, 0.0f, 0.0f, "%.2f");
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Semi-axis Z (A)##ell", &params.ellipRz, 0.0f, 0.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Semi-axis a (A)##ell", &params.ellipRx, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Semi-axis b (A)##ell", &params.ellipRy, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Semi-axis c (A)##ell", &params.ellipRz, 0.5f, 0.1f, 500.0f, "%.2f");
             if (params.ellipRx < 0.1f) params.ellipRx = 0.1f;
             if (params.ellipRy < 0.1f) params.ellipRy = 0.1f;
             if (params.ellipRz < 0.1f) params.ellipRz = 0.1f;
             break;
 
         case NanoShape::Box:
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Half-width X (A)##box", &params.boxHx, 0.0f, 0.0f, "%.2f");
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Half-width Y (A)##box", &params.boxHy, 0.0f, 0.0f, "%.2f");
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Half-width Z (A)##box", &params.boxHz, 0.0f, 0.0f, "%.2f");
-            ImGui::TextDisabled("Full: %.2fx%.2fx%.2f A",
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Half-size X (A)##box", &params.boxHx, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Half-size Y (A)##box", &params.boxHy, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Half-size Z (A)##box", &params.boxHz, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::TextDisabled("Full box: %.2f x %.2f x %.2f A",
                                 2.f*params.boxHx, 2.f*params.boxHy, 2.f*params.boxHz);
             if (params.boxHx < 0.1f) params.boxHx = 0.1f;
             if (params.boxHy < 0.1f) params.boxHy = 0.1f;
@@ -378,43 +322,42 @@ void drawShapeParameters(NanoParams& params)
 
         case NanoShape::Cylinder: {
             const char* axisNames[] = {"X", "Y", "Z"};
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Radius (A)##cyl", &params.cylRadius, 0.0f, 0.0f, "%.2f");
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Height (A)##cyl", &params.cylHeight, 0.0f, 0.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Radius (A)##cyl", &params.cylRadius, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Height (A)##cyl", &params.cylHeight, 0.5f, 0.1f, 1000.0f, "%.2f");
             ImGui::SetNextItemWidth(120.0f);
-            ImGui::Combo("Cylinder axis##cyl", &params.cylAxis, axisNames, 3);
+            ImGui::Combo("Axis##cyl", &params.cylAxis, axisNames, 3);
             if (params.cylRadius < 0.1f) params.cylRadius = 0.1f;
             if (params.cylHeight < 0.1f) params.cylHeight = 0.1f;
             break;
         }
 
         case NanoShape::Octahedron:
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Radius (A)##oct", &params.octRadius, 0.0f, 0.0f, "%.2f");
-            ImGui::TextDisabled("|x|+|y|+|z| <= R");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Radius (A)##oct", &params.octRadius, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::TextDisabled("Condition: |x|+|y|+|z| <= R");
             if (params.octRadius < 0.1f) params.octRadius = 0.1f;
             break;
 
         case NanoShape::TruncatedOctahedron:
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Octahedron R (A)##trunc", &params.truncOctRadius, 0.0f, 0.0f, "%.2f");
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Truncation R (A)##trunc", &params.truncOctTrunc,  0.0f, 0.0f, "%.2f");
-            ImGui::TextDisabled("|x|+|y|+|z|<=R_oct  AND  max(|x|,|y|,|z|)<=R_trunc");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Octahedron R (A)##trunc", &params.truncOctRadius, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Truncation R (A)##trunc", &params.truncOctTrunc,  0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::TextDisabled("Cond: |x|+|y|+|z|<=R_oct  AND  max(|x|,|y|,|z|)<=R_trunc");
             if (params.truncOctRadius < 0.1f) params.truncOctRadius = 0.1f;
             if (params.truncOctTrunc  < 0.1f) params.truncOctTrunc  = 0.1f;
             break;
 
         case NanoShape::Cuboctahedron:
-            ImGui::SetNextItemWidth(160.0f);
-            ImGui::InputFloat("Radius (A)##cubo", &params.cuboRadius, 0.0f, 0.0f, "%.2f");
-            ImGui::TextDisabled("|x|+|y|, |y|+|z|, |x|+|z|  <= R");
+            ImGui::SetNextItemWidth(180.0f);
+            ImGui::DragFloat("Radius (A)##cubo", &params.cuboRadius, 0.5f, 0.1f, 500.0f, "%.2f");
+            ImGui::TextDisabled("Cond: |x|+|y|, |y|+|z|, |x|+|z| <= R");
             if (params.cuboRadius < 0.1f) params.cuboRadius = 0.1f;
             break;
 
-        case NanoShape::MeshModel:
-            ImGui::TextDisabled("Mesh parameters are set in the 3D model section below.");
+        default:
             break;
     }
 }
@@ -463,10 +406,10 @@ void drawNanoBuildResult(const NanoBuildResult& result)
     ImGui::TextWrapped("Status: %s", result.message.c_str());
     if (!result.success) return;
     ImGui::Separator();
-    ImGui::Text("Shape:            %s", shapeLabel(result.shape));
-    ImGui::Text("Reference atoms:  %d", result.inputAtoms);
-    ImGui::Text("Output atoms:     %d", result.outputAtoms);
-    ImGui::Text("Est. diameter:    %.2f A", result.estimatedDiameter);
+    ImGui::Text("Shape:          %s", shapeLabel(result.shape));
+    ImGui::Text("Input atoms:    %d", result.inputAtoms);
+    ImGui::Text("Output atoms:   %d", result.outputAtoms);
+    ImGui::Text("Est. diameter:  %.2f A", result.estimatedDiameter);
     if (result.tilingUsed)
         ImGui::Text("Tiling: %dx%dx%d (%s)",
                     2*result.repA+1, 2*result.repB+1, 2*result.repC+1,
@@ -541,32 +484,6 @@ bool NanoCrystalBuilderDialog::tryLoadFile(const std::string& path,
                                             const std::vector<float>& radii,
                                             const std::vector<float>& shininess)
 {
-    if (isModelFilePath(path))
-    {
-        glm::vec3 halfExtents(0.0f);
-        std::string modelName;
-        std::vector<glm::vec3> modelVertices;
-        std::vector<unsigned int> modelIndices;
-        std::string err;
-        if (!loadModelMesh(path, modelVertices, modelIndices, halfExtents, modelName, err))
-        {
-            std::snprintf(m_browsStatusMsg, sizeof(m_browsStatusMsg),
-                          "Model load failed: %s", err.c_str());
-            return false;
-        }
-
-        m_modelVertices.swap(modelVertices);
-        m_modelIndices.swap(modelIndices);
-        m_modelName = modelName;
-        m_modelHalfExtents = halfExtents;
-        std::snprintf(m_browsStatusMsg, sizeof(m_browsStatusMsg),
-                      "Model loaded: %s (%zu triangles)",
-                      m_modelName.c_str(), m_modelIndices.size() / 3);
-        std::cout << "[NanoCrystalBuilder] Model loaded: " << path
-                  << " (tris=" << (m_modelIndices.size() / 3) << ")" << std::endl;
-        return true;
-    }
-
     Structure loaded;
     std::string err;
     if (!loadStructureFromFile(path, loaded, err)) {
@@ -575,9 +492,6 @@ bool NanoCrystalBuilderDialog::tryLoadFile(const std::string& path,
         return false;
     }
     m_reference = std::move(loaded);
-    m_modelVertices.clear();
-    m_modelIndices.clear();
-    m_modelName.clear();
     std::snprintf(m_browsStatusMsg, sizeof(m_browsStatusMsg),
                   "Loaded: %d atoms", (int)m_reference.atoms.size());
     m_previewBufDirty = true;
@@ -763,9 +677,8 @@ void NanoCrystalBuilderDialog::drawDialog(
     }
     m_isOpen = true;
 
-    ImGui::TextWrapped(
-        "Use the loaded crystal as a reference lattice, then carve by primitive shapes or fill a dragged OBJ/STL model volume. "
-        "Drag-and-drop supports both reference structures and 3D model files.");
+    ImGui::TextDisabled("Load a reference crystal, choose a shape, then click Build."
+        "  Drag-and-drop .cif/.xyz/.pdb/.vasp/etc. onto the preview panel.");
     ImGui::Separator();
 
     // =========================================================================
@@ -781,12 +694,29 @@ void NanoCrystalBuilderDialog::drawDialog(
 
     ImGui::Text("Reference Structure");
     ImGui::Separator();
-    ImGui::Text("Status: %s", m_reference.atoms.empty() ? "(none)" : "loaded");
 
+    // Show the actual load status message (set by tryLoadFile)
+    if (m_browsStatusMsg[0] != '\0')
+        ImGui::TextWrapped("%s", m_browsStatusMsg);
+    else
+        ImGui::TextDisabled("No reference loaded");
+
+    ImGui::Spacing();
+    if (ImGui::Button("Load File...##nanoLoadBtn", ImVec2(120.0f, 0.0f)))
+        m_browsShowPanel = !m_browsShowPanel;
+    if (!m_reference.atoms.empty()) {
+        ImGui::SameLine();
+        if (ImGui::Button("Clear##nanoClearRef", ImVec2(70.0f, 0.0f))) {
+            m_reference       = {};
+            m_previewBufDirty = true;
+            m_browsStatusMsg[0] = '\0';
+        }
+    }
     ImGui::Spacing();
 
     // Drag-and-drop target using InvisibleButton
-    ImGui::InvisibleButton("##nanoRefDropZone", ImVec2(-1.0f, kPrevH));
+    const float dropH = kPrevH - ImGui::GetCursorPosY() + ImGui::GetStyle().WindowPadding.y + 6.0f;
+    ImGui::InvisibleButton("##nanoRefDropZone", ImVec2(-1.0f, dropH > 60.0f ? dropH : 60.0f));
 
     // Draw drop zone border
     ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -806,12 +736,16 @@ void NanoCrystalBuilderDialog::drawDialog(
             ImGui::EndDragDropTarget();
         }
 
-        // Show drop hint
-        ImVec2 dropMid = ImVec2((dropMin.x + dropMax.x) / 2.0f, (dropMin.y + dropMax.y) / 2.0f);
-        dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
-                    ImVec2(dropMid.x - 90.0f, dropMid.y - 20.0f),
-                    ImGui::GetColorU32(ImGuiCol_TextDisabled),
-                    "Drop structure or OBJ/STL here");
+        // Show centered drop hint (two lines)
+        const char* hint1 = "Drop a structure file here";
+        const char* hint2 = "(.cif .xyz .pdb .sdf .mol .vasp ...)"; 
+        const float lh = ImGui::GetTextLineHeight();
+        const float w1 = ImGui::CalcTextSize(hint1).x;
+        const float w2 = ImGui::CalcTextSize(hint2).x;
+        const ImVec2 mid((dropMin.x + dropMax.x) * 0.5f, (dropMin.y + dropMax.y) * 0.5f);
+        const ImU32 hintCol = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+        dl->AddText(ImVec2(mid.x - w1 * 0.5f, mid.y - lh * 1.1f), hintCol, hint1);
+        dl->AddText(ImVec2(mid.x - w2 * 0.5f, mid.y + lh * 0.1f), hintCol, hint2);
     } else {
         // Show 3D preview
         if (m_glReady) {
@@ -871,12 +805,12 @@ void NanoCrystalBuilderDialog::drawDialog(
             float la = safeLen3(glm::vec3((float)cv[0][0],(float)cv[0][1],(float)cv[0][2]));
             float lb = safeLen3(glm::vec3((float)cv[1][0],(float)cv[1][1],(float)cv[1][2]));
             float lc = safeLen3(glm::vec3((float)cv[2][0],(float)cv[2][1],(float)cv[2][2]));
-            ImGui::TextDisabled("%d atoms", (int)m_reference.atoms.size());
-            ImGui::TextDisabled("a=%.3f  b=%.3f  c=%.3f A", la, lb, lc);
-            ImGui::TextDisabled("Unit cell: tiling enabled");
+            ImGui::TextDisabled("%d atoms  |  a=%.3f  b=%.3f  c=%.3f A",
+                                (int)m_reference.atoms.size(), la, lb, lc);
+            ImGui::TextDisabled("Periodic crystal -- supercell tiling available");
         } else {
-            ImGui::TextDisabled("%d atoms (shape carving only)",
-                        (int)m_reference.atoms.size());
+            ImGui::TextDisabled("%d atoms  |  No unit cell -- shape carving only",
+                                (int)m_reference.atoms.size());
         }
     }
 
@@ -891,57 +825,36 @@ void NanoCrystalBuilderDialog::drawDialog(
     ImGui::Separator();
 
     ImGui::Text("Shape");
-    const char* shapeLabels[kNumShapes] = {
+    static const char* kShapeLabels[] = {
         "Sphere","Ellipsoid","Box","Cylinder",
-        "Octahedron","Truncated Octahedron","Cuboctahedron",
-        "3D Model Fill"
+        "Octahedron","Truncated Octahedron","Cuboctahedron"
     };
+    constexpr int kNumShapeOptions = 7;
     int shapeInt = (int)params.shape;
+    if (shapeInt >= kNumShapeOptions) { shapeInt = 0; params.shape = NanoShape::Sphere; }
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::Combo("##nanoShapeCombo", &shapeInt, shapeLabels, kNumShapes))
+    if (ImGui::Combo("##nanoShapeCombo", &shapeInt, kShapeLabels, kNumShapeOptions))
         params.shape = (NanoShape)shapeInt;
 
     ImGui::Spacing();
     ImGui::Separator();
 
-    // Use a child for scrollable parameters
-    ImGui::BeginChild("##nanoParamsScroll", ImVec2(-1, -50), true, ImGuiWindowFlags_HorizontalScrollbar);
+    // Scrollable parameters area
+    ImGui::BeginChild("##nanoParamsScroll", ImVec2(-1, -50), true);
     
     drawShapeParameters(params);
 
-    if (params.shape == NanoShape::MeshModel)
-    {
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Text("3D model volume");
-        ImGui::TextDisabled("Status: %s", m_modelIndices.empty() ? "not loaded" : "loaded");
-        if (!m_modelName.empty())
-            ImGui::TextWrapped("Model: %s", m_modelName.c_str());
-        ImGui::SetNextItemWidth(140.0f);
-        ImGui::InputFloat("Model scale##nano", &params.modelScale, 0.0f, 0.0f, "%.3f");
-        if (params.modelScale < 1e-4f)
-            params.modelScale = 1e-4f;
-        if (ImGui::Button("Clear Model##nano"))
-        {
-            m_modelVertices.clear();
-            m_modelIndices.clear();
-            m_modelName.clear();
-        }
-        ImGui::TextDisabled("Drop OBJ/STL onto the reference panel to set fill volume.");
-    }
-
     ImGui::Spacing();
     ImGui::Separator();
-    ImGui::Text("Center of carving");
-    ImGui::Checkbox("Auto-center##nano",
-                    &params.autoCenterFromAtoms);
+    ImGui::Text("Carving center");
+    ImGui::Checkbox("Auto-center from atoms##nano", &params.autoCenterFromAtoms);
     if (!params.autoCenterFromAtoms) {
-        ImGui::SetNextItemWidth(100.0f);
-        ImGui::InputFloat("CX##cnano", &params.cx, 0.f, 0.f, "%.3f");
-        ImGui::SetNextItemWidth(100.0f);
-        ImGui::InputFloat("CY##cnano", &params.cy, 0.f, 0.f, "%.3f");
-        ImGui::SetNextItemWidth(100.0f);
-        ImGui::InputFloat("CZ##cnano", &params.cz, 0.f, 0.f, "%.3f");
+        ImGui::SetNextItemWidth(130.0f);
+        ImGui::DragFloat("X (A)##cnano", &params.cx, 0.1f, -1000.f, 1000.f, "%.3f");
+        ImGui::SetNextItemWidth(130.0f);
+        ImGui::DragFloat("Y (A)##cnano", &params.cy, 0.1f, -1000.f, 1000.f, "%.3f");
+        ImGui::SetNextItemWidth(130.0f);
+        ImGui::DragFloat("Z (A)##cnano", &params.cz, 0.1f, -1000.f, 1000.f, "%.3f");
     }
 
     if (m_reference.hasUnitCell) {
@@ -949,13 +862,15 @@ void NanoCrystalBuilderDialog::drawDialog(
         ImGui::Separator();
         ImGui::Text("Supercell replication");
         ImGui::Checkbox("Auto-replicate##nano", &params.autoReplicate);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Automatically tile the unit cell to fully cover the shape");
         if (!params.autoReplicate) {
-            ImGui::SetNextItemWidth(70.0f);
-            ImGui::InputInt("Reps a##nano", &params.repA);
-            ImGui::SetNextItemWidth(70.0f);
-            ImGui::InputInt("Reps b##nano", &params.repB);
-            ImGui::SetNextItemWidth(70.0f);
-            ImGui::InputInt("Reps c##nano", &params.repC);
+            ImGui::SetNextItemWidth(80.0f);
+            ImGui::DragInt("Along a##nano", &params.repA, 0.2f, 1, 40);
+            ImGui::SetNextItemWidth(80.0f);
+            ImGui::DragInt("Along b##nano", &params.repB, 0.2f, 1, 40);
+            ImGui::SetNextItemWidth(80.0f);
+            ImGui::DragInt("Along c##nano", &params.repC, 0.2f, 1, 40);
             if (params.repA < 1) params.repA = 1;
             if (params.repB < 1) params.repB = 1;
             if (params.repC < 1) params.repC = 1;
@@ -973,9 +888,6 @@ void NanoCrystalBuilderDialog::drawDialog(
                           &params.vacuumPadding, 0.f, 0.f, "%.2f");
         if (params.vacuumPadding < 0.f) params.vacuumPadding = 0.f;
 
-        params.modelHx = m_modelHalfExtents.x;
-        params.modelHy = m_modelHalfExtents.y;
-        params.modelHz = m_modelHalfExtents.z;
         const HalfExtents he = computeShapeHalfExtents(params);
         ImGui::TextDisabled("%.2fx%.2fx%.2f A",
                             2.f*(he.hx+params.vacuumPadding),
@@ -992,28 +904,108 @@ void NanoCrystalBuilderDialog::drawDialog(
     ImGui::EndChild(); // ##nanoBuilderOptions
 
     // =========================================================================
+    // Embedded file browser (shown when Load File... button pressed)
+    // =========================================================================
+    if (m_browsShowPanel)
+    {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Text("Load Reference File");
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 60.0f);
+        if (ImGui::SmallButton("Close##nanoCloseBrows"))
+            m_browsShowPanel = false;
+
+        // Nav bar
+        const float nb = 28.0f;
+        if (ImGui::Button("^##nanoUp", ImVec2(nb, 0.0f))) {
+            m_browsDir = parentPath(m_browsDir);
+            m_browsEntryDirty = true;
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Up one level");
+        ImGui::SameLine(0.0f, 4.0f);
+        if (ImGui::Button("Home##nanoBrowsHome", ImVec2(0.0f, 0.0f))) {
+            m_browsDir = detectHomePath();
+            m_browsEntryDirty = true;
+        }
+        ImGui::SameLine(0.0f, 8.0f);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        {
+            static char s_nanoDirBuf[2048] = {};
+            static std::string s_prevNanoDir;
+            if (s_prevNanoDir != m_browsDir) {
+                std::snprintf(s_nanoDirBuf, sizeof(s_nanoDirBuf), "%s", m_browsDir.c_str());
+                s_prevNanoDir = m_browsDir;
+            }
+            if (ImGui::InputText("##nanoDirBar", s_nanoDirBuf, sizeof(s_nanoDirBuf),
+                                 ImGuiInputTextFlags_EnterReturnsTrue)) {
+                m_browsDir = normalizePathSeparators(std::string(s_nanoDirBuf));
+                m_browsEntryDirty = true;
+            }
+        }
+
+        if (m_browsEntryDirty)
+            refreshBrowserEntries();
+
+        if (ImGui::BeginChild("##nanoBrowsList", ImVec2(-1.0f, 200.0f), true)) {
+            bool fileDoubleClicked = false;
+            drawDirectoryEntries(m_browsEntries, m_browsFilename, 50000,
+                [&](const std::string& name) {
+                    m_browsDir = joinPath(m_browsDir, name);
+                    m_browsEntryDirty = true;
+                }, &fileDoubleClicked);
+            if (fileDoubleClicked) {
+                tryLoadFile(joinPath(m_browsDir, m_browsFilename), elementRadii, elementShininess);
+                m_browsShowPanel = false;
+            }
+            ImGui::EndChild();
+        }
+
+        static const char* kNanoExtHint = ".cif  .xyz  .pdb  .sdf  .mol  .vasp  .mol2";
+        const float extHintW = ImGui::CalcTextSize(kNanoExtHint).x;
+        const float labelW   = ImGui::CalcTextSize("Filename").x + ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
+        const float inW      = ImGui::GetContentRegionAvail().x - labelW - extHintW - ImGui::GetStyle().ItemSpacing.x * 2.0f;
+        ImGui::SetNextItemWidth(inW > 100.0f ? inW : 100.0f);
+        bool enterPressed = ImGui::InputText("Filename##nanoBrowsInput", m_browsFilename,
+                                             sizeof(m_browsFilename),
+                                             ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::SameLine(0.0f, ImGui::GetStyle().ItemSpacing.x);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled("%s", kNanoExtHint);
+
+        if (enterPressed)
+        {
+            tryLoadFile(joinPath(m_browsDir, m_browsFilename), elementRadii, elementShininess);
+            m_browsShowPanel = false;
+        }
+        if (ImGui::Button("Load##nanoBrowsGo", ImVec2(110.0f, 0.0f)))
+        {
+            tryLoadFile(joinPath(m_browsDir, m_browsFilename), elementRadii, elementShininess);
+            m_browsShowPanel = false;
+        }
+        ImGui::SameLine(0.0f, 8.0f);
+        if (ImGui::Button("Cancel##nanoBrowsCancel", ImVec2(90.0f, 0.0f)))
+            m_browsShowPanel = false;
+    }
+
+    // =========================================================================
     // Action bar
     // =========================================================================
 
     const bool canBuild = !m_reference.atoms.empty();
-    const bool needsModel = params.shape == NanoShape::MeshModel;
-    const bool hasModel = !m_modelVertices.empty() && !m_modelIndices.empty();
-    const bool canBuildNow = canBuild && (!needsModel || hasModel);
-    if (!canBuildNow) ImGui::BeginDisabled();
+    if (!canBuild) ImGui::BeginDisabled();
     if (ImGui::Button("Build##nano", ImVec2(100.0f, 0.0f))) {
-        params.modelHx = m_modelHalfExtents.x;
-        params.modelHy = m_modelHalfExtents.y;
-        params.modelHz = m_modelHalfExtents.z;
+        static const std::vector<glm::vec3>       kNoVerts;
+        static const std::vector<unsigned int>    kNoIdx;
         lastResult = buildNanocrystal(structure,
                                       m_reference,
                                       params,
                                       elementColors,
-                                      m_modelVertices,
-                                      m_modelIndices);
+                                      kNoVerts,
+                                      kNoIdx);
         if (lastResult.success)
             updateBuffers(structure);
     }
-    if (!canBuildNow) ImGui::EndDisabled();
+    if (!canBuild) ImGui::EndDisabled();
 
     ImGui::SameLine();
     if (ImGui::Button("Close##nano", ImVec2(80.0f, 0.0f))) {
