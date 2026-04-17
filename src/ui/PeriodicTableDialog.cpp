@@ -202,7 +202,18 @@ bool drawPeriodicTable(std::vector<ElementSelection>& outSelections)
 
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(900.0f, 480.0f), ImGuiCond_Always);
+
+    // Compute cell dimensions from current font size so text never overflows.
+    const float fontSize = ImGui::GetFontSize();
+    const float cellW    = std::max(44.0f, fontSize * 2.8f);
+    const float cellH    = std::max(34.0f, fontSize * 2.1f);
+    const float padX     = 6.0f;
+    const float fGap     = 10.0f;
+    // Approximate top padding (title bar + small margin) — refined inside the popup.
+    const float approxPadY = ImGui::GetFrameHeight() + 8.0f;
+    const float neededW  = padX * 2.0f + 18.0f * cellW + ImGui::GetStyle().WindowPadding.x * 2.0f;
+    const float neededH  = approxPadY + 7.0f * cellH + fGap + 2.0f * cellH + 65.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
+    ImGui::SetNextWindowSize(ImVec2(neededW, neededH), ImGuiCond_Always);
 
     bool open = true;
     if (!ImGui::BeginPopupModal("Periodic Table##picker", &open,
@@ -225,11 +236,7 @@ bool drawPeriodicTable(std::vector<ElementSelection>& outSelections)
         isPopupOpen = true;
     }
 
-    const float cellW = 44.0f;
-    const float cellH = 34.0f;
-    const float padX  =  6.0f; // left margin
     const float padY  = ImGui::GetCursorPosY() + 4.0f; // start below title bar + small margin
-    const float fGap  = 10.0f; // gap between main rows and f-block
 
     // Returns window-local Y for the top of a given row (1-9).
     auto rowLocalY = [&](int row) -> float {
@@ -294,17 +301,12 @@ bool drawPeriodicTable(std::vector<ElementSelection>& outSelections)
             dl->AddRect(pMin, pMax, IM_COL32(0, 0, 0, 55), 3.0f);
         }
 
-        // Atomic number — small, top-left corner
-        char zStr[8];
-        std::snprintf(zStr, sizeof(zStr), "%d", e.z);
-        dl->AddText(ImVec2(pMin.x + 2.0f, pMin.y + 1.0f),
-                    IM_COL32(20, 20, 20, 180), zStr);
-
-        // Symbol — centered
-        float symW = ImGui::CalcTextSize(e.sym).x;
-        float textH = ImGui::GetTextLineHeight();
-        dl->AddText(ImVec2(pMin.x + ((cellW - 1.0f) - symW)  * 0.5f,
-                           pMin.y + ((cellH - 1.0f) - textH) * 0.55f),
+        // Symbol — fully centered in the cell
+        const float symFontSz = std::min(fontSize, cellH * 0.62f);
+        ImVec2 symSz = ImGui::GetFont()->CalcTextSizeA(symFontSz, FLT_MAX, 0.0f, e.sym);
+        dl->AddText(ImGui::GetFont(), symFontSz,
+                    ImVec2(pMin.x + ((cellW - 1.0f) - symSz.x) * 0.5f,
+                           pMin.y + ((cellH - 1.0f) - symSz.y) * 0.5f),
                     IM_COL32(0, 0, 0, 255), e.sym);
 
         if (hovered)
@@ -334,10 +336,11 @@ bool drawPeriodicTable(std::vector<ElementSelection>& outSelections)
         dl->AddRectFilled(pMin, pMax, IM_COL32(80, 80, 80, 130), 3.0f);
         dl->AddRect(pMin, pMax, IM_COL32(0, 0, 0, 40), 3.0f);
 
-        float lw   = ImGui::CalcTextSize(kStars[s].lbl).x;
-        float lh   = ImGui::GetTextLineHeight();
-        dl->AddText(ImVec2(pMin.x + ((cellW - 1.0f) - lw) * 0.5f,
-                           pMin.y + ((cellH - 1.0f) - lh) * 0.5f),
+        const float lblFontSz = std::min(fontSize * 0.72f, cellH * 0.45f);
+        ImVec2 lsz = ImGui::GetFont()->CalcTextSizeA(lblFontSz, FLT_MAX, 0.0f, kStars[s].lbl);
+        dl->AddText(ImGui::GetFont(), lblFontSz,
+                    ImVec2(pMin.x + ((cellW - 1.0f) - lsz.x) * 0.5f,
+                           pMin.y + ((cellH - 1.0f) - lsz.y) * 0.5f),
                     IM_COL32(210, 210, 210, 255), kStars[s].lbl);
     }
 
@@ -402,8 +405,9 @@ bool drawPeriodicTableInlineSelector(int& selectedAtomicNumber)
 {
     bool changed = false;
 
-    const float cellW = 44.0f;
-    const float cellH = 34.0f;
+    const float fontSize = ImGui::GetFontSize();
+    const float cellW = std::max(44.0f, fontSize * 2.8f);
+    const float cellH = std::max(34.0f, fontSize * 2.1f);
     const float padX  =  6.0f;
     const float padY  = 10.0f;
     const float fGap  = 10.0f;
@@ -414,7 +418,9 @@ bool drawPeriodicTableInlineSelector(int& selectedAtomicNumber)
         return padY + 7.0f * cellH + fGap + (row - 8) * cellH;
     };
 
-    ImGui::BeginChild("PeriodicTableInline##selector", ImVec2(900.0f, 390.0f), true);
+    const float neededW = padX * 2.0f + 18.0f * cellW + ImGui::GetStyle().WindowPadding.x * 2.0f;
+    const float neededH = padY + 7.0f * cellH + fGap + 2.0f * cellH + 10.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
+    ImGui::BeginChild("PeriodicTableInline##selector", ImVec2(neededW, neededH), true);
     ImDrawList* dl = ImGui::GetWindowDrawList();
 
     for (int i = 0; i < kElemCount; ++i)
@@ -455,14 +461,12 @@ bool drawPeriodicTableInlineSelector(int& selectedAtomicNumber)
         else
             dl->AddRect(pMin, pMax, IM_COL32(0, 0, 0, 55), 3.0f);
 
-        char zStr[8];
-        std::snprintf(zStr, sizeof(zStr), "%d", e.z);
-        dl->AddText(ImVec2(pMin.x + 2.0f, pMin.y + 1.0f), IM_COL32(20, 20, 20, 180), zStr);
-
-        float symW = ImGui::CalcTextSize(e.sym).x;
-        float textH = ImGui::GetTextLineHeight();
-        dl->AddText(ImVec2(pMin.x + ((cellW - 1.0f) - symW)  * 0.5f,
-                           pMin.y + ((cellH - 1.0f) - textH) * 0.55f),
+        // Symbol only — centered in the cell
+        const float symFontSz = std::min(fontSize, cellH * 0.62f);
+        ImVec2 symSz = ImGui::GetFont()->CalcTextSizeA(symFontSz, FLT_MAX, 0.0f, e.sym);
+        dl->AddText(ImGui::GetFont(), symFontSz,
+                    ImVec2(pMin.x + ((cellW - 1.0f) - symSz.x) * 0.5f,
+                           pMin.y + ((cellH - 1.0f) - symSz.y) * 0.5f),
                     IM_COL32(0, 0, 0, 255), e.sym);
 
         if (hovered)
@@ -485,10 +489,11 @@ bool drawPeriodicTableInlineSelector(int& selectedAtomicNumber)
         dl->AddRectFilled(pMin, pMax, IM_COL32(80, 80, 80, 130), 3.0f);
         dl->AddRect(pMin, pMax, IM_COL32(0, 0, 0, 40), 3.0f);
 
-        float lw = ImGui::CalcTextSize(kStars[s].lbl).x;
-        float lh = ImGui::GetTextLineHeight();
-        dl->AddText(ImVec2(pMin.x + ((cellW - 1.0f) - lw) * 0.5f,
-                           pMin.y + ((cellH - 1.0f) - lh) * 0.5f),
+        const float lblFontSz = std::min(fontSize * 0.72f, cellH * 0.45f);
+        ImVec2 lsz = ImGui::GetFont()->CalcTextSizeA(lblFontSz, FLT_MAX, 0.0f, kStars[s].lbl);
+        dl->AddText(ImGui::GetFont(), lblFontSz,
+                    ImVec2(pMin.x + ((cellW - 1.0f) - lsz.x) * 0.5f,
+                           pMin.y + ((cellH - 1.0f) - lsz.y) * 0.5f),
                     IM_COL32(210, 210, 210, 255), kStars[s].lbl);
     }
 

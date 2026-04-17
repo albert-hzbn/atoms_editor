@@ -291,7 +291,10 @@ void BulkCrystalBuilderDialog::drawDialog(Structure& structure,
         }
         ImGui::SameLine();
         if (ImGui::Button("Close"))
+        {
             dialogOpen = false;
+            ImGui::CloseCurrentPopup();
+        }
 
         if (!lastResult.message.empty())
         {
