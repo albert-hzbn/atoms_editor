@@ -1,0 +1,8 @@
+// AtomForge.rc – Windows resource script
+// Embeds the application manifest so Windows does not prompt for elevation
+// and recognises the executable as a known, non-elevated application.
+
+#include <winuser.h>
+
+// RT_MANIFEST (ID 24), resource ID 1 = application manifest
+1 RT_MANIFEST "AtomForge.manifest"

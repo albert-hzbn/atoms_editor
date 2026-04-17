@@ -92,6 +92,12 @@ set(ATOMFORGE_SOURCES
 
 add_executable(AtomForge ${ATOMFORGE_SOURCES})
 
+# On Windows, embed the application manifest via a resource script so that
+# the executable declares itself as non-elevated and properly identified.
+if(WIN32)
+    target_sources(AtomForge PRIVATE src/app/AtomForge.rc)
+endif()
+
 target_include_directories(AtomForge PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app
@@ -252,6 +258,9 @@ endif()
 set(CPACK_PACKAGE_NAME "AtomForge")
 set(CPACK_PACKAGE_VERSION "0.1.0")
 set(CPACK_PACKAGE_DESCRIPTION "Atomic structure builder for metallurgical simulation and atomistic modeling")
+
+# Expose the version string to the source code.
+target_compile_definitions(AtomForge PRIVATE ATOMFORGE_VERSION="${CPACK_PACKAGE_VERSION}")
 set(CPACK_PACKAGE_VENDOR "AtomForge")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/albert-hzbn/AtomForge")
 

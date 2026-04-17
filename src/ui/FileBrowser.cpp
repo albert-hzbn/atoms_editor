@@ -1579,7 +1579,7 @@ void FileBrowser::draw(Structure& structure,
     if (ImGui::BeginPopupModal("About", &aboutOpen, ImGuiWindowFlags_NoResize))
     {
         ImGui::Text("AtomForge");
-        ImGui::TextDisabled("Atomistic structure builder, viewer, and editor with periodic-cell and finite-geometry workflows");
+        ImGui::TextDisabled("Version " ATOMFORGE_VERSION "  –  Atomistic structure builder, viewer, and editor with periodic-cell and finite-geometry workflows");
         ImGui::Separator();
 
         if (ImGui::BeginChild("##about-scroll", ImVec2(0.0f, 440.0f), false))
