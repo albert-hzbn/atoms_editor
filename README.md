@@ -88,7 +88,6 @@ Box selection is available from Edit -> Box Select Mode. When enabled, right-dra
 - **CSL Grain Boundary**: Build cubic bicrystals with explicit Sigma selection and control over GB plane, in-plane replication, translation, and overlap handling.
 - **Nanocrystal**: Carve finite particles from loaded reference structures (sphere, ellipsoid, box, cylinder, octahedron, truncated octahedron, cuboctahedron).
 - **Custom Structure**: Fill imported mesh volumes (OBJ/STL) with atoms from a reference crystal, with side-by-side 3D previews.
-- **Interface Builder**: Build interfaces from two input structures with candidate matching and preview.
 - **Polycrystal**: Generate Voronoi-based polycrystalline structures from a reference crystal.
 
 ### Merge structures
@@ -191,7 +190,6 @@ Box selection is available from Edit -> Box Select Mode. When enabled, right-dra
 - CSL Grain Boundary
 - Nanocrystal
 - Custom Structure
-- Interface Builder
 - Polycrystal
 
 ### Analysis

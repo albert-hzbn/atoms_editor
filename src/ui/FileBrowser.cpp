@@ -284,7 +284,6 @@ void FileBrowser::draw(Structure& structure,
             cslDialog.drawMenuItem(true);
             nanoCrystalDialog.drawMenuItem(true);
             customStructureDialog.drawMenuItem(true);
-            interfaceBuilderDialog.drawMenuItem(true);
             polyCrystalDialog.drawMenuItem(true);
             ImGui::EndMenu();
         }
