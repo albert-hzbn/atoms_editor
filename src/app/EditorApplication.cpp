@@ -507,7 +507,8 @@ int runAtomsEditor(const std::string& startupStructurePath)
 
     while (!glfwWindowShouldClose(window))
     {
-        camera.allowPan = !state.fileBrowser.isBoxSelectModeEnabled();
+        camera.allowPan = !state.fileBrowser.isBoxSelectModeEnabled()
+                         && !state.fileBrowser.isLassoSelectModeEnabled();
         camera.allowOrbit = !state.grabState.active;
 
         glfwPollEvents();
@@ -587,6 +588,14 @@ int runAtomsEditor(const std::string& startupStructurePath)
         // Keep scene overlays visible over the viewport but underneath UI popups/dialogs.
         ImDrawList* drawList = ImGui::GetBackgroundDrawList();
         handleBoxSelection(
+            state,
+            frame.windowWidth,
+            frame.windowHeight,
+            frame.projection,
+            frame.view,
+            drawList);
+
+        handleLassoSelection(
             state,
             frame.windowWidth,
             frame.windowHeight,

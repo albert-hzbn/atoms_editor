@@ -47,6 +47,14 @@ void handleBoxSelection(
     const glm::mat4& view,
     ImDrawList* drawList);
 
+void handleLassoSelection(
+    EditorState& state,
+    int windowWidth,
+    int windowHeight,
+    const glm::mat4& projection,
+    const glm::mat4& view,
+    ImDrawList* drawList);
+
 void handleRightClick(Camera& camera, EditorState& state);
 
 // Blender-style grab mode: press G to grab selected atoms, move with mouse,

@@ -103,6 +103,7 @@ struct FileBrowser
     const std::array<bool, 119>& getBondElementFilterMask() const { return bondElementFilterMask; }
     bool isOrthographicViewEnabled() const { return viewMode == ViewMode::Orthographic; }
     bool isBoxSelectModeEnabled() const { return boxSelectMode; }
+    bool isLassoSelectModeEnabled() const { return lassoSelectMode; }
     AtomColorMode getAtomColorMode() const { return atomColorMode; }
     bool atomColorModeChanged();
     void setAtomColorMode(AtomColorMode mode) { atomColorMode = mode; atomColorModeJustChanged = true; }
@@ -306,6 +307,7 @@ private:
     AtomColorMode atomColorMode;
     bool atomColorModeJustChanged;
     bool boxSelectMode;
+    bool lassoSelectMode;
     bool requestMeasureDistance;
     bool requestMeasureAngle;
     bool requestAtomInfo;

@@ -190,7 +190,7 @@ void handleRightClick(Camera& camera, EditorState& state)
     if (!camera.pendingRightClick)
         return;
 
-    if (state.fileBrowser.isBoxSelectModeEnabled())
+    if (state.fileBrowser.isBoxSelectModeEnabled() || state.fileBrowser.isLassoSelectModeEnabled())
     {
         camera.pendingRightClick = false;
         return;
@@ -268,6 +268,126 @@ void handleBoxSelection(
             if (it == state.selectedInstanceIndices.end())
                 state.selectedInstanceIndices.push_back(i);
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Lasso selection
+// ---------------------------------------------------------------------------
+
+namespace
+{
+// Ray-casting point-in-polygon test.
+bool isInsideLasso(const ImVec2& p, const std::vector<ImVec2>& polygon)
+{
+    if (polygon.size() < 3)
+        return false;
+
+    bool inside = false;
+    const std::size_t n = polygon.size();
+    for (std::size_t i = 0, j = n - 1; i < n; j = i++)
+    {
+        const float xi = polygon[i].x, yi = polygon[i].y;
+        const float xj = polygon[j].x, yj = polygon[j].y;
+        const bool intersects = ((yi > p.y) != (yj > p.y))
+            && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+        if (intersects)
+            inside = !inside;
+    }
+    return inside;
+}
+} // namespace
+
+void handleLassoSelection(
+    EditorState& state,
+    int windowWidth,
+    int windowHeight,
+    const glm::mat4& projection,
+    const glm::mat4& view,
+    ImDrawList* drawList)
+{
+    if (!state.fileBrowser.isLassoSelectModeEnabled())
+        return;
+
+    if (state.sceneBuffers.cpuCachesDisabled)
+        return;
+
+    static bool lassoActive = false;
+    static std::vector<ImVec2> lassoPoints;
+
+    ImGuiIO& io = ImGui::GetIO();
+    const ImVec2 mousePos = io.MousePos;
+
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !io.WantCaptureMouse)
+    {
+        lassoActive = true;
+        lassoPoints.clear();
+        lassoPoints.push_back(mousePos);
+    }
+
+    if (lassoActive && ImGui::IsMouseDown(ImGuiMouseButton_Right))
+    {
+        // Append a new point only when the mouse has moved enough to avoid clutter.
+        const ImVec2& last = lassoPoints.back();
+        const float dx = mousePos.x - last.x;
+        const float dy = mousePos.y - last.y;
+        if (dx * dx + dy * dy >= 9.0f) // 3 px threshold
+            lassoPoints.push_back(mousePos);
+    }
+
+    // Draw the in-progress lasso polygon.
+    if (lassoActive && lassoPoints.size() >= 2)
+    {
+        // Filled area.
+        if (lassoPoints.size() >= 3)
+            drawList->AddConvexPolyFilled(lassoPoints.data(), (int)lassoPoints.size(), IM_COL32(80, 160, 255, 40));
+
+        // Outline – draw as a closed polyline.
+        for (std::size_t i = 1; i < lassoPoints.size(); ++i)
+            drawList->AddLine(lassoPoints[i - 1], lassoPoints[i], IM_COL32(80, 160, 255, 220), 1.5f);
+
+        // Closing segment to the first point.
+        drawList->AddLine(lassoPoints.back(), lassoPoints.front(), IM_COL32(80, 160, 255, 110), 1.5f);
+    }
+
+    if (lassoActive && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+    {
+        lassoActive = false;
+
+        if (lassoPoints.size() < 3)
+        {
+            lassoPoints.clear();
+            return;
+        }
+
+        const bool additive = io.KeyCtrl;
+        if (!additive)
+            clearSelection(state);
+
+        for (int i = 0; i < (int)state.sceneBuffers.atomPositions.size(); ++i)
+        {
+            const glm::vec3& worldPos = state.sceneBuffers.atomPositions[i];
+            const glm::vec4 clip = projection * view * glm::vec4(worldPos, 1.0f);
+            if (clip.w <= 1e-6f)
+                continue;
+
+            const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+            if (ndc.z < -1.0f || ndc.z > 1.0f)
+                continue;
+
+            const ImVec2 screenPos(
+                (ndc.x * 0.5f + 0.5f) * (float)windowWidth,
+                (1.0f - (ndc.y * 0.5f + 0.5f)) * (float)windowHeight);
+
+            if (!isInsideLasso(screenPos, lassoPoints))
+                continue;
+
+            auto it = std::find(state.selectedInstanceIndices.begin(), state.selectedInstanceIndices.end(), i);
+            if (it == state.selectedInstanceIndices.end())
+                state.selectedInstanceIndices.push_back(i);
+        }
+
+        lassoPoints.clear();
     }
 }
 

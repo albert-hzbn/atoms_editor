@@ -67,6 +67,7 @@ FileBrowser::FileBrowser()
             atomColorMode(AtomColorMode::ElementType),
             atomColorModeJustChanged(false),
             boxSelectMode(false),
+            lassoSelectMode(false),
             requestMeasureDistance(false),
             requestMeasureAngle(false),
             requestAtomInfo(false),
@@ -266,7 +267,10 @@ void FileBrowser::draw(Structure& structure,
             if (ImGui::MenuItem("Redo", "Ctrl+Y", false, canRedo))
                 requestRedo = true;
             ImGui::Separator();
-            ImGui::MenuItem("Box Select Mode", nullptr, &boxSelectMode);
+            if (ImGui::MenuItem("Box Select Mode", nullptr, &boxSelectMode) && boxSelectMode)
+                lassoSelectMode = false;
+            if (ImGui::MenuItem("Lasso Select Mode", nullptr, &lassoSelectMode) && lassoSelectMode)
+                boxSelectMode = false;
             ImGui::Separator();
             editMenuDialogs.drawMenuItems();
             ImGui::Separator();
@@ -1465,6 +1469,7 @@ void FileBrowser::draw(Structure& structure,
             wrappedBullet("Delete removes the selected atoms from the structure.");
             wrappedBullet("Right-click opens the context menu when atoms are selected.");
             wrappedBullet("Enable Edit -> Box Select Mode to select with a right-drag screen rectangle.");
+            wrappedBullet("Enable Edit -> Lasso Select Mode to select with a freehand right-drag polygon.");
 
             ImGui::Spacing();
             ImGui::Text("Keyboard Shortcuts");
