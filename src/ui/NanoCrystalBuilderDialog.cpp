@@ -257,7 +257,7 @@ static const char* kWulffPlaneFS = R"(
     }
 )";
 
-void drawWulffParameters(NanoParams& params)
+void drawWulffParameters(NanoParams& params, std::vector<glm::vec3>& familyColors, bool& wulffPreviewDirty)
 {
     ImGui::SetNextItemWidth(180.0f);
     ImGui::DragFloat("Max radius (A)##wulffRadius", &params.wulffMaxRadius, 0.25f, 0.1f, 1000.0f, "%.2f");
@@ -266,6 +266,10 @@ void drawWulffParameters(NanoParams& params)
 
     if (params.wulffPlanes.empty())
         params.wulffPlanes.push_back(WulffPlaneInput{});
+
+    // Ensure the color vector has an entry for every family.
+    while (familyColors.size() < params.wulffPlanes.size())
+        familyColors.push_back(wulffFamilyColor((int)familyColors.size()));
 
     ImGui::Spacing();
     ImGui::Text("Facet families");
@@ -278,14 +282,24 @@ void drawWulffParameters(NanoParams& params)
         WulffPlaneInput& plane = params.wulffPlanes[index];
         ImGui::PushID((int)index);
         ImGui::Separator();
-        const glm::vec3 familyColor = wulffFamilyColor((int)index);
-        ImGui::ColorButton("##familyColor", ImVec4(familyColor.r, familyColor.g, familyColor.b, 1.0f), ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop, ImVec2(18.0f, 18.0f));
+
+        // Inline colour picker for this family.
+        glm::vec3& familyColor = familyColors[index];
+        float colorArr[3] = { familyColor.r, familyColor.g, familyColor.b };
+        if (ImGui::ColorEdit3("##familyColorEdit", colorArr,
+                              ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel))
+        {
+            familyColor = glm::vec3(colorArr[0], colorArr[1], colorArr[2]);
+            wulffPreviewDirty = true;
+        }
         ImGui::SameLine();
         ImGui::Text("Family %d", (int)index + 1);
         ImGui::SameLine();
         if (ImGui::SmallButton("Remove") && params.wulffPlanes.size() > 1)
         {
             params.wulffPlanes.erase(params.wulffPlanes.begin() + (long)index);
+            familyColors.erase(familyColors.begin() + (long)index);
+            wulffPreviewDirty = true;
             ImGui::PopID();
             break;
         }
@@ -307,7 +321,10 @@ void drawWulffParameters(NanoParams& params)
     }
 
     if (ImGui::Button("Add Facet Family##wulffAdd", ImVec2(150.0f, 0.0f)))
+    {
         params.wulffPlanes.push_back(WulffPlaneInput{});
+        familyColors.push_back(wulffFamilyColor((int)familyColors.size()));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1235,7 +1252,7 @@ void NanoCrystalBuilderDialog::drawDialog(
     if (params.generationMode == NanoGenerationMode::Shape)
         drawShapeParameters(params);
     else
-        drawWulffParameters(params);
+        drawWulffParameters(params, m_wulffFamilyColors, m_wulffPreviewDirty);
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -1299,35 +1316,11 @@ void NanoCrystalBuilderDialog::drawDialog(
         }
     }
 
-    if (params.generationMode == NanoGenerationMode::WulffConstruction)
+    if (params.generationMode == NanoGenerationMode::WulffConstruction
+        && !m_wulffPreviewData.message.empty())
     {
         ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Text("Facet colors");
-        for (std::size_t index = 0; index < params.wulffPlanes.size(); ++index)
-        {
-            const WulffPlaneInput& plane = params.wulffPlanes[index];
-            glm::vec3& familyColor = m_wulffFamilyColors[index];
-            float color[3] = { familyColor.r, familyColor.g, familyColor.b };
-            ImGui::PushID((int)index + 1000);
-            ImGui::SetNextItemWidth(120.0f);
-            if (ImGui::ColorEdit3("##wulffLegendColor", color,
-                                  ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel))
-            {
-                familyColor = glm::vec3(color[0], color[1], color[2]);
-                rebuildWulffPreviewGeometry(m_wulffPreviewData);
-            }
-            ImGui::SameLine();
-            ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextWrapped("(%d %d %d)  E = %.4f", plane.h, plane.k, plane.l, plane.surfaceEnergy);
-            ImGui::PopTextWrapPos();
-            ImGui::PopID();
-        }
-        if (!m_wulffPreviewData.message.empty())
-        {
-            ImGui::Spacing();
-            ImGui::TextWrapped("Preview: %s", m_wulffPreviewData.message.c_str());
-        }
+        ImGui::TextWrapped("Preview: %s", m_wulffPreviewData.message.c_str());
     }
 
     ImGui::EndChild(); // ##nanoParamsScroll
