@@ -579,9 +579,6 @@ void applyDefaultView(
 
 void clearSelection(EditorState& state)
 {
-    for (int index : state.selectedInstanceIndices)
-        state.sceneBuffers.restoreAtomColor(index);
-
     state.selectedInstanceIndices.clear();
     state.measurementState.clearVisuals();
 }
@@ -620,21 +617,12 @@ void deleteSelectedAtoms(EditorState& state)
 
 void refreshSelectionHighlights(EditorState& state)
 {
-    for (int& index : state.selectedInstanceIndices)
-    {
-        if (index >= (int)state.sceneBuffers.atomCount)
-        {
-            state.sceneBuffers.restoreAtomColor(index);
-            index = -1;
-        }
-        else if (index >= 0)
-        {
-            state.sceneBuffers.highlightAtom(index, glm::vec3(1.0f, 1.0f, 0.0f));
-        }
-    }
-
+    // Remove stale indices that exceed the current atom count.
     state.selectedInstanceIndices.erase(
-        std::remove(state.selectedInstanceIndices.begin(), state.selectedInstanceIndices.end(), -1),
+        std::remove_if(
+            state.selectedInstanceIndices.begin(),
+            state.selectedInstanceIndices.end(),
+            [&](int index) { return index < 0 || index >= (int)state.sceneBuffers.atomCount; }),
         state.selectedInstanceIndices.end());
 }
 

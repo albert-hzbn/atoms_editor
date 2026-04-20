@@ -75,3 +75,12 @@ void drawGrabOverlay(
     const glm::mat4& view,
     int windowWidth,
     int windowHeight);
+
+// Draw yellow wireframe circle rings around every selected atom.
+void drawSelectionOverlay(
+    const EditorState& state,
+    ImDrawList* drawList,
+    const glm::mat4& projection,
+    const glm::mat4& view,
+    int windowWidth,
+    int windowHeight);

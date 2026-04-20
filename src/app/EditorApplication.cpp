@@ -630,6 +630,14 @@ int runAtomsEditor(const std::string& startupStructurePath)
 
         refreshSelectionHighlights(state);
 
+        drawSelectionOverlay(
+            state,
+            drawList,
+            frame.projection,
+            frame.view,
+            frame.windowWidth,
+            frame.windowHeight);
+
         drawMeasurementOverlays(
             state.measurementState,
             drawList,
