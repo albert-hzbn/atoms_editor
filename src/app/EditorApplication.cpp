@@ -25,6 +25,7 @@
 #include "ui/ImGuiSetup.h"
 #include "ui/LatticePlaneOverlay.h"
 #include "ui/MillerDirectionOverlay.h"
+#include "ui/PolyhedralOverlay.h"
 #include "ui/VoronoiOverlay.h"
 
 #include <glm/glm.hpp>
@@ -685,6 +686,19 @@ int runAtomsEditor(const std::string& startupStructurePath)
                 state.selectedInstanceIndices,
                 true);
         }
+
+        drawPolyhedralOverlay(
+            drawList,
+            frame.projection,
+            frame.view,
+            frame.framebufferWidth,
+            frame.framebufferHeight,
+            state.structure,
+            state.selectedInstanceIndices,
+            state.sceneBuffers.atomIndices,
+            state.fileBrowser.getPolyhedralOverlaySettings(),
+            state.editMenuDialogs.elementColors,
+            state.fileBrowser.isShowPolyhedralViewerEnabled());
 
         if (state.fileBrowser.isShowElementEnabled())
         {

@@ -23,6 +23,10 @@
 #include <windows.h>
 #endif
 
+#ifndef ATOMFORGE_VERSION
+#define ATOMFORGE_VERSION "dev"
+#endif
+
 // ---------------------------------------------------------------------------
 // Save-format table (used by the Save As dialog)
 // ---------------------------------------------------------------------------
@@ -62,6 +66,8 @@ FileBrowser::FileBrowser()
             showMillerDirections(false),
             showMillerDirectionsDialog(false),
             showVoronoi(false),
+            showPolyhedralViewer(false),
+            showPolyhedralSettingsDialog(false),
             bondElementFilterEnabled(false),
             viewMode(ViewMode::Orthographic),
             atomColorMode(AtomColorMode::ElementType),
@@ -154,6 +160,9 @@ FileBrowser::FileBrowser()
     std::snprintf(exportFilename, sizeof(exportFilename), "%s", "structure.png");
     exportStatusMsg[0] = '\0';
     std::snprintf(bondElementFilterInput, sizeof(bondElementFilterInput), "%s", "O,F");
+    polyhedralCenterAtomIndexInput[0] = '\0';
+    polyhedralCenterFilterInput[0] = '\0';
+    polyhedralLigandFilterInput[0] = '\0';
     latticePlaneInputColor[0] = 0.95f;
     latticePlaneInputColor[1] = 0.62f;
     latticePlaneInputColor[2] = 0.20f;
@@ -161,6 +170,8 @@ FileBrowser::FileBrowser()
     millerDirInputColor[1] = 0.75f;
     millerDirInputColor[2] = 1.00f;
     bondElementFilterMask.fill(false);
+    polyhedralSettings.centerElementMask.fill(false);
+    polyhedralSettings.ligandElementMask.fill(false);
     updateBondElementFilterMask();
 }
 
@@ -186,6 +197,97 @@ void FileBrowser::updateBondElementFilterMask()
         }
 
         token.push_back(ch);
+    }
+}
+
+void FileBrowser::updatePolyhedralElementFilterMask(const char* input, std::array<bool, 119>& mask)
+{
+    mask.fill(false);
+    if (input == nullptr)
+        return;
+
+    std::string token;
+    const size_t len = std::strlen(input);
+    for (size_t i = 0; i <= len; ++i)
+    {
+        const char ch = (i < len) ? input[i] : ',';
+        if (ch == ',' || std::isspace((unsigned char)ch))
+        {
+            if (!token.empty())
+            {
+                const int z = atomicNumberFromSymbol(token);
+                if (z >= 1 && z <= 118)
+                    mask[(size_t)z] = true;
+                token.clear();
+            }
+            continue;
+        }
+
+        token.push_back(ch);
+    }
+}
+
+void FileBrowser::updatePolyhedralCenterAtomIndexFilter(const char* input)
+{
+    polyhedralSettings.centerAtomIndices.clear();
+    if (input == nullptr)
+        return;
+
+    std::string token;
+    const size_t len = std::strlen(input);
+
+    auto appendIndex = [&](int oneBased) {
+        if (oneBased <= 0)
+            return;
+        const int zeroBased = oneBased - 1;
+        if (std::find(polyhedralSettings.centerAtomIndices.begin(),
+                      polyhedralSettings.centerAtomIndices.end(),
+                      zeroBased) == polyhedralSettings.centerAtomIndices.end())
+        {
+            polyhedralSettings.centerAtomIndices.push_back(zeroBased);
+        }
+    };
+
+    auto parseToken = [&](const std::string& value) {
+        if (value.empty())
+            return;
+
+        const std::size_t dashPos = value.find('-');
+        if (dashPos == std::string::npos)
+        {
+            appendIndex(std::atoi(value.c_str()));
+            return;
+        }
+
+        const std::string left = value.substr(0, dashPos);
+        const std::string right = value.substr(dashPos + 1);
+        if (left.empty() || right.empty())
+            return;
+
+        int a = std::atoi(left.c_str());
+        int b = std::atoi(right.c_str());
+        if (a <= 0 || b <= 0)
+            return;
+        if (a > b)
+            std::swap(a, b);
+
+        const int count = std::min(b - a + 1, 20000);
+        for (int i = 0; i < count; ++i)
+            appendIndex(a + i);
+    };
+
+    for (size_t i = 0; i <= len; ++i)
+    {
+        const char ch = (i < len) ? input[i] : ',';
+        if (ch == ',')
+        {
+            parseToken(token);
+            token.clear();
+            continue;
+        }
+
+        if (!std::isspace((unsigned char)ch))
+            token.push_back(ch);
     }
 }
 
@@ -377,6 +479,9 @@ void FileBrowser::draw(Structure& structure,
 
             ImGui::Separator();
             ImGui::MenuItem("Show Voronoi Volume", nullptr, &showVoronoi, !structure.atoms.empty());
+            ImGui::MenuItem("Polyhedral Viewer", nullptr, &showPolyhedralViewer, !structure.atoms.empty());
+            if (ImGui::MenuItem("Polyhedral Settings", nullptr, false, !structure.atoms.empty()))
+                showPolyhedralSettingsDialog = true;
             ImGui::Separator();
             if (ImGui::MenuItem("Structure Info"))
                 requestStructureInfo = true;
@@ -1434,6 +1539,106 @@ void FileBrowser::draw(Structure& structure,
         ImGui::CloseCurrentPopup();
     // ---- end Miller Directions dialog ------------------------------------
 
+    if (showPolyhedralSettingsDialog)
+    {
+        ImGui::OpenPopup("Polyhedral Settings");
+        showPolyhedralSettingsDialog = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(620.0f, 520.0f), ImGuiCond_FirstUseEver);
+    bool polyhedralSettingsOpen = true;
+    if (ImGui::BeginPopupModal("Polyhedral Settings", &polyhedralSettingsOpen, ImGuiWindowFlags_NoResize))
+    {
+        ImGui::SetNextItemWidth(240.0f);
+        ImGui::SliderInt("Max displayed centers", &polyhedralSettings.maxDisplayedCenters, 1, 2000);
+        ImGui::SetNextItemWidth(240.0f);
+        ImGui::SliderInt("Nearest neighbors", &polyhedralSettings.maxNeighborCandidates, 4, 64);
+
+        ImGui::Separator();
+
+        if (ImGui::Checkbox("Specify center atom indices", &polyhedralSettings.centerAtomIndexFilterEnabled)
+            && polyhedralSettings.centerAtomIndexFilterEnabled)
+        {
+            updatePolyhedralCenterAtomIndexFilter(polyhedralCenterAtomIndexInput);
+        }
+        if (polyhedralSettings.centerAtomIndexFilterEnabled)
+        {
+            ImGui::SetNextItemWidth(420.0f);
+            if (ImGui::InputText("Center atom IDs##polyIndexFilter",
+                                 polyhedralCenterAtomIndexInput,
+                                 sizeof(polyhedralCenterAtomIndexInput)))
+            {
+                updatePolyhedralCenterAtomIndexFilter(polyhedralCenterAtomIndexInput);
+            }
+            ImGui::TextDisabled("1-based IDs, comma-separated, ranges allowed (e.g. 1,4,10-20)");
+            ImGui::TextDisabled("Parsed centers: %d", (int)polyhedralSettings.centerAtomIndices.size());
+        }
+
+        ImGui::Separator();
+
+        ImGui::Checkbox("Show polyhedral edges", &polyhedralSettings.showEdges);
+        ImGui::SetNextItemWidth(220.0f);
+        ImGui::SliderFloat("Face opacity", &polyhedralSettings.faceOpacity, 0.00f, 1.00f, "%.2f");
+        ImGui::SetNextItemWidth(220.0f);
+        ImGui::SliderFloat("Edge opacity", &polyhedralSettings.edgeOpacity, 0.00f, 1.00f, "%.2f");
+
+        ImGui::Separator();
+
+        if (ImGui::Checkbox("Filter center elements", &polyhedralSettings.centerElementFilterEnabled)
+            && polyhedralSettings.centerElementFilterEnabled)
+        {
+            updatePolyhedralElementFilterMask(polyhedralCenterFilterInput,
+                                              polyhedralSettings.centerElementMask);
+        }
+        if (polyhedralSettings.centerElementFilterEnabled)
+        {
+            ImGui::SetNextItemWidth(340.0f);
+            if (ImGui::InputText("Centers##polyFilter", polyhedralCenterFilterInput,
+                                 sizeof(polyhedralCenterFilterInput)))
+            {
+                updatePolyhedralElementFilterMask(polyhedralCenterFilterInput,
+                                                  polyhedralSettings.centerElementMask);
+            }
+            ImGui::TextDisabled("Comma-separated symbols, e.g. Ti,Zr,Fe");
+        }
+
+        ImGui::Spacing();
+
+        if (ImGui::Checkbox("Filter ligand elements", &polyhedralSettings.ligandElementFilterEnabled)
+            && polyhedralSettings.ligandElementFilterEnabled)
+        {
+            updatePolyhedralElementFilterMask(polyhedralLigandFilterInput,
+                                              polyhedralSettings.ligandElementMask);
+        }
+        if (polyhedralSettings.ligandElementFilterEnabled)
+        {
+            ImGui::SetNextItemWidth(340.0f);
+            if (ImGui::InputText("Ligands##polyFilter", polyhedralLigandFilterInput,
+                                 sizeof(polyhedralLigandFilterInput)))
+            {
+                updatePolyhedralElementFilterMask(polyhedralLigandFilterInput,
+                                                  polyhedralSettings.ligandElementMask);
+            }
+            ImGui::TextDisabled("Comma-separated symbols, e.g. O,N,S,F");
+        }
+
+        ImGui::Separator();
+        if (ImGui::Button("Reset Defaults", ImVec2(150.0f, 0.0f)))
+        {
+            polyhedralSettings = PolyhedralOverlaySettings{};
+            polyhedralCenterAtomIndexInput[0] = '\0';
+            polyhedralCenterFilterInput[0] = '\0';
+            polyhedralLigandFilterInput[0] = '\0';
+        }
+        ImGui::SameLine(0.0f, 8.0f);
+        if (ImGui::Button("Close##polySettings", ImVec2(120.0f, 0.0f)))
+            ImGui::CloseCurrentPopup();
+
+        ImGui::EndPopup();
+    }
+    if (!polyhedralSettingsOpen)
+        ImGui::CloseCurrentPopup();
+
     if (showManual)
     {
         ImGui::OpenPopup("Manual");
@@ -1600,7 +1805,7 @@ void FileBrowser::draw(Structure& structure,
     {
         ImGui::Text("AtomForge");
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextDisabled("Version " ATOMFORGE_VERSION "  –  Atomistic structure builder, viewer, and editor with periodic-cell and finite-geometry workflows");
+        ImGui::TextDisabled("Version " ATOMFORGE_VERSION " - Atomistic structure builder, viewer, and editor with periodic-cell and finite-geometry workflows");
         ImGui::PopTextWrapPos();
         ImGui::Separator();
 
@@ -1893,7 +2098,8 @@ bool FileBrowser::isAnyDialogOpen() const
         || showManual
         || showEditColors
         || showLatticePlanesDialog
-        || showMillerDirectionsDialog;
+        || showMillerDirectionsDialog
+        || showPolyhedralSettingsDialog;
 }
 
 void FileBrowser::feedDropToSubstitutionalSolidSolutionDialog(const std::string& path)

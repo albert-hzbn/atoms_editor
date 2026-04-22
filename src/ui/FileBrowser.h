@@ -12,6 +12,7 @@
 #include "ui/SubstitutionalSolidSolutionDialog.h"
 #include "ui/CommonNeighbourAnalysis.h"
 #include "ui/RadialDistributionAnalysis.h"
+#include "ui/PolyhedralOverlay.h"
 #include "ui/TransformAtomsDialog.h"
 #include "ui/EditMenuDialogs.h"
 
@@ -115,6 +116,8 @@ struct FileBrowser
     const std::vector<MillerDirection>& getMillerDirections() const { return millerDirections; }
     void clearMillerDirections() { millerDirections.clear(); }
     bool isShowVoronoiEnabled() const { return showVoronoi; }
+    bool isShowPolyhedralViewerEnabled() const { return showPolyhedralViewer; }
+    const PolyhedralOverlaySettings& getPolyhedralOverlaySettings() const { return polyhedralSettings; }
     bool consumeMeasureDistanceRequest()
     {
         bool requested = requestMeasureDistance;
@@ -292,6 +295,8 @@ struct FileBrowser
 
 private:
     void updateBondElementFilterMask();
+    void updatePolyhedralElementFilterMask(const char* input, std::array<bool, 119>& mask);
+    void updatePolyhedralCenterAtomIndexFilter(const char* input);
     void pushHistory(const std::string& dir);
     static std::string toLower(const std::string& s);
     bool isAllowedFile(const std::string& name) const;
@@ -308,6 +313,8 @@ private:
     bool showMillerDirections;
     bool showMillerDirectionsDialog;
     bool showVoronoi;
+    bool showPolyhedralViewer;
+    bool showPolyhedralSettingsDialog;
     bool bondElementFilterEnabled;
     ViewMode viewMode;
     AtomColorMode atomColorMode;
@@ -376,7 +383,11 @@ private:
 
     char openFilename[1024];
     char bondElementFilterInput[256];
+    char polyhedralCenterAtomIndexInput[256];
+    char polyhedralCenterFilterInput[256];
+    char polyhedralLigandFilterInput[256];
     std::array<bool, 119> bondElementFilterMask;
+    PolyhedralOverlaySettings polyhedralSettings;
     int latticePlaneInputH;
     int latticePlaneInputK;
     int latticePlaneInputL;
