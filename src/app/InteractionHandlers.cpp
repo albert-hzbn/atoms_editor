@@ -997,64 +997,13 @@ void drawGrabOverlay(
 }
 
 void drawSelectionOverlay(
-    const EditorState& state,
-    ImDrawList* drawList,
-    const glm::mat4& projection,
-    const glm::mat4& view,
-    int windowWidth,
-    int windowHeight)
+    const EditorState& /*state*/,
+    ImDrawList* /*drawList*/,
+    const glm::mat4& /*projection*/,
+    const glm::mat4& /*view*/,
+    int /*windowWidth*/,
+    int /*windowHeight*/)
 {
-    if (state.selectedInstanceIndices.empty() || state.sceneBuffers.cpuCachesDisabled)
-        return;
-
-    constexpr ImU32 kRingColor    = IM_COL32(255, 230, 0, 230);
-    constexpr ImU32 kRingColorOcc = IM_COL32(255, 230, 0, 80); // behind geometry
-    constexpr float kRadiusBias   = 4.0f;  // extra px radius on top of projected atom radius
-    constexpr float kThickness    = 2.0f;
-    constexpr int   kSegments     = 32;
-
-    const glm::mat4 vp = projection * view;
-
-    for (int instanceIdx : state.selectedInstanceIndices)
-    {
-        if (instanceIdx < 0 || instanceIdx >= (int)state.sceneBuffers.atomPositions.size())
-            continue;
-
-        const glm::vec3& worldPos = state.sceneBuffers.atomPositions[instanceIdx];
-        const glm::vec4 clip = vp * glm::vec4(worldPos, 1.0f);
-        if (clip.w <= 1e-6f)
-            continue;
-
-        const glm::vec3 ndc = glm::vec3(clip) / clip.w;
-        if (ndc.z < -1.0f || ndc.z > 1.0f)
-            continue;
-
-        // Project atom centre to screen pixels.
-        const ImVec2 centre(
-            (ndc.x * 0.5f + 0.5f) * (float)windowWidth,
-            (1.0f - (ndc.y * 0.5f + 0.5f)) * (float)windowHeight);
-
-        // Project atom radius to screen pixels by offsetting the world-space
-        // centre by the atom radius along the camera-right axis and measuring
-        // the resulting screen-space distance.
-        const float atomRadius = (instanceIdx < (int)state.sceneBuffers.atomRadii.size())
-            ? state.sceneBuffers.atomRadii[instanceIdx]
-            : 1.0f;
-
-        // Use the view-right vector (first column of view matrix transposed = first row).
-        const glm::vec3 rightWorld(view[0][0], view[1][0], view[2][0]);
-        const glm::vec4 edgeClip = vp * glm::vec4(worldPos + rightWorld * atomRadius, 1.0f);
-        float screenRadius = kRadiusBias;
-        if (edgeClip.w > 1e-6f)
-        {
-            const glm::vec3 edgeNdc = glm::vec3(edgeClip) / edgeClip.w;
-            const float dx = (edgeNdc.x - ndc.x) * 0.5f * (float)windowWidth;
-            const float dy = (edgeNdc.y - ndc.y) * 0.5f * (float)windowHeight;
-            screenRadius = std::sqrt(dx * dx + dy * dy) + kRadiusBias;
-        }
-
-        // Draw a faint ring for occluded portions and a bright ring on top.
-        drawList->AddCircle(centre, screenRadius, kRingColorOcc, kSegments, kThickness);
-        drawList->AddCircle(centre, screenRadius, kRingColor,    kSegments, kThickness);
-    }
+    // Selection is now drawn as a 3D low-poly wireframe via
+    // Renderer::drawSelectionWireframes in the OpenGL colour pass.
 }

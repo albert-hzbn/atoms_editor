@@ -11,6 +11,7 @@
 #include <glm/glm.hpp>
 
 #include <cstddef>
+#include <vector>
 
 // Owns the GLSL programs and exposes per-pass draw methods.
 struct Renderer
@@ -34,7 +35,11 @@ struct Renderer
     GLuint shadowLowPolyProgram = 0;
     GLuint shadowBillboardProgram = 0;
     GLuint bondShadowProgram = 0;
-    GLuint lineProgram   = 0;
+    GLuint lineProgram      = 0;
+    GLuint selWireProgram   = 0;
+    GLuint selWireVAO       = 0;
+    GLuint selWireVBO       = 0;
+    int    selWireLineVtxCount = 0;
 
     // Compile and link all shader programs.
     void init();
@@ -105,4 +110,10 @@ struct Renderer
                       GLuint lineVAO,
                       size_t lineVertexCount,
                       const glm::vec3& color = glm::vec3(0.85f));
+
+    // Draw a yellow low-poly wireframe sphere around each selected atom.
+    void drawSelectionWireframes(const glm::mat4& projection,
+                                 const glm::mat4& view,
+                                 const std::vector<glm::vec3>& positions,
+                                 const std::vector<float>& radii);
 };

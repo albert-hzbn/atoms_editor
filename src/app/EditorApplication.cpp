@@ -976,6 +976,27 @@ int runAtomsEditor(const std::vector<std::string>& startupPaths)
                   activeState.fileBrowser.isShowBoundingBoxEnabled(),
                   activeState.fileBrowser.isLightThemeEnabled());
 
+        // Selection wireframes — drawn after atoms so depth-testing is correct.
+        if (!activeState.selectedInstanceIndices.empty() &&
+            !activeState.sceneBuffers.cpuCachesDisabled)
+        {
+            std::vector<glm::vec3> selPos;
+            std::vector<float>     selRad;
+            selPos.reserve(activeState.selectedInstanceIndices.size());
+            selRad.reserve(activeState.selectedInstanceIndices.size());
+            for (int idx : activeState.selectedInstanceIndices)
+            {
+                if (idx >= 0 && idx < (int)activeState.sceneBuffers.atomPositions.size())
+                {
+                    selPos.push_back(activeState.sceneBuffers.atomPositions[idx]);
+                    selRad.push_back(idx < (int)activeState.sceneBuffers.atomRadii.size()
+                                         ? activeState.sceneBuffers.atomRadii[idx]
+                                         : 1.0f);
+                }
+            }
+            renderer.drawSelectionWireframes(frame.projection, frame.view, selPos, selRad);
+        }
+
         handleImageExportIfRequested(hasImageExportRequest, imageExportRequest,
                                      frame, activeState, renderer, shadow);
 
