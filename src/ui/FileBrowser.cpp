@@ -72,6 +72,7 @@ FileBrowser::FileBrowser()
             viewMode(ViewMode::Orthographic),
             atomColorMode(AtomColorMode::ElementType),
             atomColorModeJustChanged(false),
+            atomDisplayMode(AtomDisplayMode::Balls),
             boxSelectMode(false),
             lassoSelectMode(false),
             requestMeasureDistance(false),
@@ -398,22 +399,6 @@ void FileBrowser::draw(Structure& structure,
         if (ImGui::BeginMenu("View"))
         {
             ImGui::MenuItem("Show Element", nullptr, &showElementLabels);
-            bool bondFilterChanged = false;
-            ImGui::MenuItem("Show Bonds", nullptr, &showBonds);
-            if (ImGui::MenuItem("Filter Bonds By Elements", nullptr, &bondElementFilterEnabled))
-                bondFilterChanged = true;
-            if (bondElementFilterEnabled)
-            {
-                ImGui::SetNextItemWidth(240.0f);
-                if (ImGui::InputText("Bond Elements##filter", bondElementFilterInput, sizeof(bondElementFilterInput)))
-                {
-                    updateBondElementFilterMask();
-                    bondFilterChanged = true;
-                }
-                ImGui::TextDisabled("Comma-separated symbols (e.g. O,F,Cl)");
-            }
-            if (bondFilterChanged)
-                updateBuffers(structure);
             ImGui::Separator();
 
             if (ImGui::BeginMenu("Color Structure By"))
@@ -445,6 +430,43 @@ void FileBrowser::draw(Structure& structure,
                     {
                         atomColorMode = AtomColorMode::GrainBoundary;
                         atomColorModeJustChanged = true;
+                        updateBuffers(structure);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("View Atom By"))
+            {
+                if (ImGui::MenuItem("Balls", nullptr, atomDisplayMode == AtomDisplayMode::Balls))
+                {
+                    if (atomDisplayMode != AtomDisplayMode::Balls)
+                    {
+                        atomDisplayMode = AtomDisplayMode::Balls;
+                        updateBuffers(structure);
+                    }
+                }
+                if (ImGui::MenuItem("Ball and Stick", nullptr, atomDisplayMode == AtomDisplayMode::BallAndStick))
+                {
+                    if (atomDisplayMode != AtomDisplayMode::BallAndStick)
+                    {
+                        atomDisplayMode = AtomDisplayMode::BallAndStick;
+                        updateBuffers(structure);
+                    }
+                }
+                if (ImGui::MenuItem("Space Filling", nullptr, atomDisplayMode == AtomDisplayMode::SpaceFilling))
+                {
+                    if (atomDisplayMode != AtomDisplayMode::SpaceFilling)
+                    {
+                        atomDisplayMode = AtomDisplayMode::SpaceFilling;
+                        updateBuffers(structure);
+                    }
+                }
+                if (ImGui::MenuItem("Polyhedral", nullptr, atomDisplayMode == AtomDisplayMode::Polyhedral))
+                {
+                    if (atomDisplayMode != AtomDisplayMode::Polyhedral)
+                    {
+                        atomDisplayMode = AtomDisplayMode::Polyhedral;
                         updateBuffers(structure);
                     }
                 }

@@ -44,6 +44,14 @@ enum class AtomColorMode
     GrainBoundary,
 };
 
+enum class AtomDisplayMode
+{
+    Balls = 0,
+    BallAndStick,
+    SpaceFilling,
+    Polyhedral,
+};
+
 enum class ImageExportFormat
 {
     Png,
@@ -99,7 +107,12 @@ struct FileBrowser
     const int (&getTransformMatrix() const)[3][3] { return transformDialog.getMatrix(); }
     void clearTransformMatrix() { transformDialog.clearTransform(); }
     bool isShowElementEnabled() const { return showElementLabels; }
-    bool isShowBondsEnabled() const { return showBonds; }
+    bool isShowBondsEnabled() const
+    {
+        if (atomDisplayMode == AtomDisplayMode::BallAndStick || atomDisplayMode == AtomDisplayMode::Polyhedral)
+            return true;
+        return showBonds;
+    }
     bool isLightThemeEnabled() const { return useLightTheme; }
     bool isBondElementFilterEnabled() const { return bondElementFilterEnabled; }
     const std::array<bool, 119>& getBondElementFilterMask() const { return bondElementFilterMask; }
@@ -109,6 +122,17 @@ struct FileBrowser
     AtomColorMode getAtomColorMode() const { return atomColorMode; }
     bool atomColorModeChanged();
     void setAtomColorMode(AtomColorMode mode) { atomColorMode = mode; atomColorModeJustChanged = true; }
+    AtomDisplayMode getAtomDisplayMode() const { return atomDisplayMode; }
+    float getAtomRadiusScale() const
+    {
+        switch (atomDisplayMode)
+        {
+            case AtomDisplayMode::BallAndStick: return 1.0f;
+            case AtomDisplayMode::SpaceFilling: return 1.8f;
+            case AtomDisplayMode::Polyhedral:   return 0.7f;
+            default:                            return 1.0f;
+        }
+    }
     bool isShowLatticePlanesEnabled() const { return showLatticePlanes; }
     const std::vector<LatticePlane>& getLatticePlanes() const { return latticePlanes; }
     void clearLatticePlanes() { latticePlanes.clear(); }
@@ -116,7 +140,7 @@ struct FileBrowser
     const std::vector<MillerDirection>& getMillerDirections() const { return millerDirections; }
     void clearMillerDirections() { millerDirections.clear(); }
     bool isShowVoronoiEnabled() const { return showVoronoi; }
-    bool isShowPolyhedralViewerEnabled() const { return showPolyhedralViewer; }
+    bool isShowPolyhedralViewerEnabled() const { return showPolyhedralViewer || atomDisplayMode == AtomDisplayMode::Polyhedral; }
     const PolyhedralOverlaySettings& getPolyhedralOverlaySettings() const { return polyhedralSettings; }
     bool consumeMeasureDistanceRequest()
     {
@@ -319,6 +343,7 @@ private:
     ViewMode viewMode;
     AtomColorMode atomColorMode;
     bool atomColorModeJustChanged;
+    AtomDisplayMode atomDisplayMode;
     bool boxSelectMode;
     bool lassoSelectMode;
     bool requestMeasureDistance;

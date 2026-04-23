@@ -514,6 +514,14 @@ void updateBuffers(EditorState& state)
         state.editMenuDialogs.elementRadii,
         state.editMenuDialogs.elementShininess);
 
+    // Apply display mode visual radius scale (does not affect bond detection).
+    const float radiusScale = state.fileBrowser.getAtomRadiusScale();
+    if (std::abs(radiusScale - 1.0f) > 1e-4f)
+    {
+        for (float& s : data.scales)
+            s *= radiusScale;
+    }
+
     state.sceneBuffers.upload(
         data,
         state.fileBrowser.isBondElementFilterEnabled(),
