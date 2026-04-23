@@ -1731,7 +1731,7 @@ void FileBrowser::draw(Structure& structure,
             wrappedBullet("Undo and Redo track structure edits and style changes.");
             wrappedBullet("Edit Structure modifies lattice vectors and the atom list directly.");
             wrappedBullet("Atomic Sizes adjusts per-element radii used for display and some builders.");
-            wrappedBullet("Element Colors adjusts per-element color and shininess.");
+            wrappedBullet("Display Settings adjusts per-element color, shininess and global lighting.");
             wrappedBullet("Transform Structure applies a 3x3 transformation matrix to periodic structures.");
             wrappedBullet("Merge Structures opens a 3D arrangement dialog to load, place, rotate, and merge multiple structures.");
 

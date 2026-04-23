@@ -45,7 +45,7 @@ void EditMenuDialogs::drawSettingsMenuItems()
     if (ImGui::MenuItem("Atomic Sizes"))
         m_openAtomicSize = true;
 
-    if (ImGui::MenuItem("Element Colors"))
+    if (ImGui::MenuItem("Display Settings"))
         m_openElementColor = true;
 }
 
@@ -53,7 +53,7 @@ void EditMenuDialogs::drawPopups(Structure& structure,
                                  const std::function<void(Structure&)>& updateBuffers)
 {
     if (m_openAtomicSize)   { ImGui::OpenPopup("Atomic Sizes##edit");   m_openAtomicSize   = false; }
-    if (m_openElementColor) { ImGui::OpenPopup("Element Colors##edit"); m_openElementColor = false; }
+    if (m_openElementColor) { ImGui::OpenPopup("Display Settings##edit"); m_openElementColor = false; }
     if (m_openEditStructure) { ImGui::OpenPopup("Edit Structure##edit"); m_openEditStructure = false; }
 
     // ------------------------------------------------------------------
@@ -109,76 +109,158 @@ void EditMenuDialogs::drawPopups(Structure& structure,
         ImGui::CloseCurrentPopup();
 
     // ------------------------------------------------------------------
-    // Element Colors modal
+    // Display Settings modal
     // ------------------------------------------------------------------
 
     bool elementColorsOpen = true;
-    if (ImGui::BeginPopupModal("Element Colors##edit", &elementColorsOpen,
+    if (ImGui::BeginPopupModal("Display Settings##edit", &elementColorsOpen,
                                ImGuiWindowFlags_AlwaysAutoResize))
     {
-        ImGui::Text("Select an element in the periodic table and edit its color.");
-        ImGui::Separator();
+        constexpr float kSliderW = 340.0f;
 
-        drawPeriodicTableInlineSelector(m_selectedColorElement);
-
-        if (isValidElementNumber(m_selectedColorElement))
+        if (ImGui::BeginTabBar("##displayTabs"))
         {
-            ImGui::Text("Selected: Z=%d (%s)",
-                        m_selectedColorElement,
-                        elementSymbol(m_selectedColorElement));
-
-            float color[3] = {
-                elementColors[m_selectedColorElement].r,
-                elementColors[m_selectedColorElement].g,
-                elementColors[m_selectedColorElement].b
-            };
-
-            if (ImGui::ColorEdit3("Element Color", color))
+            // ==============================================================
+            // TAB: Lighting
+            // ==============================================================
+            if (ImGui::BeginTabItem("Lighting"))
             {
-                elementColors[m_selectedColorElement] =
-                    glm::vec3(color[0], color[1], color[2]);
-                updateBuffers(structure);
+                ImGui::Spacing();
+                ImGui::TextDisabled("Controls the scene illumination model.");
+                ImGui::Spacing();
+
+                auto lightRow = [&](const char* label, float* v,
+                                    float mn, float mx, const char* fmt,
+                                    const char* tip)
+                {
+                    ImGui::SetNextItemWidth(kSliderW);
+                    ImGui::SliderFloat(label, v, mn, mx, fmt);
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
+                };
+
+                lightRow("Ambient##L",        &lightAmbient,        0.00f, 0.60f, "%.2f",
+                         "Shadow-side base brightness (default 0.18).");
+                lightRow("Saturation##L",     &lightSaturation,     0.50f, 3.00f, "%.2f",
+                         "Color vividness — 1.0 = neutral, >1 = more vivid (default 1.55).");
+                lightRow("Contrast##L",       &lightContrast,       0.50f, 2.50f, "%.2f",
+                         "Dark-to-light stretch — 1.0 = none, >1 = more contrast (default 1.25).");
+                lightRow("Shadow Strength##L",&lightShadowStrength, 0.00f, 1.00f, "%.2f",
+                         "Shadow darkness — 0 = no shadow, 1 = fully black (default 0.75).");
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                if (ImGui::Button("Reset Lighting Defaults"))
+                {
+                    lightAmbient        = 0.18f;
+                    lightSaturation     = 1.55f;
+                    lightContrast       = 1.25f;
+                    lightShadowStrength = 0.75f;
+                }
+                ImGui::Spacing();
+                ImGui::EndTabItem();
             }
 
-            float shininess = elementShininess[m_selectedColorElement];
-            if (ImGui::SliderFloat("Material Shininess", &shininess, 4.0f, 128.0f, "%.1f"))
+            // ==============================================================
+            // TAB: Material
+            // ==============================================================
+            if (ImGui::BeginTabItem("Material"))
             {
-                elementShininess[m_selectedColorElement] = shininess;
-                updateBuffers(structure);
+                ImGui::Spacing();
+                ImGui::TextDisabled("Global material properties applied to all atoms and bonds.");
+                ImGui::Spacing();
+
+                auto matRow = [&](const char* label, float* v,
+                                  float mn, float mx, const char* fmt,
+                                  const char* tip)
+                {
+                    ImGui::SetNextItemWidth(kSliderW);
+                    ImGui::SliderFloat(label, v, mn, mx, fmt);
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
+                };
+
+                matRow("Specular Intensity##M", &materialSpecularIntensity, 0.00f, 2.00f, "%.2f",
+                       "Highlight brightness on all surfaces (default 0.65).");
+                matRow("Shininess Scale##M",    &materialShininessScale,    0.10f, 5.00f, "%.2f",
+                       "Multiplier on per-element shininess — higher = tighter highlights (default 1.50).");
+                matRow("Shininess Floor##M",    &materialShininessFloor,    4.00f, 256.0f, "%.1f",
+                       "Minimum specular exponent — prevents very diffuse highlights (default 32).");
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                if (ImGui::Button("Reset Material Defaults"))
+                {
+                    materialSpecularIntensity = 0.65f;
+                    materialShininessScale    = 1.5f;
+                    materialShininessFloor    = 32.0f;
+                }
+                ImGui::Spacing();
+                ImGui::EndTabItem();
             }
 
-            if (ImGui::Button("Reset Selected Element Color"))
+            // ==============================================================
+            // TAB: Colors
+            // ==============================================================
+            if (ImGui::BeginTabItem("Colors"))
             {
-                float r, g, b;
-                getDefaultElementColor(m_selectedColorElement, r, g, b);
-                elementColors[m_selectedColorElement] = glm::vec3(r, g, b);
-                updateBuffers(structure);
+                ImGui::Spacing();
+                ImGui::TextDisabled("Per-element display color.");
+                ImGui::Spacing();
+
+                drawPeriodicTableInlineSelector(m_selectedColorElement);
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                if (isValidElementNumber(m_selectedColorElement))
+                {
+                    ImGui::Text("Selected: Z=%d  %s",
+                                m_selectedColorElement,
+                                elementSymbol(m_selectedColorElement));
+                    ImGui::Spacing();
+
+                    float color[3] = {
+                        elementColors[m_selectedColorElement].r,
+                        elementColors[m_selectedColorElement].g,
+                        elementColors[m_selectedColorElement].b
+                    };
+                    ImGui::SetNextItemWidth(kSliderW);
+                    if (ImGui::ColorEdit3("Color##el", color))
+                    {
+                        elementColors[m_selectedColorElement] =
+                            glm::vec3(color[0], color[1], color[2]);
+                        updateBuffers(structure);
+                    }
+
+                    ImGui::Spacing();
+                    if (ImGui::Button("Reset Color##sel"))
+                    {
+                        float r, g, b;
+                        getDefaultElementColor(m_selectedColorElement, r, g, b);
+                        elementColors[m_selectedColorElement] = glm::vec3(r, g, b);
+                        updateBuffers(structure);
+                    }
+                }
+                else
+                {
+                    ImGui::TextDisabled("No element selected.");
+                }
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                if (ImGui::Button("Reset All Colors"))
+                {
+                    elementColors = makeDefaultElementColors();
+                    updateBuffers(structure);
+                }
+                ImGui::Spacing();
+                ImGui::EndTabItem();
             }
 
-            ImGui::SameLine();
-            if (ImGui::Button("Reset Selected Shininess"))
-            {
-                elementShininess[m_selectedColorElement] = 32.0f;
-                updateBuffers(structure);
-            }
-        }
-        else
-        {
-            ImGui::Text("Selected: None");
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Reset All Colors"))
-        {
-            elementColors = makeDefaultElementColors();
-            updateBuffers(structure);
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Reset All Shininess"))
-        {
-            elementShininess = makeDefaultElementShininess();
-            updateBuffers(structure);
+            ImGui::EndTabBar();
         }
 
         ImGui::EndPopup();

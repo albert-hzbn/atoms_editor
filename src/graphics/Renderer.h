@@ -15,6 +15,17 @@
 // Owns the GLSL programs and exposes per-pass draw methods.
 struct Renderer
 {
+    // Lighting parameters — set each frame before draw calls.
+    float lightAmbient           = 0.18f;
+    float lightSaturation        = 1.55f;
+    float lightContrast          = 1.25f;
+    float lightShadowStrength    = 0.75f;
+
+    // Material parameters — set each frame before draw calls.
+    float materialSpecularIntensity = 0.65f;
+    float materialShininessScale    = 1.5f;
+    float materialShininessFloor    = 32.0f;
+
     GLuint atomProgram   = 0;
     GLuint atomLowPolyProgram = 0;
     GLuint atomBillboardProgram = 0;

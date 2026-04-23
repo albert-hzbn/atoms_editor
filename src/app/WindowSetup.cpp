@@ -162,6 +162,7 @@ GLFWwindow* createInitialWindow(int contextMajor, int contextMinor, int profile)
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
+    glfwWindowHint(GLFW_SAMPLES, 4); // 4× MSAA
 
     glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
@@ -271,6 +272,7 @@ GLFWwindow* createMainWindow()
         std::cout << "[OpenGL] OpenGL 4.3 not available, using legacy instancing path." << std::endl;
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_MULTISAMPLE);
     return window;
 }
 

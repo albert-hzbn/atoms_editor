@@ -569,7 +569,7 @@ int runAtomsEditor(const std::vector<std::string>& startupPaths)
         loadStartupStructureIfRequested(*tabs[newIdx], startupPaths[si]);
     }
 
-    ShadowMap shadow = createShadowMap(1024, 1024);
+    ShadowMap shadow = createShadowMap(2048, 2048);
     updateSplashScreen(splash, 0.92f, "Finalizing");
 
     showMainWindow(window);
@@ -942,6 +942,15 @@ int runAtomsEditor(const std::vector<std::string>& startupPaths)
                         frame.windowWidth, frame.windowHeight);
 
         ImGui::Render();
+
+        // Apply per-tab lighting/material parameters to the renderer before drawing.
+        renderer.lightAmbient              = activeState.editMenuDialogs.lightAmbient;
+        renderer.lightSaturation           = activeState.editMenuDialogs.lightSaturation;
+        renderer.lightContrast             = activeState.editMenuDialogs.lightContrast;
+        renderer.lightShadowStrength       = activeState.editMenuDialogs.lightShadowStrength;
+        renderer.materialSpecularIntensity = activeState.editMenuDialogs.materialSpecularIntensity;
+        renderer.materialShininessScale    = activeState.editMenuDialogs.materialShininessScale;
+        renderer.materialShininessFloor    = activeState.editMenuDialogs.materialShininessFloor;
 
         // --- 3D scene rendering ---
         tabs[activeTabIdx]->adaptiveRender.update(activeState.sceneBuffers);

@@ -99,9 +99,16 @@ static const char* kAtomFS = R"(
     in float fragShininess;
     in vec4 FragPosLight;
 
-    uniform sampler2D shadowMap;
+    uniform sampler2DShadow shadowMap;
     uniform vec3 lightPos;
     uniform vec3 viewPos;
+    uniform float uAmbient;
+    uniform float uSaturation;
+    uniform float uContrast;
+    uniform float uSpecularIntensity;
+    uniform float uShadowStrength;
+    uniform float uShininessScale;
+    uniform float uShininessFloor;
 
     out vec4 color;
 
@@ -115,16 +122,19 @@ static const char* kAtomFS = R"(
             proj.z < 0.0 || proj.z > 1.0)
             return 0.0;
 
-        float closest = texture(shadowMap, proj.xy).r;
-        float current = proj.z;
-        float bias    = 0.003;
-
-        return (current - bias > closest) ? 1.0 : 0.0;
+        float bias = 0.003;
+        float shadow = 0.0;
+        vec2 texelSize = vec2(1.0 / 2048.0);
+        for (int x = -1; x <= 1; ++x)
+            for (int y = -1; y <= 1; ++y)
+                shadow += 1.0 - texture(shadowMap,
+                    vec3(proj.xy + vec2(x, y) * texelSize, proj.z - bias));
+        return shadow / 9.0;
     }
 
     void main()
     {
-        float shadow  = 0.0;
+        float shadow = computeShadow(FragPosLight);
         vec3 norm = normalize(fragNormal);
         vec3 lightPosFillA = vec3(-lightPos.x, lightPos.y, lightPos.z);
         vec3 lightPosFillB = vec3(lightPos.x, -lightPos.y, lightPos.z);
@@ -136,35 +146,32 @@ static const char* kAtomFS = R"(
         vec3 lightDir3 = normalize(lightPosFillC - fragWorldPos);
 
         vec3 viewDir = normalize(viewPos - fragWorldPos);
-        vec3 reflectDir0 = reflect(-lightDir0, norm);
-        vec3 reflectDir1 = reflect(-lightDir1, norm);
-        vec3 reflectDir2 = reflect(-lightDir2, norm);
-        vec3 reflectDir3 = reflect(-lightDir3, norm);
+        vec3 halfDir0 = normalize(lightDir0 + viewDir);
+        vec3 halfDir1 = normalize(lightDir1 + viewDir);
+        vec3 halfDir2 = normalize(lightDir2 + viewDir);
+        vec3 halfDir3 = normalize(lightDir3 + viewDir);
 
         float diff0 = max(dot(norm, lightDir0), 0.0);
         float diff1 = max(dot(norm, lightDir1), 0.0);
         float diff2 = max(dot(norm, lightDir2), 0.0);
         float diff3 = max(dot(norm, lightDir3), 0.0);
-        float diff = 0.45 * diff0 + 0.22 * diff1 + 0.18 * diff2 + 0.15 * diff3;
-        diff = max(diff, 0.34);
+        float diff = 0.55 * diff0 + 0.20 * diff1 + 0.15 * diff2 + 0.10 * diff3;
 
-        float specPower = max(fragShininess * 1.20, 16.0);
-        float spec0 = pow(max(dot(viewDir, reflectDir0), 0.0), specPower);
-        float spec1 = pow(max(dot(viewDir, reflectDir1), 0.0), specPower);
-        float spec2 = pow(max(dot(viewDir, reflectDir2), 0.0), specPower);
-        float spec3 = pow(max(dot(viewDir, reflectDir3), 0.0), specPower);
-        float spec = 0.45 * spec0 + 0.22 * spec1 + 0.18 * spec2 + 0.15 * spec3;
+        float specPower = max(fragShininess * uShininessScale, uShininessFloor);
+        float spec0 = pow(max(dot(norm, halfDir0), 0.0), specPower);
+        float spec1 = pow(max(dot(norm, halfDir1), 0.0), specPower);
+        float spec2 = pow(max(dot(norm, halfDir2), 0.0), specPower);
+        float spec3 = pow(max(dot(norm, halfDir3), 0.0), specPower);
+        float spec = 0.55 * spec0 + 0.20 * spec1 + 0.15 * spec2 + 0.10 * spec3;
 
-        // Increase visual separation on light backgrounds.
-        float ambient = 0.34;
         vec3 baseColor = fragColor;
         float luma = dot(baseColor, vec3(0.2126, 0.7152, 0.0722));
-        baseColor = mix(vec3(luma), baseColor, 1.20);
-        baseColor = clamp((baseColor - 0.5) * 1.10 + 0.5, 0.0, 1.0);
+        baseColor = mix(vec3(luma), baseColor, uSaturation);
+        baseColor = clamp((baseColor - 0.5) * uContrast + 0.5, 0.0, 1.0);
 
-        float litFactor = ambient + (1.0 - ambient) * diff * (1.0 - shadow);
-        vec3 diffuse = baseColor * litFactor;
-        vec3 specular = vec3(0.46 * spec * (1.0 - shadow));
+        float litFactor = uAmbient + (1.0 - uAmbient) * diff * (1.0 - shadow * uShadowStrength);
+        vec3 diffuse  = baseColor * litFactor;
+        vec3 specular = vec3(uSpecularIntensity * spec * (1.0 - shadow * uShadowStrength));
 
         color = vec4(diffuse + specular, 1.0);
     }
@@ -253,6 +260,12 @@ static const char* kBondFS = R"(
 
     uniform vec3 lightPos;
     uniform vec3 viewPos;
+    uniform float uAmbient;
+    uniform float uSaturation;
+    uniform float uContrast;
+    uniform float uSpecularIntensity;
+    uniform float uShininessScale;
+    uniform float uShininessFloor;
 
     out vec4 color;
 
@@ -269,35 +282,33 @@ static const char* kBondFS = R"(
         vec3 lightDir3 = normalize(lightPosFillC - fragWorldPos);
 
         vec3 viewDir = normalize(viewPos - fragWorldPos);
-        vec3 reflectDir0 = reflect(-lightDir0, norm);
-        vec3 reflectDir1 = reflect(-lightDir1, norm);
-        vec3 reflectDir2 = reflect(-lightDir2, norm);
-        vec3 reflectDir3 = reflect(-lightDir3, norm);
+        vec3 halfDir0 = normalize(lightDir0 + viewDir);
+        vec3 halfDir1 = normalize(lightDir1 + viewDir);
+        vec3 halfDir2 = normalize(lightDir2 + viewDir);
+        vec3 halfDir3 = normalize(lightDir3 + viewDir);
 
         float diff0 = max(dot(norm, lightDir0), 0.0);
         float diff1 = max(dot(norm, lightDir1), 0.0);
         float diff2 = max(dot(norm, lightDir2), 0.0);
         float diff3 = max(dot(norm, lightDir3), 0.0);
-        float diff = 0.45 * diff0 + 0.22 * diff1 + 0.18 * diff2 + 0.15 * diff3;
-        diff = max(diff, 0.34);
+        float diff = 0.55 * diff0 + 0.20 * diff1 + 0.15 * diff2 + 0.10 * diff3;
 
         vec3 baseColor = (fragAxis < 0.0) ? fragColorA : fragColorB;
         float luma = dot(baseColor, vec3(0.2126, 0.7152, 0.0722));
-        baseColor = mix(vec3(luma), baseColor, 1.20);
-        baseColor = clamp((baseColor - 0.5) * 1.10 + 0.5, 0.0, 1.0);
+        baseColor = mix(vec3(luma), baseColor, uSaturation);
+        baseColor = clamp((baseColor - 0.5) * uContrast + 0.5, 0.0, 1.0);
 
         float shininess = (fragAxis < 0.0) ? fragShininessA : fragShininessB;
-        float specPower = max(shininess * 1.20, 16.0);
-        float spec0 = pow(max(dot(viewDir, reflectDir0), 0.0), specPower);
-        float spec1 = pow(max(dot(viewDir, reflectDir1), 0.0), specPower);
-        float spec2 = pow(max(dot(viewDir, reflectDir2), 0.0), specPower);
-        float spec3 = pow(max(dot(viewDir, reflectDir3), 0.0), specPower);
-        float spec = 0.45 * spec0 + 0.22 * spec1 + 0.18 * spec2 + 0.15 * spec3;
+        float specPower = max(shininess * uShininessScale, uShininessFloor);
+        float spec0 = pow(max(dot(norm, halfDir0), 0.0), specPower);
+        float spec1 = pow(max(dot(norm, halfDir1), 0.0), specPower);
+        float spec2 = pow(max(dot(norm, halfDir2), 0.0), specPower);
+        float spec3 = pow(max(dot(norm, halfDir3), 0.0), specPower);
+        float spec = 0.55 * spec0 + 0.20 * spec1 + 0.15 * spec2 + 0.10 * spec3;
 
-        float ambient = 0.34;
-        float litFactor = ambient + (1.0 - ambient) * diff;
+        float litFactor = uAmbient + (1.0 - uAmbient) * diff;
         vec3 diffuse = baseColor * litFactor;
-        vec3 specular = vec3(0.46 * spec);
+        vec3 specular = vec3(uSpecularIntensity * spec);
 
         color = vec4(diffuse + specular, 1.0);
     }
@@ -465,9 +476,16 @@ static const char* kAtomBillboardFS = R"(
     in mat4 fragView;
     in mat4 fragProj;
 
-    uniform sampler2D shadowMap;
+    uniform sampler2DShadow shadowMap;
     uniform vec3 lightPos;
     uniform vec3 viewPos;
+    uniform float uAmbient;
+    uniform float uSaturation;
+    uniform float uContrast;
+    uniform float uSpecularIntensity;
+    uniform float uShadowStrength;
+    uniform float uShininessScale;
+    uniform float uShininessFloor;
 
     out vec4 color;
 
@@ -481,11 +499,14 @@ static const char* kAtomBillboardFS = R"(
             proj.z < 0.0 || proj.z > 1.0)
             return 0.0;
 
-        float closest = texture(shadowMap, proj.xy).r;
-        float current = proj.z;
-        float bias    = 0.003;
-
-        return (current - bias > closest) ? 1.0 : 0.0;
+        float bias = 0.003;
+        float shadow = 0.0;
+        vec2 texelSize = vec2(1.0 / 2048.0);
+        for (int x = -1; x <= 1; ++x)
+            for (int y = -1; y <= 1; ++y)
+                shadow += 1.0 - texture(shadowMap,
+                    vec3(proj.xy + vec2(x, y) * texelSize, proj.z - bias));
+        return shadow / 9.0;
     }
 
     void main()
@@ -512,7 +533,7 @@ static const char* kAtomBillboardFS = R"(
 
         float shadow = computeShadow(FragPosLight);
 
-        // Multi-light Phong matching the standard atom shader.
+        // Multi-light Blinn-Phong matching the standard atom shader.
         vec3 lightPosFillA = vec3(-lightPos.x, lightPos.y, lightPos.z);
         vec3 lightPosFillB = vec3(lightPos.x, -lightPos.y, lightPos.z);
         vec3 lightPosFillC = vec3(-lightPos.x, 0.65 * lightPos.y, -0.60 * lightPos.z);
@@ -523,34 +544,32 @@ static const char* kAtomBillboardFS = R"(
         vec3 lightDir3 = normalize(lightPosFillC - fragWorldPos);
 
         vec3 vDir = normalize(viewPos - fragWorldPos);
-        vec3 reflectDir0 = reflect(-lightDir0, norm);
-        vec3 reflectDir1 = reflect(-lightDir1, norm);
-        vec3 reflectDir2 = reflect(-lightDir2, norm);
-        vec3 reflectDir3 = reflect(-lightDir3, norm);
+        vec3 halfDir0 = normalize(lightDir0 + vDir);
+        vec3 halfDir1 = normalize(lightDir1 + vDir);
+        vec3 halfDir2 = normalize(lightDir2 + vDir);
+        vec3 halfDir3 = normalize(lightDir3 + vDir);
 
         float diff0 = max(dot(norm, lightDir0), 0.0);
         float diff1 = max(dot(norm, lightDir1), 0.0);
         float diff2 = max(dot(norm, lightDir2), 0.0);
         float diff3 = max(dot(norm, lightDir3), 0.0);
-        float diff = 0.45 * diff0 + 0.22 * diff1 + 0.18 * diff2 + 0.15 * diff3;
-        diff = max(diff, 0.34);
+        float diff = 0.55 * diff0 + 0.20 * diff1 + 0.15 * diff2 + 0.10 * diff3;
 
-        float specPower = max(fragShininess * 1.20, 16.0);
-        float spec0 = pow(max(dot(vDir, reflectDir0), 0.0), specPower);
-        float spec1 = pow(max(dot(vDir, reflectDir1), 0.0), specPower);
-        float spec2 = pow(max(dot(vDir, reflectDir2), 0.0), specPower);
-        float spec3 = pow(max(dot(vDir, reflectDir3), 0.0), specPower);
-        float spec = 0.45 * spec0 + 0.22 * spec1 + 0.18 * spec2 + 0.15 * spec3;
+        float specPower = max(fragShininess * uShininessScale, uShininessFloor);
+        float spec0 = pow(max(dot(norm, halfDir0), 0.0), specPower);
+        float spec1 = pow(max(dot(norm, halfDir1), 0.0), specPower);
+        float spec2 = pow(max(dot(norm, halfDir2), 0.0), specPower);
+        float spec3 = pow(max(dot(norm, halfDir3), 0.0), specPower);
+        float spec = 0.55 * spec0 + 0.20 * spec1 + 0.15 * spec2 + 0.10 * spec3;
 
-        float ambient = 0.34;
         vec3 baseColor = fragColor;
         float luma = dot(baseColor, vec3(0.2126, 0.7152, 0.0722));
-        baseColor = mix(vec3(luma), baseColor, 1.20);
-        baseColor = clamp((baseColor - 0.5) * 1.10 + 0.5, 0.0, 1.0);
+        baseColor = mix(vec3(luma), baseColor, uSaturation);
+        baseColor = clamp((baseColor - 0.5) * uContrast + 0.5, 0.0, 1.0);
 
-        float litFactor = ambient + (1.0 - ambient) * diff * (1.0 - shadow);
+        float litFactor = uAmbient + (1.0 - uAmbient) * diff * (1.0 - shadow * uShadowStrength);
         vec3 diffuse = baseColor * litFactor;
-        vec3 specular = vec3(0.46 * spec * (1.0 - shadow));
+        vec3 specular = vec3(uSpecularIntensity * spec * (1.0 - shadow * uShadowStrength));
 
         color = vec4(diffuse + specular, 1.0);
     }
@@ -738,6 +757,13 @@ void Renderer::drawAtoms(const glm::mat4& projection,
                  1, glm::value_ptr(lightPos));
     glUniform3fv(glGetUniformLocation(atomProgram, "viewPos"),
                  1, glm::value_ptr(viewPos));
+    glUniform1f(glGetUniformLocation(atomProgram, "uAmbient"),           lightAmbient);
+    glUniform1f(glGetUniformLocation(atomProgram, "uSaturation"),        lightSaturation);
+    glUniform1f(glGetUniformLocation(atomProgram, "uContrast"),          lightContrast);
+    glUniform1f(glGetUniformLocation(atomProgram, "uSpecularIntensity"), materialSpecularIntensity);
+    glUniform1f(glGetUniformLocation(atomProgram, "uShadowStrength"),    lightShadowStrength);
+    glUniform1f(glGetUniformLocation(atomProgram, "uShininessScale"),    materialShininessScale);
+    glUniform1f(glGetUniformLocation(atomProgram, "uShininessFloor"),    materialShininessFloor);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, shadow.depthTexture);
@@ -814,6 +840,13 @@ void Renderer::drawAtomsLowPoly(const glm::mat4& projection,
                  1, glm::value_ptr(lightPos));
     glUniform3fv(glGetUniformLocation(atomLowPolyProgram, "viewPos"),
                  1, glm::value_ptr(viewPos));
+    glUniform1f(glGetUniformLocation(atomLowPolyProgram, "uAmbient"),           lightAmbient);
+    glUniform1f(glGetUniformLocation(atomLowPolyProgram, "uSaturation"),        lightSaturation);
+    glUniform1f(glGetUniformLocation(atomLowPolyProgram, "uContrast"),          lightContrast);
+    glUniform1f(glGetUniformLocation(atomLowPolyProgram, "uSpecularIntensity"), materialSpecularIntensity);
+    glUniform1f(glGetUniformLocation(atomLowPolyProgram, "uShadowStrength"),    lightShadowStrength);
+    glUniform1f(glGetUniformLocation(atomLowPolyProgram, "uShininessScale"),    materialShininessScale);
+    glUniform1f(glGetUniformLocation(atomLowPolyProgram, "uShininessFloor"),    materialShininessFloor);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, shadow.depthTexture);
@@ -851,6 +884,13 @@ void Renderer::drawAtomsBillboard(const glm::mat4& projection,
                  1, glm::value_ptr(lightPos));
     glUniform3fv(glGetUniformLocation(atomBillboardProgram, "viewPos"),
                  1, glm::value_ptr(viewPos));
+    glUniform1f(glGetUniformLocation(atomBillboardProgram, "uAmbient"),           lightAmbient);
+    glUniform1f(glGetUniformLocation(atomBillboardProgram, "uSaturation"),        lightSaturation);
+    glUniform1f(glGetUniformLocation(atomBillboardProgram, "uContrast"),          lightContrast);
+    glUniform1f(glGetUniformLocation(atomBillboardProgram, "uSpecularIntensity"), materialSpecularIntensity);
+    glUniform1f(glGetUniformLocation(atomBillboardProgram, "uShadowStrength"),    lightShadowStrength);
+    glUniform1f(glGetUniformLocation(atomBillboardProgram, "uShininessScale"),    materialShininessScale);
+    glUniform1f(glGetUniformLocation(atomBillboardProgram, "uShininessFloor"),    materialShininessFloor);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, shadow.depthTexture);
@@ -880,6 +920,12 @@ void Renderer::drawBonds(const glm::mat4& projection,
                  1, glm::value_ptr(lightPos));
     glUniform3fv(glGetUniformLocation(bondProgram, "viewPos"),
                  1, glm::value_ptr(viewPos));
+    glUniform1f(glGetUniformLocation(bondProgram, "uAmbient"),           lightAmbient);
+    glUniform1f(glGetUniformLocation(bondProgram, "uSaturation"),        lightSaturation);
+    glUniform1f(glGetUniformLocation(bondProgram, "uContrast"),          lightContrast);
+    glUniform1f(glGetUniformLocation(bondProgram, "uSpecularIntensity"), materialSpecularIntensity);
+    glUniform1f(glGetUniformLocation(bondProgram, "uShininessScale"),    materialShininessScale);
+    glUniform1f(glGetUniformLocation(bondProgram, "uShininessFloor"),    materialShininessFloor);
 
     glBindVertexArray(cylinderVAO);
     glDrawArraysInstanced(GL_TRIANGLES, 0, cylinderVertexCount, (GLsizei)bondCount);

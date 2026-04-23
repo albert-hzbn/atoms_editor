@@ -7,13 +7,24 @@
 #include "io/StructureLoader.h"
 
 // Owns the per-element radius and colour tables, and draws the Edit menu
-// items + the "Atomic Sizes" and "Element Colors" modal dialogs.
+// items + the "Atomic Sizes" and "Display Settings" modal dialogs.
 struct EditMenuDialogs
 {
     // Public state so the updateBuffers lambda in main can read these.
     std::vector<float>     elementRadii;
     std::vector<glm::vec3> elementColors;
     std::vector<float>     elementShininess;
+
+    // Lighting parameters (applied as shader uniforms each frame).
+    float lightAmbient           = 0.18f;
+    float lightSaturation        = 1.55f;
+    float lightContrast          = 1.25f;
+    float lightShadowStrength    = 0.75f;
+
+    // Material parameters (applied as shader uniforms each frame).
+    float materialSpecularIntensity = 0.65f;
+    float materialShininessScale    = 1.5f;
+    float materialShininessFloor    = 32.0f;
 
     // Initialise radii and colours to literature / CPK defaults.
     EditMenuDialogs();
@@ -22,7 +33,7 @@ struct EditMenuDialogs
     void drawMenuItems();
 
     // Call inside an already-open "Settings" ImGui menu to add Atomic Sizes
-    // and Element Colors items (without Edit Structure).
+    // and Display Settings items (without Edit Structure).
     void drawSettingsMenuItems();
 
     // Call once per ImGui frame (outside any menu) to service the modal popups.
