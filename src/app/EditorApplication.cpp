@@ -901,6 +901,9 @@ int runAtomsEditor(const std::vector<std::string>& startupPaths)
         if (requests.doDeleteSelected)
             deleteSelectedAtoms(activeState);
 
+        if (requests.requestInsertMidpoint && activeState.selectedInstanceIndices.size() >= 2)
+            activeState.contextMenu.openInsertMidpoint();
+
         refreshSelectionHighlights(activeState);
 
         drawSelectionOverlay(activeState, drawList, frame.projection, frame.view,

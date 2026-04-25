@@ -10,6 +10,7 @@ struct ImDrawList;
 struct FrameActionRequests
 {
     bool doDeleteSelected = false;
+    bool requestInsertMidpoint = false;
     bool requestMeasureDistance = false;
     bool requestMeasureAngle = false;
     bool requestAtomInfo = false;

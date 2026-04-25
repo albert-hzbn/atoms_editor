@@ -93,6 +93,14 @@ void applyKeyboardShortcuts(EditorState& state, FrameActionRequests& requests)
     if (ImGui::IsKeyPressed(ImGuiKey_Delete) && !state.selectedInstanceIndices.empty())
         requests.doDeleteSelected = true;
 
+    if (ImGui::IsKeyPressed(ImGuiKey_I)
+        && !ctrlHeld
+        && !ImGui::GetIO().WantTextInput
+        && state.selectedInstanceIndices.size() >= 2
+        && !state.sceneBuffers.cpuCachesDisabled
+        && !state.fileBrowser.isAnyDialogOpen())
+        requests.requestInsertMidpoint = true;
+
     if (ImGui::IsKeyPressed(ImGuiKey_D) && ctrlHeld && !state.selectedInstanceIndices.empty())
         clearSelection(state);
 

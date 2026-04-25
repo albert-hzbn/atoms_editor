@@ -34,6 +34,9 @@ struct AtomContextMenu
     // Directly open the periodic table for atom substitution (S shortcut).
     void openSubstitute();
 
+    // Directly open the periodic table for insert-at-midpoint (I shortcut).
+    void openInsertMidpoint();
+
     // Call once per ImGui frame.
     // doDelete is set to true when the user picks "Delete" from the menu.
     // selectedInstanceIndices may be cleared by the "Deselect" action.

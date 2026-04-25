@@ -178,6 +178,13 @@ void AtomContextMenu::openSubstitute()
     openPeriodicTable();
 }
 
+void AtomContextMenu::openInsertMidpoint()
+{
+    m_pendingAction = PeriodicAction::InsertMidpoint;
+    m_ownsPeriodicPopup = true;
+    openPeriodicTable();
+}
+
 void AtomContextMenu::draw(Structure& structure,
                            SceneBuffers& sceneBuffers,
                            const std::vector<glm::vec3>& elementColors,
