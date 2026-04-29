@@ -509,6 +509,7 @@ void loadStartupStructureIfRequested(StructureTab& tab, const std::string& start
     state.fileBrowser.initFromPath(startupStructurePath);
     state.fileBrowser.applyElementColorOverrides(state.structure);
     state.fileBrowser.showLoadInfo(std::string("Structure loaded. ") + state.structure.ipfLoadStatus);
+    updateBuffers(state);
     state.pendingDefaultViewReset = true;
     setTabTitleFromPath(tab, startupStructurePath);
 
