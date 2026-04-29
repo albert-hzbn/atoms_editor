@@ -980,6 +980,16 @@ void ensureOpenBabelPlugins()
         return;
     initialized = true;
 
+    // Suppress OB diagnostic output during the entire plugin-discovery phase.
+    // "Unable to find OpenBabel plugins" is emitted on every failed LoadAllPlugins()
+    // attempt, which is noisy and unhelpful to the user.
+    const OpenBabel::obMessageLevel savedLevel =
+        OpenBabel::obErrorLog.GetOutputLevel();
+    // Suppress all OB diagnostics during plugin discovery; obMessageLevel has
+    // no "silent" constant so we cast -1 which is below obError (0).
+    OpenBabel::obErrorLog.SetOutputLevel(
+        static_cast<OpenBabel::obMessageLevel>(-1));
+
     const char* currentLibDir = std::getenv("BABEL_LIBDIR");
     if (currentLibDir && *currentLibDir)
     {
@@ -992,7 +1002,10 @@ void ensureOpenBabelPlugins()
 
             OpenBabel::OBConversion probe;
             if (probe.SetInFormat("cif") || probe.SetInFormat("vasp"))
+            {
+                OpenBabel::obErrorLog.SetOutputLevel(savedLevel);
                 return;
+            }
         }
     }
 
@@ -1074,6 +1087,8 @@ void ensureOpenBabelPlugins()
 
     if (!pluginsReady)
         OpenBabel::OBPlugin::LoadAllPlugins();
+
+    OpenBabel::obErrorLog.SetOutputLevel(savedLevel);
 }
 
 class ScopedObWarningSilencer

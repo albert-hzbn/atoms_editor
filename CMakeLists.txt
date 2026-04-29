@@ -86,6 +86,7 @@ set(ATOMFORGE_SOURCES
     src/algorithms/VoronoiComputation.cpp
     src/algorithms/SubstitutionalSolidSolutionBuilder.cpp
     src/algorithms/AmorphousBuilder.cpp
+    src/cli/CLIMode.cpp
     src/io/StructureLoader.cpp
     imgui/imgui.cpp
     imgui/imgui_draw.cpp
@@ -113,6 +114,7 @@ target_include_directories(AtomForge PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/io
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util
     ${CMAKE_CURRENT_SOURCE_DIR}/src/algorithms
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui
 )
 
