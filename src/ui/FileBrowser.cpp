@@ -1893,6 +1893,7 @@ void FileBrowser::draw(Structure& structure,
             wrappedBullet("Light and dark UI themes with matching overlay rendering");
             wrappedBullet("High-resolution image export with adjustable scale and HiDPI-aware interface scaling");
             wrappedBullet("Supercell transformation with periodic boundary visualization");
+            wrappedBullet("Headless CLI builder workflows via --build modes (bulk, gb, poly, nano, amorphous, sss, custom)");
 
             ImGui::EndChild();
         }

@@ -33,6 +33,43 @@ You can also open a structure at launch by passing a file path, for example:
 AtomForge structure.cif
 ```
 
+## Command-line interface (CLI)
+
+AtomForge also supports headless structure generation through `--build` modes.
+
+```bash
+AtomForge --build <mode> [options] --output <file>
+```
+
+Available modes:
+
+- `bulk`: build a bulk crystal from lattice + space-group input
+- `gb`: build a CSL grain-boundary bicrystal from an input structure
+- `poly`: generate a Voronoi polycrystal from an input structure
+- `nano`: carve a nanocrystal from an input structure
+- `amorphous`: pack an amorphous structure by random sequential addition
+- `sss`: generate a substitutional solid solution from a host structure
+- `custom`: fill an OBJ/STL mesh volume with atoms from a reference crystal
+
+Examples:
+
+```bash
+AtomForge --build gb --input cu.cif --axis "0 0 1" --sigma 5 --plane 0 --uca 3 --ucb 3 --vacuum 5.0 --output cu_sigma5_gb.cif
+AtomForge --build custom --input cu.cif --mesh bunny.obj --scale 20 --vacuum 5 --output cu_bunny.xyz
+```
+
+For per-mode help:
+
+```bash
+AtomForge --help bulk
+AtomForge --help gb
+AtomForge --help poly
+AtomForge --help nano
+AtomForge --help amorphous
+AtomForge --help sss
+AtomForge --help custom
+```
+
 ## Core controls
 
 ### Scene navigation
