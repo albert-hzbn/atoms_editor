@@ -941,6 +941,7 @@ void FileBrowser::draw(Structure& structure,
         ImGui::SameLine(0.0f, 2.0f);
         if (ImGui::Button("\xe2\x86\x91##saveUp", ImVec2(navBtnW, 0.0f)))
             pushSaveDir(parentPath(saveDir));
+            
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Up one level");
         ImGui::SameLine(0.0f, 8.0f);
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
