@@ -208,6 +208,7 @@ void initTabResources(StructureTab& tab,
     tab.state.fileBrowser.initPolyCrystalRenderResources(renderer);
     tab.state.fileBrowser.initStackingFaultRenderResources(renderer);
     tab.state.fileBrowser.initSubstitutionalSolidSolutionRenderResources(renderer);
+    tab.state.fileBrowser.initCellSculptorRenderResources(renderer);
     updateBuffers(tab.state);
     tab.state.undoRedo.reset(captureSnapshot(tab.state));
 }

@@ -97,6 +97,12 @@ void processDroppedFiles(EditorState& state)
             continue;
         }
 
+        if (state.fileBrowser.isCellSculptorDialogOpen())
+        {
+            state.fileBrowser.feedDropToCellSculptorDialog(droppedFile);
+            continue;
+        }
+
         Structure loadedStructure;
         std::string loadError;
         if (!loadStructureFromFile(droppedFile, loadedStructure, loadError))

@@ -386,6 +386,8 @@ void FileBrowser::draw(Structure& structure,
             transformDialog.drawMenuItem(structure.hasUnitCell);
             ImGui::Separator();
             mergeStructuresDialog.drawMenuItem(true);
+            ImGui::Separator();
+            cellSculptorDialog.drawMenuItem(!structure.atoms.empty() || true);
 
             ImGui::EndMenu();
         }
@@ -696,6 +698,7 @@ void FileBrowser::draw(Structure& structure,
                                       updateFromBuilderToNewTab);
     cnaDialog.drawDialog(structure);
     rdfDialog.drawDialog(structure);
+    cellSculptorDialog.drawDialog(structure, updateBuffers);
 
     if (loadErrorPopupRequested)
     {
@@ -2136,6 +2139,7 @@ bool FileBrowser::isAnyDialogOpen() const
         || isStackingFaultDialogOpen()
         || isSubstitutionalSolidSolutionDialogOpen()
         || isAmorphousBuilderDialogOpen()
+        || isCellSculptorDialogOpen()
         || showAbout
         || showManual
         || showEditColors
@@ -2152,6 +2156,21 @@ void FileBrowser::feedDropToSubstitutionalSolidSolutionDialog(const std::string&
 bool FileBrowser::isAmorphousBuilderDialogOpen() const
 {
     return amorphousBuilderDialog.isOpen();
+}
+
+void FileBrowser::initCellSculptorRenderResources(Renderer& renderer)
+{
+    cellSculptorDialog.initRenderResources(renderer);
+}
+
+bool FileBrowser::isCellSculptorDialogOpen() const
+{
+    return cellSculptorDialog.isOpen();
+}
+
+void FileBrowser::feedDropToCellSculptorDialog(const std::string& path)
+{
+    cellSculptorDialog.feedDroppedFile(path);
 }
 
 void FileBrowser::showLoadError(const std::string& message)

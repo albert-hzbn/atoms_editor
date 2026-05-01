@@ -43,6 +43,7 @@ set(ATOMFORGE_SOURCES
     src/graphics/BillboardMesh.cpp
     src/graphics/CylinderMesh.cpp
     src/graphics/CustomStructureShaders.cpp
+    src/graphics/CellSculptorShaders.cpp
     src/graphics/LowPolyMesh.cpp
     src/graphics/Renderer.cpp
     src/graphics/Picking.cpp
@@ -75,6 +76,7 @@ set(ATOMFORGE_SOURCES
     src/ui/TransformAtomsDialog.cpp
     src/ui/SubstitutionalSolidSolutionDialog.cpp
     src/ui/AmorphousBuilderDialog.cpp
+    src/ui/CellSculptorDialog.cpp
     src/util/PathUtils.cpp
     src/algorithms/CSLComputation.cpp
     src/algorithms/MeshLoader.cpp
@@ -86,6 +88,7 @@ set(ATOMFORGE_SOURCES
     src/algorithms/VoronoiComputation.cpp
     src/algorithms/SubstitutionalSolidSolutionBuilder.cpp
     src/algorithms/AmorphousBuilder.cpp
+    src/algorithms/CellSculptorAlgo.cpp
     src/cli/CLIMode.cpp
     src/io/StructureLoader.cpp
     imgui/imgui.cpp

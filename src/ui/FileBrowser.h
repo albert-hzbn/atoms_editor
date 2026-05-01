@@ -16,6 +16,7 @@
 #include "ui/PolyhedralOverlay.h"
 #include "ui/TransformAtomsDialog.h"
 #include "ui/EditMenuDialogs.h"
+#include "ui/CellSculptorDialog.h"
 
 #include <array>
 #include <functional>
@@ -331,6 +332,11 @@ struct FileBrowser
     // Amorphous structure builder dialog (no GL resources needed).
     bool isAmorphousBuilderDialogOpen() const;
 
+    // Cell Sculptor dialog GL resources and drop routing.
+    void initCellSculptorRenderResources(Renderer& renderer);
+    bool isCellSculptorDialogOpen() const;
+    void feedDropToCellSculptorDialog(const std::string& path);
+
     // Returns true if any builder/analysis/file dialog is currently open.
     bool isAnyDialogOpen() const;
 
@@ -467,6 +473,7 @@ private:
     StackingFaultBuilderDialog stackingFaultDialog;
     SubstitutionalSolidSolutionDialog substitutionalSolidSolutionDialog;
     AmorphousBuilderDialog amorphousBuilderDialog;
+    CellSculptorDialog cellSculptorDialog;
     CommonNeighbourAnalysisDialog cnaDialog;
     RadialDistributionAnalysisDialog rdfDialog;
     TransformAtomsDialog transformDialog;
