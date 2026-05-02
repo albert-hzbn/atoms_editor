@@ -94,6 +94,12 @@ private:
     bool      m_resultDirty  = true;
     Structure m_previewResult;
 
+    // Per-atom inside/outside mask for applySlabDimming.
+    // m_insideMask[i] = true iff m_supercell.atoms[i] passes all slab constraints.
+    // Computed in rebuildResult() using the EXACT same loop as cscApplySlabs so
+    // the dimming always matches the actual cut — no possibility of divergence.
+    std::vector<bool> m_insideMask;
+
     // Fit-camera flags
     bool m_srcCameraFit = true;
     bool m_resCameraFit = true;

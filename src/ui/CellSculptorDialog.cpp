@@ -363,6 +363,14 @@ void CellSculptorDialog::rebuildSourceBuffers()
 
     // Build instance data once and upload to both buffers.
     // Both share the same geometry; applySlabDimming only patches scale VBOs.
+    //
+    // PBC boundary images ARE included here (m_supercell passed directly, not a
+    // hasUnitCell=false copy) so that the source preview shows a visually complete
+    // crystal cell with face/edge/vertex continuity.  applySlabDimming classifies
+    // each instance via m_insideMask[atomIndices[i]], and appendPbcBoundaryImages
+    // copies the source atom's atomIndices entry to its mirror instances (line 110 of
+    // StructureInstanceBuilder.cpp), so every PBC copy is classified identically to
+    // its canonical atom — no position-based re-test needed.
     const auto radii = makeLiteratureCovalentRadii();
     std::vector<float> shininess(119, 40.0f);
     static const int kIdent[3][3] = {{1,0,0},{0,1,0},{0,0,1}};
@@ -373,7 +381,12 @@ void CellSculptorDialog::rebuildSourceBuffers()
     m_ghostBuffers.upload(data, false, noFilter);
 
     m_sourceBufDirty = false;
-    applySlabDimming();
+    // Do NOT call applySlabDimming here: the inside mask (m_insideMask) is
+    // computed and owned by rebuildResult().  Since m_sourceBufDirty=true also
+    // implies m_resultDirty=true, rebuildResult (and therefore applySlabDimming)
+    // will always run in the same frame immediately after this function.
+    // The GPU scale VBOs start at full-radius (all opaque) from upload() above,
+    // so no visual artifact occurs before rebuildResult runs.
 }
 
 void CellSculptorDialog::rebuildResult()
@@ -381,6 +394,75 @@ void CellSculptorDialog::rebuildResult()
     if (!m_hasSource) return;
     if (m_supercell.atoms.empty())
         m_supercell = cscBuildSupercell(m_source, m_nx, m_ny, m_nz);
+
+    // Compute the inside/outside mask with the EXACT same loop used inside
+    // cscApplySlabs.  This is the single source of truth for dimming:
+    // applySlabDimming() simply looks up m_insideMask[i] and never re-runs
+    // the slab test, so the dimming is guaranteed to match the cut result.
+    {
+        const glm::vec3 centroid = cscCentroid(m_supercell);
+        struct SD { glm::vec3 n, ref; float d1, d2; bool periodic; };
+        std::vector<SD> sds;
+        sds.reserve(m_slabs.size());
+        for (const auto& slab : m_slabs)
+            sds.push_back({ cscNormal(slab, m_source),
+                             cscSlabRef(slab, m_source, centroid),
+                             cscD1(slab, m_source),
+                             cscD2(slab, m_source),
+                             slab.usePeriodic && m_source.hasUnitCell });
+
+        // Build the mask per GPU instance (canonical atoms + PBC mirror copies).
+        //
+        // appendPbcBoundaryImages wraps canonical positions to [0,1) in the
+        // supercell AND snaps near-1.0 values to 0.0 (wrapAndSnapFractional).
+        // This can move a canonical atom's stored position to the OPPOSITE face,
+        // causing a different slab projection than what cscApplySlabs sees.
+        //
+        // Solution: classify canonical instances (i < N_canonical) with the
+        // original unmodified position from m_supercell.atoms[i], which is what
+        // cscApplySlabs actually uses.  Mirror instances (i >= N_canonical) were
+        // appended by appendPbcBoundaryImages at canonicalPos + a/b/c_supercell;
+        // their only position record is atomPositions[i], which IS correct.
+        const size_t nCanonical = m_supercell.atoms.size();
+        const size_t nInstances = (size_t)m_sourceBuffers.atomCount;
+        const bool havePositions = (nInstances > 0 &&
+                                    m_sourceBuffers.atomPositions.size() == nInstances);
+
+        m_insideMask.assign(nInstances, true);
+        for (size_t i = 0; i < nInstances; ++i)
+        {
+            glm::vec3 p;
+            if (i < nCanonical)
+            {
+                // Canonical atom: use original position (not wrapped by appendPbc).
+                const auto& a = m_supercell.atoms[i];
+                p = glm::vec3((float)a.x, (float)a.y, (float)a.z);
+            }
+            else if (havePositions)
+            {
+                // PBC mirror atom: use rendered position (canonicalPos + lattice shift).
+                p = m_sourceBuffers.atomPositions[i];
+            }
+            else
+            {
+                // No position data for mirror; inherit canonical atom classification.
+                const size_t ci = (m_sourceBuffers.atomIndices.size() == nInstances)
+                                  ? (size_t)m_sourceBuffers.atomIndices[i] : i;
+                m_insideMask[i] = (ci < m_insideMask.size()) ? m_insideMask[ci] : true;
+                continue;
+            }
+            for (const auto& sd : sds)
+            {
+                const float proj = glm::dot(p - sd.ref, sd.n);
+                if (proj < sd.d1 - kCscSlabTol)
+                    { m_insideMask[i] = false; break; }
+                if (sd.periodic ? (proj >= sd.d2 - kCscSlabTol)
+                                : (proj >  sd.d2 + kCscSlabTol))
+                    { m_insideMask[i] = false; break; }
+            }
+        }
+    }
+
     m_previewResult = cscApplySlabs(m_supercell, m_slabs, m_source);
     m_resultDirty   = false;
     uploadToPreview(m_previewResult, m_resultBuffers);
@@ -389,28 +471,16 @@ void CellSculptorDialog::rebuildResult()
 
 void CellSculptorDialog::applySlabDimming()
 {
-    // Two-pass transparency for Preview 1:
-    //   Pass 1 (m_sourceBuffers): inside atoms are drawn opaque (scale = normal).
-    //   Pass 2 (m_ghostBuffers):  outside atoms are drawn semi-transparent via
-    //                             GL_CONSTANT_ALPHA blending (scale = normal),
-    //                             inside atoms are hidden (scale = 0).
-    //
-    // Classification uses m_supercell.atoms positions directly — the same loop
-    // as cscApplySlabs — so PBC boundary images (which buildStructureInstanceData
-    // adds for display only) can never cause a mismatch between the two previews.
-    // The instance→atom mapping is read from m_sourceBuffers.atomIndices.
-
+    // Render all atoms uniformly semi-transparent: hide the opaque pass
+    // (source scale = 0) and show all atoms through the ghost (transparent)
+    // pass.  The ghost alpha slider controls the opacity level.
     if (!m_glReady || m_sourceBuffers.atomCount == 0) return;
-    if (m_supercell.atoms.empty()) return;
 
     const size_t n          = (size_t)m_sourceBuffers.atomCount;
-    const auto&  instIdx    = m_sourceBuffers.atomIndices;  // instance i → supercell atom index
-    const auto&  fullScales = m_sourceBuffers.atomRadii;    // original per-instance scales
+    const auto&  fullScales = m_sourceBuffers.atomRadii;
+    if (fullScales.size() != n) return;
 
-    // Guard: CPU caches must be available (disabled only for >100k atoms).
-    if (instIdx.size() != n || fullScales.size() != n) return;
-
-    // No slabs: all atoms opaque in source, ghost layer empty.
+    // No slabs: show all atoms opaque, ghost layer empty.
     if (m_slabs.empty())
     {
         glBindBuffer(GL_ARRAY_BUFFER, m_sourceBuffers.scaleVBO);
@@ -427,53 +497,14 @@ void CellSculptorDialog::applySlabDimming()
         return;
     }
 
-    // Pre-compute slab geometry (identical to cscApplySlabs).
-    struct SlabData { glm::vec3 n, ref; float d1, d2; bool periodic; };
-    std::vector<SlabData> sds;
-    sds.reserve(m_slabs.size());
-    const glm::vec3 centroid = cscCentroid(m_supercell);
-    for (const auto& slab : m_slabs)
-        sds.push_back({ cscNormal(slab, m_source),
-                        cscSlabRef(slab, m_source, centroid),
-                        cscD1(slab, m_source), cscD2(slab, m_source),
-                        slab.usePeriodic && m_source.hasUnitCell });
-
-    // Classify each source atom using the same test as cscApplySlabs.
-    const size_t atomCount = m_supercell.atoms.size();
-    std::vector<bool> atomInside(atomCount, false);
-    for (size_t ai = 0; ai < atomCount; ++ai)
-    {
-        const auto& a = m_supercell.atoms[ai];
-        const glm::vec3 p((float)a.x, (float)a.y, (float)a.z);
-        bool inside = true;
-        for (const auto& sd : sds)
-        {
-            const float proj = glm::dot(p - sd.ref, sd.n);
-            if (proj < sd.d1 - kCscSlabTol) { inside = false; break; }
-            if (sd.periodic ? (proj >= sd.d2 - kCscSlabTol)
-                            : (proj >  sd.d2 + kCscSlabTol))
-            { inside = false; break; }
-        }
-        atomInside[ai] = inside;
-    }
-
-    // Map each GPU instance to its source atom's classification and build scales.
-    std::vector<float> srcScales(n), ghostScales(n);
-    for (size_t i = 0; i < n; ++i)
-    {
-        const int ai = instIdx[i];
-        const bool inside = (ai >= 0 && (size_t)ai < atomCount) ? atomInside[ai] : true;
-        const float s = fullScales[i];
-        srcScales[i]   = inside ? s : 0.0f;
-        ghostScales[i] = inside ? 0.0f : s;
-    }
-
+    // Slabs active: hide the opaque pass, show all atoms as ghost.
+    const std::vector<float> zeros(n, 0.0f);
     glBindBuffer(GL_ARRAY_BUFFER, m_sourceBuffers.scaleVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(n * sizeof(float)), srcScales.data());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(n * sizeof(float)), zeros.data());
     if (m_ghostBuffers.atomCount == n)
     {
         glBindBuffer(GL_ARRAY_BUFFER, m_ghostBuffers.scaleVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(n * sizeof(float)), ghostScales.data());
+        glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(n * sizeof(float)), fullScales.data());
     }
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
@@ -876,8 +907,22 @@ void CellSculptorDialog::drawDialog(
 
     // ---- Supercell ----
     ImGui::Spacing();
-    ImGui::TextUnformatted("Supercell"); ImGui::SameLine();
-    ImGui::TextDisabled("(tiles +/- around origin)");
+    // Compute exact height: top/bottom window padding + title row + separator +
+    // table header row + table drag-int row + one item-spacing gap.
+    const float scPadY  = ImGui::GetStyle().WindowPadding.y;
+    const float scFHS   = ImGui::GetFrameHeightWithSpacing();
+    const float scFH    = ImGui::GetFrameHeight();
+    const float scSepH  = 1.0f + ImGui::GetStyle().ItemSpacing.y;
+    const float supercellBoxH = scPadY * 2.0f
+                              + ImGui::GetTextLineHeightWithSpacing()  // title
+                              + scSepH                                 // separator
+                              + scFHS                                  // table header labels
+                              + scFH;                                  // table drag-int row
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+    ImGui::BeginChild("##scSupercellPanel", ImVec2(-1.0f, supercellBoxH), true,
+                      ImGuiWindowFlags_NoScrollbar);
+    ImGui::TextUnformatted("Supercell");
+    ImGui::SameLine(); ImGui::TextDisabled("(tiles +/- around origin)");
     ImGui::Separator();
     {
         bool sc = false;
@@ -899,11 +944,16 @@ void CellSculptorDialog::drawDialog(
         m_nx = std::max(1, m_nx); m_ny = std::max(1, m_ny); m_nz = std::max(1, m_nz);
         if (sc) { m_sourceBufDirty = true; m_facesDirty = true; m_resultDirty = true; m_srcCameraFit = true; }
     }
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
 
     // ---- Cutting Slabs ----
     ImGui::Spacing();
-    ImGui::TextUnformatted("Cutting Slabs"); ImGui::SameLine();
-    ImGui::TextDisabled("(atoms kept within [d1,d2] along hkl)");
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+    ImGui::BeginChild("##scSlabsPanel", ImVec2(-1.0f, 0.0f), true,
+                      ImGuiWindowFlags_NoScrollbar);
+    ImGui::TextUnformatted("Cutting Slabs");
+    ImGui::SameLine(); ImGui::TextDisabled("(atoms kept within [d1,d2] along hkl)");
     ImGui::Separator();
     {
         const bool hasPeriodic = m_hasSource && m_source.hasUnitCell;
@@ -1044,6 +1094,8 @@ void CellSculptorDialog::drawDialog(
             m_facesDirty = true; m_resultDirty = true;
         }
     } // Cutting Slabs
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
 
     // ---- View options ----
     ImGui::Spacing();
