@@ -380,11 +380,6 @@ Structure cscApplySlabs(const Structure& sc,
         if (keep) result.atoms.push_back(atom);
     }
 
-    // Remove atoms that coincide within 0.01 Å — these arise from periodic
-    // tiling when corner/edge/face atoms of adjacent unit cells land at the
-    // same Cartesian position (fractional coords 0 ≡ 1).
-    result = cscDeduplicateAtoms(result);
-
     // Build cell vectors from the cutting planes when exactly 3 slabs are
     // enabled.  The cell is the parallelepiped whose three edge directions
     // are the slab normals and whose corner is the intersection of the three
@@ -434,6 +429,11 @@ Structure cscApplySlabs(const Structure& sc,
         result.hasUnitCell = false;
     }
 
+    // Remove duplicate atoms after final cell assignment.
+    // For 3-slab bounded cuts this also removes periodic-equivalent boundary
+    // pairs on opposite faces (fractional 0 ≡ 1) by canonical wrapping.
+    result = cscDeduplicateAtoms(result);
+
     return result;
 }
 
@@ -444,6 +444,29 @@ Structure cscDeduplicateAtoms(const Structure& s, float tol)
 
     const float tol2 = tol * tol;
     const float inv  = 1.0f / tol;
+
+    // If a valid unit cell exists, canonicalize each position by wrapping to
+    // fractional [0,1). This lets us collapse periodic-equivalent boundary
+    // duplicates (e.g. frac 0 and frac 1 on opposite faces).
+    bool usePeriodicCanonical = false;
+    glm::mat3 cell(1.0f), invCell(1.0f);
+    glm::vec3 origin(0.0f);
+    if (s.hasUnitCell)
+    {
+        cell = glm::mat3(
+            glm::vec3((float)s.cellVectors[0][0], (float)s.cellVectors[0][1], (float)s.cellVectors[0][2]),
+            glm::vec3((float)s.cellVectors[1][0], (float)s.cellVectors[1][1], (float)s.cellVectors[1][2]),
+            glm::vec3((float)s.cellVectors[2][0], (float)s.cellVectors[2][1], (float)s.cellVectors[2][2]));
+        const float det = glm::determinant(cell);
+        if (std::abs(det) > 1e-8f)
+        {
+            invCell = glm::inverse(cell);
+            origin = glm::vec3((float)s.cellOffset[0],
+                               (float)s.cellOffset[1],
+                               (float)s.cellOffset[2]);
+            usePeriodicCanonical = true;
+        }
+    }
 
     // Spatial grid: each cell covers (tol × tol × tol) Å³.
     // For each candidate atom we only check the 3³ = 27 neighbour cells.
@@ -464,11 +487,23 @@ Structure cscDeduplicateAtoms(const Structure& s, float tol)
     result.atoms.clear();
     result.atoms.reserve(s.atoms.size());
 
+    std::vector<glm::vec3> canonicalPositions;
+    canonicalPositions.reserve(s.atoms.size());
+
     for (const auto& a : s.atoms)
     {
-        const float ax = (float)a.x;
-        const float ay = (float)a.y;
-        const float az = (float)a.z;
+        glm::vec3 canonical((float)a.x, (float)a.y, (float)a.z);
+        if (usePeriodicCanonical)
+        {
+            glm::vec3 frac = invCell * (canonical - origin);
+            for (int i = 0; i < 3; ++i)
+                frac[i] -= std::floor(frac[i]);
+            canonical = origin + cell * frac;
+        }
+
+        const float ax = canonical.x;
+        const float ay = canonical.y;
+        const float az = canonical.z;
         const int   cx = (int)std::floor(ax * inv);
         const int   cy = (int)std::floor(ay * inv);
         const int   cz = (int)std::floor(az * inv);
@@ -482,10 +517,10 @@ Structure cscDeduplicateAtoms(const Structure& s, float tol)
             if (it == grid.end()) continue;
             for (int idx : it->second)
             {
-                const auto& b = result.atoms[idx];
-                const float ex = ax - (float)b.x;
-                const float ey = ay - (float)b.y;
-                const float ez = az - (float)b.z;
+                const glm::vec3& b = canonicalPositions[(size_t)idx];
+                const float ex = ax - b.x;
+                const float ey = ay - b.y;
+                const float ez = az - b.z;
                 if (ex*ex + ey*ey + ez*ez < tol2) { dup = true; break; }
             }
         }
@@ -493,6 +528,7 @@ Structure cscDeduplicateAtoms(const Structure& s, float tol)
         {
             grid[{cx, cy, cz}].push_back((int)result.atoms.size());
             result.atoms.push_back(a);
+            canonicalPositions.push_back(canonical);
         }
     }
     return result;
