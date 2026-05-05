@@ -553,6 +553,7 @@ void FileBrowser::draw(Structure& structure,
             cnaDialog.drawMenuItem(!structure.atoms.empty());
             rdfDialog.drawMenuItem(!structure.atoms.empty());
             drawShortRangeOrderMenuItem(!structure.atoms.empty(), shortRangeOrderDialog);
+            angularDistributionDialog.drawMenuItem(!structure.atoms.empty());
             ImGui::EndMenu();
         }
 
@@ -700,6 +701,7 @@ void FileBrowser::draw(Structure& structure,
     cnaDialog.drawDialog(structure);
     rdfDialog.drawDialog(structure);
     drawShortRangeOrderDialog(shortRangeOrderDialog, structure);
+    angularDistributionDialog.drawDialog(structure);
     cellSculptorDialog.drawDialog(structure, updateBuffers);
 
     if (loadErrorPopupRequested)

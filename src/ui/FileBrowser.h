@@ -14,6 +14,7 @@
 #include "ui/CommonNeighbourAnalysis.h"
 #include "ui/RadialDistributionAnalysis.h"
 #include "ui/ShortRangeOrderDialog.h"
+#include "ui/AngularDistributionAnalysis.h"
 #include "ui/PolyhedralOverlay.h"
 #include "ui/TransformAtomsDialog.h"
 #include "ui/EditMenuDialogs.h"
@@ -478,5 +479,6 @@ private:
     CommonNeighbourAnalysisDialog cnaDialog;
     RadialDistributionAnalysisDialog rdfDialog;
     ShortRangeOrderDialogState shortRangeOrderDialog;
+    AngularDistributionAnalysisDialog angularDistributionDialog;
     TransformAtomsDialog transformDialog;
 };
