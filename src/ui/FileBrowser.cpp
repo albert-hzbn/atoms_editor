@@ -552,6 +552,7 @@ void FileBrowser::draw(Structure& structure,
         {
             cnaDialog.drawMenuItem(!structure.atoms.empty());
             rdfDialog.drawMenuItem(!structure.atoms.empty());
+            drawShortRangeOrderMenuItem(!structure.atoms.empty(), shortRangeOrderDialog);
             ImGui::EndMenu();
         }
 
@@ -698,6 +699,7 @@ void FileBrowser::draw(Structure& structure,
                                       updateFromBuilderToNewTab);
     cnaDialog.drawDialog(structure);
     rdfDialog.drawDialog(structure);
+    drawShortRangeOrderDialog(shortRangeOrderDialog, structure);
     cellSculptorDialog.drawDialog(structure, updateBuffers);
 
     if (loadErrorPopupRequested)

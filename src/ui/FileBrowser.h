@@ -13,6 +13,7 @@
 #include "ui/AmorphousBuilderDialog.h"
 #include "ui/CommonNeighbourAnalysis.h"
 #include "ui/RadialDistributionAnalysis.h"
+#include "ui/ShortRangeOrderDialog.h"
 #include "ui/PolyhedralOverlay.h"
 #include "ui/TransformAtomsDialog.h"
 #include "ui/EditMenuDialogs.h"
@@ -476,5 +477,6 @@ private:
     CellSculptorDialog cellSculptorDialog;
     CommonNeighbourAnalysisDialog cnaDialog;
     RadialDistributionAnalysisDialog rdfDialog;
+    ShortRangeOrderDialogState shortRangeOrderDialog;
     TransformAtomsDialog transformDialog;
 };

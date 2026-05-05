@@ -71,6 +71,7 @@ set(ATOMFORGE_SOURCES
     src/ui/MeasurementOverlay.cpp
     src/ui/PeriodicTableDialog.cpp
     src/ui/RadialDistributionAnalysis.cpp
+    src/ui/ShortRangeOrderDialog.cpp
     src/ui/StackingFaultBuilderDialog.cpp
     src/ui/StructureInfoDialog.cpp
     src/ui/TransformAtomsDialog.cpp
@@ -89,6 +90,7 @@ set(ATOMFORGE_SOURCES
     src/algorithms/SubstitutionalSolidSolutionBuilder.cpp
     src/algorithms/AmorphousBuilder.cpp
     src/algorithms/CellSculptorAlgo.cpp
+    src/algorithms/ShortRangeOrderAnalysis.cpp
     src/cli/CLIMode.cpp
     src/io/StructureLoader.cpp
     imgui/imgui.cpp
