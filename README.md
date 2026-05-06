@@ -265,3 +265,17 @@ src/
   util/                     shared utilities and element metadata
 imgui/                      bundled Dear ImGui sources and backend bindings
 ```
+
+## Citation
+
+```bibtex
+@software{Linda_albert-hzbn_AtomForge_v0_2_0_2026,
+author = {Linda, Albert},
+doi = {10.5281/zenodo.20054535},
+month = may,
+title = {{albert-hzbn/AtomForge: v0.2.0}},
+url = {https://doi.org/10.5281/zenodo.20054535},
+version = {v0.2.0},
+year = {2026}
+}
+```
