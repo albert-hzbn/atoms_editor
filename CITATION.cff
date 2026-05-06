@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use AtomForge, please cite it using the metadata from this file."
+title: "AtomForge"
+type: software
+version: "0.2.0"
+date-released: 2026-05-06
+doi: 10.5281/zenodo.20054535
+license: MIT
+abstract: "Interactive atomic structure builder for metallurgical simulation and atomistic modeling, designed to help researchers and engineers create, edit, inspect, and export structures for molecular dynamics and first-principles workflows."
+repository-code: "https://github.com/albert-hzbn/AtomForge"
+url: "https://doi.org/10.5281/zenodo.20054535"
+authors:
+  - family-names: "Linda"
+    given-names: "Albert"
+preferred-citation:
+  type: software
+  title: "albert-hzbn/AtomForge: v0.2.0"
+  version: "v0.2.0"
+  doi: 10.5281/zenodo.20054535
+  publisher: "Zenodo"
+  url: "https://doi.org/10.5281/zenodo.20054535"
+  date-released: 2026-05-06
+  authors:
+    - family-names: "Linda"
+      given-names: "Albert"
