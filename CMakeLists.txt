@@ -11,12 +11,19 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(ATOMFORGE_ENABLE_SPGLIB "Enable spglib/symspg support when available" ON)
+option(BUILD_PORTABLE "Build portable package with bundled dependencies" OFF)
 
 option(ATOMFORGE_ENABLE_SSS_BUILDER "Enable Substitutional Solid Solution builder UI" ON)
 option(ATOMFORGE_ENABLE_SFE_BUILDER "Enable Stacking Fault (SFE) builder UI" OFF)
 
 if(UNIX AND NOT APPLE)
-    option(ATOMFORGE_LINUX_STATIC_LINK "Statically link Linux build dependencies" ON)
+    if(BUILD_PORTABLE)
+        # Portable packaging copies shared libraries next to the executable,
+        # so enforce shared-link mode here even if a previous cache had ON.
+        set(ATOMFORGE_LINUX_STATIC_LINK OFF CACHE BOOL "Statically link Linux build dependencies" FORCE)
+    else()
+        option(ATOMFORGE_LINUX_STATIC_LINK "Statically link Linux build dependencies" ON)
+    endif()
 else()
     option(ATOMFORGE_LINUX_STATIC_LINK "Statically link Linux build dependencies" OFF)
 endif()
@@ -234,11 +241,6 @@ if(OpenMP_CXX_FOUND)
 else()
     message(STATUS "OpenMP not found: structure builders will run single-threaded")
 endif()
-
-# ============================================================================
-# Portable Build Option
-# ============================================================================
-option(BUILD_PORTABLE "Build portable package with bundled dependencies" OFF)
 
 set(ATOMFORGE_PORTABLE_ROOT "AtomForge")
 if(WIN32)

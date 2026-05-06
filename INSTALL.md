@@ -152,7 +152,8 @@ Extract and run `AtomForge.exe` directly.
 ### Linux portable tarball
 
 ```bash
-cmake -S . -B build-portable -DCMAKE_BUILD_TYPE=Release -DBUILD_PORTABLE=ON
+cmake -S . -B build-portable -DCMAKE_BUILD_TYPE=Release -DBUILD_PORTABLE=ON \
+    -DATOMFORGE_LINUX_STATIC_LINK=OFF
 cmake --build build-portable -j
 cpack --config build-portable/CPackConfig.cmake -B build-portable/package
 ```
