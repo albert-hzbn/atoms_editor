@@ -24,7 +24,7 @@
 #endif
 
 #ifndef ATOMFORGE_VERSION
-#define ATOMFORGE_VERSION "0.5.0"
+#define ATOMFORGE_VERSION "0.2.0"
 #endif
 
 // ---------------------------------------------------------------------------

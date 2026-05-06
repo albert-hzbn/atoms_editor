@@ -279,7 +279,7 @@ endif()
 # CPack Configuration
 # ============================================================================
 set(CPACK_PACKAGE_NAME "AtomForge")
-set(CPACK_PACKAGE_VERSION "0.5.0")
+set(CPACK_PACKAGE_VERSION "0.2.0")
 set(CPACK_PACKAGE_DESCRIPTION "Atomic structure builder for metallurgical simulation and atomistic modeling")
 
 # Expose the version string to the source code.
