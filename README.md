@@ -1,5 +1,7 @@
 # AtomForge
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20054535.svg)](https://doi.org/10.5281/zenodo.20054535)
+
 AtomForge is an interactive atomic structure builder for metallurgical simulation and atomistic modeling. It is designed to help researchers and engineers create, edit, inspect, and export structures used in molecular dynamics (MD) and first-principles workflows.
 
 ## Highlights
