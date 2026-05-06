@@ -395,7 +395,7 @@ void FileBrowser::draw(Structure& structure,
         if (ImGui::BeginMenu("Build"))
         {
             bulkCrystalDialog.drawMenuItem(true);
-            substitutionalSolidSolutionDialog.drawMenuItem(true);
+            // substitutionalSolidSolutionDialog.drawMenuItem(true); // disabled: not ready
             stackingFaultDialog.drawMenuItem(true);
             cslDialog.drawMenuItem(true);
             nanoCrystalDialog.drawMenuItem(true);
@@ -550,10 +550,10 @@ void FileBrowser::draw(Structure& structure,
 
         if (ImGui::BeginMenu("Analysis"))
         {
-            cnaDialog.drawMenuItem(!structure.atoms.empty());
+            // cnaDialog.drawMenuItem(!structure.atoms.empty()); // disabled: not ready
             rdfDialog.drawMenuItem(!structure.atoms.empty());
             drawShortRangeOrderMenuItem(!structure.atoms.empty(), shortRangeOrderDialog);
-            angularDistributionDialog.drawMenuItem(!structure.atoms.empty());
+            // angularDistributionDialog.drawMenuItem(!structure.atoms.empty()); // disabled: not ready
             ImGui::EndMenu();
         }
 
