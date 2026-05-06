@@ -85,17 +85,21 @@ void processDroppedFiles(EditorState& state)
             continue;
         }
 
+#if ATOMFORGE_ENABLE_SFE_BUILDER
         if (state.fileBrowser.isStackingFaultDialogOpen())
         {
             state.fileBrowser.feedDropToStackingFaultDialog(droppedFile);
             continue;
         }
+#endif
 
+#if ATOMFORGE_ENABLE_SSS_BUILDER
         if (state.fileBrowser.isSubstitutionalSolidSolutionDialogOpen())
         {
             state.fileBrowser.feedDropToSubstitutionalSolidSolutionDialog(droppedFile);
             continue;
         }
+#endif
 
         if (state.fileBrowser.isCellSculptorDialogOpen())
         {

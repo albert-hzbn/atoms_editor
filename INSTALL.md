@@ -32,7 +32,10 @@ sudo apt install libsymspg-dev
 ### Build
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+    -DATOMFORGE_ENABLE_SSS_BUILDER=ON \
+    -DATOMFORGE_ENABLE_SFE_BUILDER=OFF \
+    -DATOMFORGE_LINUX_STATIC_LINK=ON
 cmake --build build -j
 ```
 
@@ -49,6 +52,9 @@ cmake --build build -j
 | --- | --- | --- |
 | `CMAKE_BUILD_TYPE` | `Release` | `Debug` or `Release` |
 | `ATOMFORGE_ENABLE_SPGLIB` | auto-detected | Enable spglib symmetry features |
+| `ATOMFORGE_ENABLE_SSS_BUILDER` | `ON` | Enable Substitutional Solid Solution builder UI |
+| `ATOMFORGE_ENABLE_SFE_BUILDER` | `OFF` | Enable Stacking Fault (SFE) builder UI |
+| `ATOMFORGE_LINUX_STATIC_LINK` | `ON` (Linux) | Statically link Linux build dependencies |
 | `BUILD_PORTABLE` | `OFF` | Bundle runtime libraries for redistribution |
 
 ---
@@ -210,3 +216,12 @@ Run from the UCRT64 shell, or ensure `C:/msys64/ucrt64/bin` is on your `PATH`.
 ### CMake cannot find dependencies
 
 Verify that `pkgconf` and all required MSYS2 packages are installed in the same UCRT64 environment used for building and running.
+
+### Linux static link build fails
+
+`ATOMFORGE_LINUX_STATIC_LINK=ON` requires static archives for required dependencies (notably GLFW and Open Babel).
+If your distribution does not provide `libglfw.a` / `libopenbabel.a`, configure with shared libraries instead:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DATOMFORGE_LINUX_STATIC_LINK=OFF
+```

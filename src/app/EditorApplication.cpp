@@ -206,8 +206,12 @@ void initTabResources(StructureTab& tab,
     tab.state.fileBrowser.initInterfaceBuilderRenderResources(renderer);
     tab.state.fileBrowser.initCSLGrainBoundaryRenderResources(renderer);
     tab.state.fileBrowser.initPolyCrystalRenderResources(renderer);
+#if ATOMFORGE_ENABLE_SFE_BUILDER
     tab.state.fileBrowser.initStackingFaultRenderResources(renderer);
+#endif
+#if ATOMFORGE_ENABLE_SSS_BUILDER
     tab.state.fileBrowser.initSubstitutionalSolidSolutionRenderResources(renderer);
+#endif
     tab.state.fileBrowser.initCellSculptorRenderResources(renderer);
     updateBuffers(tab.state);
     tab.state.undoRedo.reset(captureSnapshot(tab.state));

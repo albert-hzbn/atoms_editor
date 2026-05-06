@@ -395,8 +395,12 @@ void FileBrowser::draw(Structure& structure,
         if (ImGui::BeginMenu("Build"))
         {
             bulkCrystalDialog.drawMenuItem(true);
-            // substitutionalSolidSolutionDialog.drawMenuItem(true); // disabled: not ready
+#if ATOMFORGE_ENABLE_SSS_BUILDER
+            substitutionalSolidSolutionDialog.drawMenuItem(true);
+#endif
+#if ATOMFORGE_ENABLE_SFE_BUILDER
             stackingFaultDialog.drawMenuItem(true);
+#endif
             cslDialog.drawMenuItem(true);
             nanoCrystalDialog.drawMenuItem(true);
             customStructureDialog.drawMenuItem(true);
@@ -687,14 +691,18 @@ void FileBrowser::draw(Structure& structure,
     polyCrystalDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                  editMenuDialogs.elementRadii, editMenuDialogs.elementShininess,
                                  updateFromBuilderToNewTab);
+#if ATOMFORGE_ENABLE_SFE_BUILDER
     stackingFaultDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                    editMenuDialogs.elementRadii,
                                    editMenuDialogs.elementShininess,
                                    updateFromBuilderToNewTab);
+#endif
+#if ATOMFORGE_ENABLE_SSS_BUILDER
     substitutionalSolidSolutionDialog.drawDialog(structure, editMenuDialogs.elementColors,
                                                   editMenuDialogs.elementRadii,
                                                   editMenuDialogs.elementShininess,
                                                   updateFromBuilderToNewTab);
+#endif
     amorphousBuilderDialog.drawDialog(editMenuDialogs.elementColors,
                                       editMenuDialogs.elementRadii,
                                       updateFromBuilderToNewTab);
@@ -2140,8 +2148,12 @@ bool FileBrowser::isAnyDialogOpen() const
         || isCSLGrainBoundaryDialogOpen()
         || isInterfaceBuilderDialogOpen()
         || isPolyCrystalDialogOpen()
+    #if ATOMFORGE_ENABLE_SFE_BUILDER
         || isStackingFaultDialogOpen()
+    #endif
+    #if ATOMFORGE_ENABLE_SSS_BUILDER
         || isSubstitutionalSolidSolutionDialogOpen()
+    #endif
         || isAmorphousBuilderDialogOpen()
         || isCellSculptorDialogOpen()
         || showAbout

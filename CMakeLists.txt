@@ -12,6 +12,30 @@ endif()
 
 option(ATOMFORGE_ENABLE_SPGLIB "Enable spglib/symspg support when available" ON)
 
+option(ATOMFORGE_ENABLE_SSS_BUILDER "Enable Substitutional Solid Solution builder UI" ON)
+option(ATOMFORGE_ENABLE_SFE_BUILDER "Enable Stacking Fault (SFE) builder UI" OFF)
+
+if(UNIX AND NOT APPLE)
+    option(ATOMFORGE_LINUX_STATIC_LINK "Statically link Linux build dependencies" ON)
+else()
+    option(ATOMFORGE_LINUX_STATIC_LINK "Statically link Linux build dependencies" OFF)
+endif()
+
+if(UNIX AND NOT APPLE AND ATOMFORGE_LINUX_STATIC_LINK)
+    set(PKG_CONFIG_ARGN --static)
+    # Prefer static archives when available for find_package() results.
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+
+    find_library(ATOMFORGE_STATIC_GLFW_LIB NAMES glfw libglfw)
+    find_library(ATOMFORGE_STATIC_OPENBABEL_LIB NAMES openbabel libopenbabel)
+    if(NOT ATOMFORGE_STATIC_GLFW_LIB OR NOT ATOMFORGE_STATIC_OPENBABEL_LIB)
+        message(FATAL_ERROR
+            "ATOMFORGE_LINUX_STATIC_LINK=ON requires static archives for GLFW and Open Babel. "
+            "Install static .a variants (for example libglfw.a and libopenbabel.a), or configure with "
+            "-DATOMFORGE_LINUX_STATIC_LINK=OFF to build with shared system libraries.")
+    endif()
+endif()
+
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GLFW3 REQUIRED IMPORTED_TARGET glfw3)
@@ -105,6 +129,11 @@ set(ATOMFORGE_SOURCES
 
 add_executable(AtomForge ${ATOMFORGE_SOURCES})
 
+target_compile_definitions(AtomForge PRIVATE
+    ATOMFORGE_ENABLE_SSS_BUILDER=$<BOOL:${ATOMFORGE_ENABLE_SSS_BUILDER}>
+    ATOMFORGE_ENABLE_SFE_BUILDER=$<BOOL:${ATOMFORGE_ENABLE_SFE_BUILDER}>
+)
+
 # On Windows, embed the application manifest via a resource script so that
 # the executable declares itself as non-elevated and properly identified.
 if(WIN32)
@@ -177,6 +206,9 @@ elseif(UNIX)
     find_package(OpenGL REQUIRED)
     find_package(Threads REQUIRED)
     target_link_libraries(AtomForge PRIVATE OpenGL::GL Threads::Threads dl)
+    if(ATOMFORGE_LINUX_STATIC_LINK)
+        target_link_options(AtomForge PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
 endif()
 
 if(ATOMFORGE_ENABLE_SPGLIB)
