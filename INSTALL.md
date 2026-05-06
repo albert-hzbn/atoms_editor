@@ -35,7 +35,7 @@ sudo apt install libsymspg-dev
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
     -DATOMFORGE_ENABLE_SSS_BUILDER=ON \
     -DATOMFORGE_ENABLE_SFE_BUILDER=OFF \
-    -DATOMFORGE_LINUX_STATIC_LINK=ON
+    -DATOMFORGE_LINUX_STATIC_LINK=OFF
 cmake --build build -j
 ```
 
@@ -54,7 +54,7 @@ cmake --build build -j
 | `ATOMFORGE_ENABLE_SPGLIB` | auto-detected | Enable spglib symmetry features |
 | `ATOMFORGE_ENABLE_SSS_BUILDER` | `ON` | Enable Substitutional Solid Solution builder UI |
 | `ATOMFORGE_ENABLE_SFE_BUILDER` | `OFF` | Enable Stacking Fault (SFE) builder UI |
-| `ATOMFORGE_LINUX_STATIC_LINK` | `ON` (Linux) | Statically link Linux build dependencies |
+| `ATOMFORGE_LINUX_STATIC_LINK` | `OFF` (Linux) | Statically link Linux build dependencies (opt-in) |
 | `BUILD_PORTABLE` | `OFF` | Bundle runtime libraries for redistribution |
 
 ---

@@ -22,7 +22,7 @@ if(UNIX AND NOT APPLE)
         # so enforce shared-link mode here even if a previous cache had ON.
         set(ATOMFORGE_LINUX_STATIC_LINK OFF CACHE BOOL "Statically link Linux build dependencies" FORCE)
     else()
-        option(ATOMFORGE_LINUX_STATIC_LINK "Statically link Linux build dependencies" ON)
+        option(ATOMFORGE_LINUX_STATIC_LINK "Statically link Linux build dependencies" OFF)
     endif()
 else()
     option(ATOMFORGE_LINUX_STATIC_LINK "Statically link Linux build dependencies" OFF)
