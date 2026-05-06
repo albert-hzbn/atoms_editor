@@ -568,122 +568,6 @@ float evaluatePlaneForStructure(const Structure& structure,
     return (float)layers - 0.5f * imbalance;
 }
 
-float estimateNearestNeighborDistance(const Structure& structure,
-                                      bool usePbc,
-                                      const glm::mat3& cell,
-                                      const glm::mat3& invCell)
-{
-    if (structure.atoms.size() < 2)
-        return 0.0f;
-
-    const int n = (int)std::min<size_t>(structure.atoms.size(), 1024);
-    float best = std::numeric_limits<float>::max();
-    for (int i = 0; i < n; ++i)
-    {
-        const glm::vec3 pi((float)structure.atoms[i].x,
-                           (float)structure.atoms[i].y,
-                           (float)structure.atoms[i].z);
-        for (int j = i + 1; j < n; ++j)
-        {
-            const glm::vec3 pj((float)structure.atoms[j].x,
-                               (float)structure.atoms[j].y,
-                               (float)structure.atoms[j].z);
-            const glm::vec3 delta = minimumImageDelta(pj - pi, usePbc, cell, invCell);
-            const float d = glm::length(delta);
-            if (d > kMinBondDistance && d < best)
-                best = d;
-        }
-    }
-
-    if (std::isfinite(best) && best > 0.0f)
-        return best;
-
-    const float la = glm::length(cell[0]);
-    const float lb = glm::length(cell[1]);
-    const float lc = glm::length(cell[2]);
-    best = std::min(la, std::min(lb, lc));
-    return (best > 0.0f && std::isfinite(best)) ? best : 1.0f;
-}
-
-AtomSite representativeAtom(const Structure& structure)
-{
-    if (structure.atoms.empty())
-        return AtomSite{};
-
-    std::map<int, int> counts;
-    for (const AtomSite& atom : structure.atoms)
-    {
-        if (atom.atomicNumber > 0)
-            counts[atom.atomicNumber]++;
-    }
-
-    int bestZ = structure.atoms.front().atomicNumber;
-    int bestCount = -1;
-    for (const auto& [z, c] : counts)
-    {
-        if (c > bestCount)
-        {
-            bestCount = c;
-            bestZ = z;
-        }
-    }
-
-    for (const AtomSite& atom : structure.atoms)
-    {
-        if (atom.atomicNumber == bestZ)
-            return atom;
-    }
-
-    return structure.atoms.front();
-}
-
-Structure buildFccPrimitiveLayeredCellLikeReference(const Structure& source,
-                                                    int layers,
-                                                    float nearestNeighbor)
-{
-    Structure out;
-    out.hasUnitCell = true;
-    out.cellOffset = {0.0, 0.0, 0.0};
-
-    const float a = std::max(1e-5f, nearestNeighbor);
-    const float b = a;
-    const float cPerLayer = a * std::sqrt(2.0f / 3.0f);
-    const float c = cPerLayer * (float)layers;
-
-    out.cellVectors = {{
-        {{a, 0.0, 0.0}},
-        {{0.5f * b, 0.5f * std::sqrt(3.0f) * b, 0.0}},
-        {{0.0, 0.0, c}}
-    }};
-
-    const AtomSite seed = representativeAtom(source);
-    out.atoms.reserve((size_t)layers);
-    for (int layer = 0; layer < layers; ++layer)
-    {
-        AtomSite atom = seed;
-        const int mod = layer % 3;
-        if (mod == 0)
-        {
-            atom.x = 0.0;
-            atom.y = 0.0;
-        }
-        else if (mod == 1)
-        {
-            atom.x = 0.5 * a;
-            atom.y = a / (2.0 * std::sqrt(3.0));
-        }
-        else
-        {
-            atom.x = a;
-            atom.y = a / std::sqrt(3.0);
-        }
-        atom.z = ((double)layer / (double)layers) * (double)c;
-        out.atoms.push_back(atom);
-    }
-
-    return out;
-}
-
 void refinePlaneAndDirection(const Structure& structure,
                              const glm::mat3& cell,
                              StackingFaultFamily family,
@@ -1042,90 +926,6 @@ StackingFaultResult buildStackingFaultSequence(const Structure& base,
         return result;
     }
 
-    if (detection.family == StackingFaultFamily::Fcc
-        && params.cellMode == StackingFaultCellMode::SmallestUnitCell)
-    {
-        glm::mat3 baseCell(1.0f);
-        glm::mat3 baseInvCell(1.0f);
-        if (!tryMakeCellMatrices(base, baseCell, baseInvCell))
-        {
-            result.message = "Input unit cell is singular.";
-            return result;
-        }
-
-        const float nearestNeighbor = estimateNearestNeighborDistance(base,
-                                                                      params.usePbcForDetection,
-                                                                      baseCell,
-                                                                      baseInvCell);
-
-        const int layers = std::max(3, params.layerCount);
-        const int startLayerBase = std::max(0, layers - 3);
-
-        Structure reference = buildFccPrimitiveLayeredCellLikeReference(base, layers, nearestNeighbor);
-
-        const glm::vec3 aVec((float)reference.cellVectors[0][0],
-                             (float)reference.cellVectors[0][1],
-                             (float)reference.cellVectors[0][2]);
-        const glm::vec3 bVec((float)reference.cellVectors[1][0],
-                             (float)reference.cellVectors[1][1],
-                             (float)reference.cellVectors[1][2]);
-        const glm::vec3 cVec((float)reference.cellVectors[2][0],
-                             (float)reference.cellVectors[2][1],
-                             (float)reference.cellVectors[2][2]);
-
-        const glm::vec3 slipDirection = glm::normalize(
-            glm::vec3((float)(-aVec.x + 2.0 * bVec.x),
-                      (float)(-aVec.y + 2.0 * bVec.y),
-                      0.0f));
-
-        const float bTwin = nearestNeighbor / std::sqrt(3.0f);
-        result.partialDisplacement = bTwin;
-        result.detectedLayerCount = layers;
-
-        const int stepCount = std::max(1, (int)std::floor(params.maxDisplacementFactor / params.interval + 0.5f));
-        int shiftedCountAtOne = 0;
-        const int stageAtOne = std::max(0, (int)std::floor(1.0f + 1e-6f));
-        const int startAtOne = std::min(layers - 1, startLayerBase + stageAtOne);
-        for (int layer = startAtOne; layer < layers; ++layer)
-            shiftedCountAtOne++;
-        result.shiftedAtomCount = shiftedCountAtOne;
-
-        result.sequence.resize((size_t)(stepCount + 1));
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-        for (int step = 0; step <= stepCount; ++step)
-        {
-            const float factor = std::min(params.maxDisplacementFactor, step * params.interval);
-            const glm::vec3 displacement = slipDirection * (result.partialDisplacement * factor);
-
-            Structure generated = reference;
-
-            const int stage = std::max(0, (int)std::floor(factor + 1e-6f));
-            const int activeStart = std::min(layers - 1, startLayerBase + stage);
-            for (int layer = activeStart; layer < layers; ++layer)
-            {
-                generated.atoms[(size_t)layer].x += displacement.x;
-                generated.atoms[(size_t)layer].y += displacement.y;
-                generated.atoms[(size_t)layer].z += displacement.z;
-            }
-
-            generated.cellVectors[2][0] += displacement.x;
-            generated.cellVectors[2][1] += displacement.y;
-            generated.cellVectors[2][2] += displacement.z;
-
-            StackingFaultSequenceItem& item = result.sequence[(size_t)step];
-            item.structure = std::move(generated);
-            item.displacementFactor = factor;
-            item.label = buildSequenceLabel(detection.family, factor, params.interval);
-        }
-
-        result.message = std::string("Generated ") + std::to_string(result.sequence.size())
-            + " FCC-like stacking-fault structures on (111) <-1-12> (reference primitive mode).";
-        result.success = true;
-        return result;
-    }
-
     Structure working = base;
     const bool useFccAlignedCell = detection.family == StackingFaultFamily::Fcc;
     if (useFccAlignedCell)
@@ -1302,24 +1102,12 @@ StackingFaultResult buildStackingFaultSequence(const Structure& base,
         return result;
     }
 
+    const int shiftStartLayer = startLayer + std::max(1, layerCountUsed / 2);
     int referenceShiftedCount = 0;
-    if (detection.family == StackingFaultFamily::Fcc)
+    for (int atomIndex : candidateAtomIndices)
     {
-        const int fccBaseStart = std::max(startLayer, endLayer - 4);
-        for (int atomIndex : candidateAtomIndices)
-        {
-            if (layerIds[atomIndex] >= fccBaseStart)
-                referenceShiftedCount++;
-        }
-    }
-    else
-    {
-        const int shiftStartLayer = startLayer + std::max(1, layerCountUsed / 2);
-        for (int atomIndex : candidateAtomIndices)
-        {
-            if (layerIds[atomIndex] >= shiftStartLayer)
-                referenceShiftedCount++;
-        }
+        if (layerIds[atomIndex] >= shiftStartLayer)
+            referenceShiftedCount++;
     }
 
     if (referenceShiftedCount <= 0)
@@ -1341,15 +1129,7 @@ StackingFaultResult buildStackingFaultSequence(const Structure& base,
         const float factor = std::min(params.maxDisplacementFactor, step * params.interval);
         const glm::vec3 displacement = slipDirection * (result.partialDisplacement * factor);
 
-        int activeShiftStartLayer = startLayer + std::max(1, layerCountUsed / 2);
-        if (detection.family == StackingFaultFamily::Fcc)
-        {
-            // Match the reference primitive script behavior:
-            // start layer advances by one at factors 1.0 and 2.0.
-            const int fccBaseStart = std::max(startLayer, endLayer - 4);
-            const int stage = std::max(0, (int)std::floor(factor + 1e-6f));
-            activeShiftStartLayer = std::min(endLayer - 1, fccBaseStart + stage);
-        }
+        const int activeShiftStartLayer = shiftStartLayer;
 
         Structure generated = working;
         for (int atomIndex : candidateAtomIndices)
